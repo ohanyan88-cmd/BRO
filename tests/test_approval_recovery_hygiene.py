@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import unittest
 
@@ -42,7 +43,7 @@ class ApprovalReplayTests(unittest.TestCase):
         self.assertEqual(self.registry.get("approval:1")["decision"], "CONSUMED")
         self.assertIsNone(self.registry.approved_for(**kwargs))
 
-    def test_consumption_cannot_rebind_task_or_action(self):
+    def test_consumption_cannot_rebind_task_or_bound_action(self):
         self.registry.record(self.approval())
         with self.assertRaises(ApprovalRejected):
             self.registry.consume("approval:1", task_ref="task:other", action_request_ref="action:1")
@@ -52,11 +53,14 @@ class ApprovalReplayTests(unittest.TestCase):
         self.assertEqual(latest["decision"], "APPROVED")
         self.assertEqual(latest["version"], 1)
 
-    def test_unbound_approval_cannot_gain_action_binding_when_consumed(self):
+    def test_unbound_approval_consumes_without_mutating_action_identity(self):
         self.registry.record(self.approval(action_request_ref=None))
-        with self.assertRaises(ApprovalRejected):
-            self.registry.consume("approval:1", task_ref="task:1", action_request_ref="action:1")
-        self.assertEqual(self.registry.get("approval:1")["decision"], "APPROVED")
+        consumed = self.registry.consume("approval:1", task_ref="task:1", action_request_ref="action:1")
+        body = json.loads(consumed["body"])
+        self.assertEqual(consumed["decision"], "CONSUMED")
+        self.assertIsNone(consumed["action_request_ref"])
+        self.assertIsNone(body["action_request_ref"])
+        self.assertEqual(body["task_ref"], "task:1")
 
 
 class ApprovalRecoveryRoutingTests(unittest.TestCase):
