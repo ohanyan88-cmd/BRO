@@ -61,13 +61,7 @@ class EffectState(StrEnum):
 
 @dataclass(frozen=True)
 class ActionRequest:
-    """Canonical Action Request — contracts/v0.1/action-request.schema.json.
-
-    `assignment_ref` and `project_boundary` are optional so a direct HANDS call
-    behaves exactly as before. Under supervision both are required, and a present
-    `project_boundary` makes IMMUNE SYSTEM demand the matching boundary scope
-    token in the envelope, so cross-boundary work fails closed.
-    """
+    """Canonical Action Request — contracts/v0.1/action-request.schema.json."""
 
     action_request_id: str
     task_ref: str
@@ -124,14 +118,12 @@ class ActionRuntime:
         )
 
     def register_authority(self, envelope: AuthorityEnvelope) -> None:
-        """Hand an envelope to IMMUNE SYSTEM, which owns the registry."""
         try:
             self.authority.register(envelope)
         except AuthorityRejected as exc:
             raise ActionRejected(str(exc)) from exc
 
     def authority_envelope(self, envelope_id: str, version: int | None = None) -> AuthorityEnvelope:
-        """Read back a registered envelope. IMMUNE SYSTEM remains its owner."""
         try:
             return self.authority.envelope(envelope_id, version)
         except AuthorityRejected as exc:
@@ -146,10 +138,7 @@ class ActionRuntime:
         return self.get_request(request.action_request_id)
 
     def authorize(self, request_id: str, envelope: AuthorityEnvelope, now: str | None = None) -> dict:
-        """Submit the request to IMMUNE SYSTEM and record the state its verdict implies.
-
-        HANDS performs no authority evaluation of its own. There is one evaluator.
-        """
+        """Submit the request to IMMUNE SYSTEM and record the state its verdict implies."""
         request = self.get_request(request_id)
         body = json.loads(request["body"])
         verdict = self.authority.evaluate(body, envelope, now or utc_now(), subject_ref=request_id)
@@ -167,11 +156,42 @@ class ActionRuntime:
             raise ActionRejected("authority denied: " + "; ".join(verdict.reasons))
         return self.get_request(request_id)
 
-    def dispatch(self, request_id: str, executor: str, interface_version: str, adapter: Callable[[dict], AdapterResult]) -> dict:
+    def dispatch(
+        self,
+        request_id: str,
+        executor: str,
+        interface_version: str,
+        adapter: Callable[[dict], AdapterResult],
+        *,
+        envelope: AuthorityEnvelope,
+        now: str | None = None,
+    ) -> dict:
+        """Dispatch only after a fresh IMMUNE decision at the actual effect boundary.
+
+        Authorization may be separated from execution by a queue, lease delay, or
+        process pause. Therefore the earlier AUTHORIZED state is necessary but not
+        sufficient: expiry, changed envelope versions, and static revocation must be
+        re-evaluated immediately before the external call.
+        """
         request = self.get_request(request_id)
         if request["state"] != ActionState.AUTHORIZED:
             raise ActionRejected("dispatch requires AUTHORIZED state")
         body = json.loads(request["body"])
+        if envelope.envelope_id != body["authority_envelope_ref"]:
+            raise ActionRejected("dispatch authority envelope does not match the action request")
+        if request["authority_digest"] != envelope.digest:
+            raise ActionRejected("dispatch authority envelope differs from the authorized decision")
+        verdict = self.authority.evaluate(body, envelope, now or utc_now(), subject_ref=f"{request_id}:dispatch")
+        if not verdict.is_allowed():
+            with self.connection:
+                self.connection.execute(
+                    "UPDATE action_requests SET state=?, revision=revision+1 WHERE action_request_id=? AND state=?",
+                    (ActionState.DENIED, request_id, ActionState.AUTHORIZED),
+                )
+            if verdict.decision is AuthorityDecision.APPROVAL_REQUIRED:
+                raise ApprovalRequired("dispatch authority requires approval: " + "; ".join(verdict.reasons))
+            raise ActionRejected("dispatch authority denied: " + "; ".join(verdict.reasons))
+
         prior = self.latest_attempt(request_id)
         prior_effect = self.effective_effect(prior) if prior else None
         if prior and prior_effect == EffectState.UNKNOWN and not body["idempotency_guaranteed"]:
@@ -188,6 +208,8 @@ class ActionRuntime:
         retry_ref = prior["attempt_id"] if prior else None
         try:
             response = adapter(dict(body["input_parameters"]))
+            if not isinstance(response, AdapterResult):
+                raise ActionRejected("adapter must return AdapterResult")
             result = response.result
             effect = response.effect_state
             artifacts, observations = response.artifact_refs, response.observation_refs
@@ -195,7 +217,7 @@ class ActionRuntime:
             state = ActionState.RESULT_RECEIVED
         except TimeoutError as exc:
             error, effect, status, state = str(exc), EffectState.UNKNOWN, "TIMED_OUT", ActionState.EFFECT_UNKNOWN
-        except Exception as exc:  # adapter failures become execution truth, not swallowed success
+        except Exception as exc:
             error, effect, status, state = str(exc), EffectState.POSSIBLE, "FAILED", ActionState.FAILED
         attempt_id = str(uuid.uuid4())
         with self.connection:
