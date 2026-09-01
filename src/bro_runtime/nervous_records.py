@@ -11,6 +11,13 @@ class NervousRecordRejected(ValueError): pass
 class StepState(StrEnum):
     PLANNED="PLANNED"; READY="READY"; ACTIVE="ACTIVE"; SUCCEEDED="SUCCEEDED"; PARTIAL="PARTIAL"; FAILED="FAILED"; BLOCKED="BLOCKED"; CANCELLED="CANCELLED"
 
+STEP_TRANSITIONS={
+    StepState.PLANNED:{StepState.READY,StepState.CANCELLED},
+    StepState.READY:{StepState.ACTIVE,StepState.BLOCKED,StepState.CANCELLED},
+    StepState.ACTIVE:{StepState.SUCCEEDED,StepState.PARTIAL,StepState.FAILED,StepState.BLOCKED,StepState.CANCELLED},
+    StepState.BLOCKED:{StepState.READY,StepState.ACTIVE,StepState.CANCELLED},
+}
+
 @dataclass(frozen=True)
 class Step:
     step_id:str; task_ref:str; plan_ref:str; plan_revision:int; purpose:str; dependencies:tuple[str,...]; required_capabilities:tuple[str,...]; expected_output:str; authority_class:str; verification_requirement:str; retry_policy:str; state:StepState; revision:int; created_at:str; updated_at:str
@@ -57,6 +64,14 @@ class NervousRecordStore:
         else: row=self.connection.execute("SELECT body FROM steps WHERE step_id=? AND revision=?",(step_id,revision)).fetchone()
         if row is None: raise KeyError(step_id)
         d=json.loads(row["body"]); d.update(dependencies=tuple(d["dependencies"]),required_capabilities=tuple(d["required_capabilities"]),state=StepState(d["state"])); return Step(**d)
+    def transition_step(self, step_id:str, target:StepState)->Step:
+        prior=self.step(step_id); target=StepState(target)
+        if target not in STEP_TRANSITIONS.get(prior.state,set()): raise NervousRecordRejected(f"invalid Step transition {prior.state} -> {target}")
+        record=Step(**{**asdict(prior),"dependencies":prior.dependencies,"required_capabilities":prior.required_capabilities,"state":target,"revision":prior.revision+1,"updated_at":utc_now()})
+        try:
+            with self.connection:self.connection.execute("INSERT INTO steps VALUES (?,?,?,?,?,?,?)",(record.step_id,record.revision,record.task_ref,record.plan_ref,record.plan_revision,str(record.state),json.dumps(asdict(record),sort_keys=True)))
+        except sqlite3.IntegrityError as exc: raise NervousRecordRejected("Step records are immutable per revision") from exc
+        return record
     def create_context_manifest(self, *, manifest_id, task_ref, isolation_boundary, entries:Iterable[ContextEntry], excluded_refs=(), version=1):
         if version < 1: raise NervousRecordRejected("context manifest version must be >= 1")
         boundary=self._text("isolation_boundary",isolation_boundary)
