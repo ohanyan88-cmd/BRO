@@ -74,9 +74,12 @@ class TaskRuntime:
     def __init__(self,store):self.store=store
     def create_task(self,task_id,goal_ref,actor,reason,correlation_ref=None,*,accountable_identity="BRO"):
         now=utc_now(); correlation=correlation_ref or task_id
-        with self.store.connection:
-            self.store.connection.execute("INSERT INTO tasks(task_id,goal_ref,state,revision,created_at,updated_at,accountable_identity,authority_state) VALUES (?,?,?,1,?,?,?,'UNASSESSED')",(task_id,goal_ref,TaskState.RECEIVED,now,now,accountable_identity)); self._append_event(task_id,"task.received",actor,reason,None,TaskState.RECEIVED,correlation,None,{})
-        return self.store.fetch_task(task_id)
+        try:
+            with self.store.connection:
+                self.store.connection.execute("INSERT INTO tasks(task_id,goal_ref,state,revision,created_at,updated_at,accountable_identity,authority_state) VALUES (?,?,?,1,?,?,?,'UNASSESSED')",(task_id,goal_ref,TaskState.RECEIVED,now,now,accountable_identity)); self._append_event(task_id,"task.received",actor,reason,None,TaskState.RECEIVED,correlation,None,{})
+            return self.store.fetch_task(task_id)
+        except sqlite3.IntegrityError:
+            return self.adopt_received_task(task_id,goal_ref,actor,"adopted pre-existing durable Task into governed flow",correlation_ref=correlation)
     def adopt_received_task(self,task_id,goal_ref,actor,reason,*,correlation_ref=None):
         """Adopt durable work created by a trusted ingress without minting a second Task."""
         task=self.store.fetch_task(task_id)
@@ -133,4 +136,4 @@ class TaskRuntime:
         if source in {TaskState.BLOCKED,TaskState.PAUSED} and target.value!=task["prior_active_state"] and target not in {TaskState.CANCELLED,TaskState.FAILED}:raise InvalidTransition("control state may only resume its recorded active path")
         if target is TaskState.PAUSED and not (checkpoint or task["resume_checkpoint_ref"]):raise InvalidTransition("PAUSED requires a resume checkpoint")
     def _append_event(self,task_id,event_type,actor,reason,prior,new,correlation,causal,payload):
-        event_id=str(uuid.uuid4()); self.store.connection.execute("INSERT INTO runtime_events(event_id,task_id,event_type,actor,reason,prior_state,new_state,occurred_at,correlation_ref,causal_ref,payload,schema_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,'0.1.0')",(event_id,task_id,event_type,actor,reason,prior.value if prior else None,new.value,utc_now(),correlation,causal,json.dumps(payload,sort_keys=True))); return event_id
+        event_id=str(uuid.uuid4()); self.store.connection.execute("INSERT INTO runtime_events(event_id,task_id,event_type,actor,reason,prior_state,new_state,occurred_at,correlation_ref,causal_ref,payload,schema_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,'0.1.0')",(event_id,task_id,event_type,actor,reason,prior.value if prior else None,new.value,utc_now(),correlation,causal,json.dumps(payload,sort_keys=True),)); return event_id
