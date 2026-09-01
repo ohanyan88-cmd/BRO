@@ -88,9 +88,11 @@ class HumanApprovalLoop:
             raise HumanLoopRejected("approval delivery channel and recipient are required")
         token = response_token or secrets.token_urlsafe(24)
         now = utc_now()
+        if self.connection.execute("SELECT 1 FROM human_approval_interactions WHERE approval_id=?", (approval.approval_id,)).fetchone():
+            raise HumanLoopRejected("approval interaction already exists")
         try:
+            self.approvals.record(approval)
             with self.connection:
-                self.approvals.record(approval)
                 self.connection.execute(
                     "INSERT INTO human_approval_interactions VALUES (?,?,?,?,?,?,'WAITING',?,NULL)",
                     (approval.approval_id, approval.task_ref, approval.approver, channel, recipient, self._digest(token), now),
@@ -100,7 +102,7 @@ class HumanApprovalLoop:
                     (approval.approval_id, now),
                 )
         except (sqlite3.IntegrityError, ApprovalRejected) as exc:
-            raise HumanLoopRejected("approval interaction already exists or is invalid") from exc
+            raise HumanLoopRejected("approval interaction is invalid") from exc
         return self.fetch(approval.approval_id), token
 
     def fetch(self, approval_id: str) -> HumanInteraction:
@@ -112,29 +114,33 @@ class HumanApprovalLoop:
             raise HumanLoopRejected("unknown human approval interaction")
         return HumanInteraction(row["approval_id"], row["task_ref"], row["approver"], row["channel"], row["recipient"], InteractionState(row["state"]), NotificationState(row["notification_state"]), row["notification_revision"])
 
-    def claim_notification(self, approval_id: str, *, owner: str, lease_until: str) -> HumanInteraction:
+    def claim_notification(self, approval_id: str, *, owner: str, lease_until: str, now: str | None = None) -> HumanInteraction:
         if not owner.strip() or not lease_until.strip():
             raise HumanLoopRejected("notification lease owner and expiry are required")
+        moment = now or utc_now()
         with self.connection:
-            row = self.connection.execute("SELECT state,revision FROM human_approval_notifications WHERE approval_id=?", (approval_id,)).fetchone()
+            row = self.connection.execute("SELECT state,revision,lease_until FROM human_approval_notifications WHERE approval_id=?", (approval_id,)).fetchone()
             if row is None or row["state"] == NotificationState.SENT:
                 raise HumanLoopRejected("notification is not claimable")
+            if row["state"] == NotificationState.LEASED and row["lease_until"] and row["lease_until"] > moment:
+                raise HumanLoopRejected("notification delivery lease is still active")
             cursor = self.connection.execute(
                 "UPDATE human_approval_notifications SET state='LEASED',revision=revision+1,lease_owner=?,lease_until=?,updated_at=? WHERE approval_id=? AND revision=?",
-                (owner, lease_until, utc_now(), approval_id, row["revision"]),
+                (owner, lease_until, moment, approval_id, row["revision"]),
             )
             if cursor.rowcount != 1:
                 raise HumanLoopRejected("notification changed during claim")
         return self.fetch(approval_id)
 
-    def mark_sent(self, approval_id: str, *, owner: str) -> HumanInteraction:
+    def mark_sent(self, approval_id: str, *, owner: str, now: str | None = None) -> HumanInteraction:
+        moment = now or utc_now()
         with self.connection:
             cursor = self.connection.execute(
-                "UPDATE human_approval_notifications SET state='SENT',revision=revision+1,sent_at=?,updated_at=? WHERE approval_id=? AND state='LEASED' AND lease_owner=?",
-                (utc_now(), utc_now(), approval_id, owner),
+                "UPDATE human_approval_notifications SET state='SENT',revision=revision+1,sent_at=?,updated_at=? WHERE approval_id=? AND state='LEASED' AND lease_owner=? AND lease_until>?",
+                (moment, moment, approval_id, owner, moment),
             )
             if cursor.rowcount != 1:
-                raise HumanLoopRejected("notification sender does not hold the delivery lease")
+                raise HumanLoopRejected("notification sender does not hold a live delivery lease")
         return self.fetch(approval_id)
 
     def respond(self, approval_id: str, *, responder: str, response_token: str, decision: ApprovalDecision, proof_ref: str) -> dict:
@@ -157,7 +163,9 @@ class HumanApprovalLoop:
             revocation_state=RevocationState(body["revocation_state"]), task_ref=body["task_ref"],
             action_request_ref=body.get("action_request_ref"), audit_ref=body["audit_ref"], step_ref=body.get("step_ref"),
         )
+        recorded = self.approvals.record(response, prior["version"] + 1)
         with self.connection:
-            recorded = self.approvals.record(response, prior["version"] + 1)
-            self.connection.execute("UPDATE human_approval_interactions SET state='RESOLVED',resolved_at=? WHERE approval_id=? AND state='WAITING'", (utc_now(), approval_id))
+            cursor = self.connection.execute("UPDATE human_approval_interactions SET state='RESOLVED',resolved_at=? WHERE approval_id=? AND state='WAITING'", (utc_now(), approval_id))
+            if cursor.rowcount != 1:
+                raise HumanLoopRejected("approval interaction changed during response")
         return recorded
