@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "surface": "cli",
+  "entrypoint": "scripts/bro_interact.py",
+  "runtime": "bro_runtime.final_delivery.IntelligentInteractionRuntime",
+  "production_path": "FINAL-1",
+  "requirements": {
+    "natural_language_intake": true,
+    "explicit_material_scope_confirmation": true,
+    "specialist_selection": true,
+    "real_provider_execution": true,
+    "independent_external_readback": true,
+    "parallel_demo_path_forbidden": true
+  },
+  "initial_capability": "github.issue_comment.ensure",
+  "assurance_floor": "external_system"
+}
