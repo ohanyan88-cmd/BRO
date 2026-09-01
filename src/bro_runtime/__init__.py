@@ -20,6 +20,7 @@ from .readiness import CheckState,ReadinessCheck,ReadinessMeter,ReadinessReport,
 from .multistep import MultiStepRejected,PreparedPlan,PreparedStep,StepRequest,ready_step_refs,validate_graph
 from .multistep_runtime import prepare_multistep,ready_multistep
 from .multistep_execution import complete_multistep,continue_multistep,open_multistep,resume_multistep_with_approval,settle_multistep
+from .replan import ReplanResult,open_replanned_step,replan_from_observation
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -31,4 +32,4 @@ __all__=[
 "ContinuityEnvelope","ContinuityRejected","ContinuityStatus","ContinuityStore","HeartRecord","SelfRecord","Capability","CapabilityKind","CapabilityMatch","CapabilityRegistry","CapabilityRejected","CapabilityStatus",
 "FeetRejected","FeetStore","RouteCheckpoint","RouteState","VoiceInput","VoiceProjection","VoiceRejected","VoiceRuntime","VoiceState","BROKernel","KernelRejected","PreparedFlow","RecoveryView",
 "CheckState","ReadinessCheck","ReadinessMeter","ReadinessReport","RuntimeReadiness","MultiStepRejected","PreparedPlan","PreparedStep","StepRequest","ready_step_refs","validate_graph","prepare_multistep","ready_multistep",
-"open_multistep","settle_multistep","continue_multistep","resume_multistep_with_approval","complete_multistep"]
+"open_multistep","settle_multistep","continue_multistep","resume_multistep_with_approval","complete_multistep","ReplanResult","replan_from_observation","open_replanned_step"]
