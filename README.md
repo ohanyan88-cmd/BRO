@@ -41,6 +41,8 @@ Architecture checkpoints 1–4 are defined. Repository foundation implementation
 
 The first runtime slice now provides a durable SQLite/WAL Task state machine, optimistic revision control, append-only Runtime Events, an evidence-controlled completion gate, resumable pause checkpoints, and recovery routing that reconciles actual effects without replaying commands.
 
+The HANDS execution slice adds canonical Action Requests, immutable Authority Envelope binding, exact scope/tool/risk enforcement, one immutable Action Attempt per try, idempotency-aware retry control, and explicit effect reconciliation. Timeouts become `UNKNOWN`, never assumed `NONE`.
+
 ## Contract gate
 
 Run:

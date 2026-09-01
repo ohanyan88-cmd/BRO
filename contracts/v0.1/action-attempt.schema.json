@@ -15,10 +15,9 @@
     "sanitized_inputs": {"$ref": "common.schema.json#/$defs/record"},
     "status": {"enum": ["SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED", "UNKNOWN"]},
     "result": {}, "error": {},
-    "side_effect_state": {"enum": ["NONE", "POSSIBLE", "CONFIRMED", "UNKNOWN"]},
+    "side_effect_state": {"enum": ["NONE", "POSSIBLE", "CONFIRMED", "UNKNOWN", "REVERSED"]},
     "retry_of_ref": {"type": ["string", "null"]},
     "artifact_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
     "observation_refs": {"$ref": "common.schema.json#/$defs/stringArray"}
   }
 }
-

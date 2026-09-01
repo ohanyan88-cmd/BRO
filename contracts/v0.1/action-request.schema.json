@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/action-request.schema.json",
+  "title": "BRO Action Request v0.1",
+  "x-bro-primitive": "ActionRequest",
+  "x-bro-owner": "HANDS",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action_request_id", "task_ref", "intended_effect", "operation", "target", "environment", "adapter_id", "input_parameters", "authority_envelope_ref", "risk_class", "reversibility", "idempotency_key", "idempotency_guaranteed", "expected_result", "verification_requirements", "state", "revision"],
+  "properties": {
+    "action_request_id": {"$ref": "common.schema.json#/$defs/identifier"},
+    "task_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "step_ref": {"type": ["string", "null"]},
+    "intended_effect": {"type": "string", "minLength": 1},
+    "operation": {"type": "string", "minLength": 1},
+    "target": {"type": "string", "minLength": 1},
+    "environment": {"type": "string", "minLength": 1},
+    "adapter_id": {"type": "string", "minLength": 1},
+    "input_parameters": {"$ref": "common.schema.json#/$defs/record"},
+    "authority_envelope_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "risk_class": {"$ref": "common.schema.json#/$defs/riskClass"},
+    "reversibility": {"enum": ["REVERSIBLE", "PARTIALLY_REVERSIBLE", "DIFFICULT", "IRREVERSIBLE", "UNKNOWN"]},
+    "idempotency_key": {"$ref": "common.schema.json#/$defs/identifier"},
+    "idempotency_guaranteed": {"type": "boolean"},
+    "expected_result": {},
+    "verification_requirements": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "state": {"enum": ["PROPOSED", "AUTHORIZED", "DISPATCHED", "RESULT_RECEIVED", "EFFECT_RECONCILED", "VERIFIED", "DENIED", "FAILED", "TIMED_OUT", "EFFECT_UNKNOWN", "CANCELLED"]},
+    "revision": {"type": "integer", "minimum": 1}
+  }
+}

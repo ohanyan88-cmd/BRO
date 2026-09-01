@@ -10,6 +10,7 @@
     {"primitive": "Task", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/task.schema.json"},
     {"primitive": "Observation", "owner": "PERCEPTION", "schema": "contracts/v0.1/observation.schema.json"},
     {"primitive": "Decision", "owner": "MIND", "schema": "contracts/v0.1/decision.schema.json"},
+    {"primitive": "ActionRequest", "owner": "HANDS", "schema": "contracts/v0.1/action-request.schema.json"},
     {"primitive": "ActionAttempt", "owner": "HANDS", "schema": "contracts/v0.1/action-attempt.schema.json"},
     {"primitive": "Evidence", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/evidence.schema.json"},
     {"primitive": "RuntimeEvent", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/runtime-event.schema.json"},
@@ -18,4 +19,3 @@
     {"primitive": "Approval", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/approval.schema.json"}
   ]
 }
-
