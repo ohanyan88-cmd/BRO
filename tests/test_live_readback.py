@@ -10,20 +10,36 @@ class LiveReadbackTests(unittest.TestCase):
     def setUp(self):
         self.actions = ActionRuntime(sqlite3.connect(":memory:"))
         self.envelope = AuthorityEnvelope(
-            envelope_id="env-live", version=1, principal="bro", allowed_operations=("customer.create",),
-            allowed_scope=("crm",), tool_boundary=("crm",), risk_ceiling="LOW",
-            approval_requirements=(), issued_at="2026-01-01T00:00:00+00:00", expires_at="2027-01-01T00:00:00+00:00",
+            envelope_id="env-live",
+            version=1,
+            principal="bro",
+            proof_ref="proof:live",
+            authority_source="user",
+            operation="customer.create",
+            target="crm",
+            allowed_scope=("operation:customer.create", "target:crm", "task:1"),
+            prohibited_scope=(),
+            task_ref="task:1",
+            risk_class="R1",
+            valid_from="2026-01-01T00:00:00Z",
+            expires_at="2027-01-01T00:00:00Z",
+            revocation_ref=None,
+            environment="production",
+            tool_boundary=("crm",),
+            decision="ALLOWED",
+            reason="requested",
+            audit_ref="audit:live",
         )
         self.actions.register_authority(self.envelope)
 
     def request(self, request_id="action-live"):
         request = ActionRequest(
             request_id, "task:1", "create customer", "customer.create", "crm", "production", "crm",
-            {"name": "Gev"}, "env-live", "LOW", "reversible", "idem-1", True,
+            {"name": "Gev"}, "env-live", "R1", "reversible", "idem-1", True,
             {"customer_exists": True}, ("external-readback",),
         )
         self.actions.propose(request)
-        self.actions.authorize(request_id, self.envelope, now="2026-09-01T00:00:00+00:00")
+        self.actions.authorize(request_id, self.envelope, now="2026-09-01T00:00:00Z")
         self.actions.dispatch(request_id, "crm", "v1", lambda _: AdapterResult({"accepted": True}, EffectState.POSSIBLE))
         return request_id
 
