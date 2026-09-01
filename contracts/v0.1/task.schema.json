@@ -11,7 +11,7 @@
     "task_id": {"$ref": "common.schema.json#/$defs/identifier"},
     "goal_ref": {"$ref": "common.schema.json#/$defs/reference"},
     "accountable_identity": {"const": "BRO"},
-    "state": {"enum": ["CREATED", "FRAMING", "READY", "RUNNING", "WAITING_APPROVAL", "BLOCKED", "PAUSED", "RECOVERING", "COMPLETED", "FAILED", "CANCELLED"]},
+    "state": {"enum": ["RECEIVED", "INTERPRETING", "READY", "PLANNING", "AUTHORIZING", "EXECUTING", "VERIFYING", "BLOCKED", "PAUSED", "RECOVERING", "COMPLETED", "FAILED", "CANCELLED"]},
     "plan_ref": {"$ref": "common.schema.json#/$defs/reference"},
     "plan_revision": {"type": "integer", "minimum": 1},
     "active_step_ref": {"type": ["string", "null"]},
@@ -28,4 +28,3 @@
     "excluded_scope": {"$ref": "common.schema.json#/$defs/stringArray"}
   }
 }
-

@@ -39,6 +39,8 @@ Read in this order:
 
 Architecture checkpoints 1–4 are defined. Repository foundation implementation has begun with provider-independent canonical contracts, a single-owner registry, fail-closed validation, tests, and CI enforcement.
 
+The first runtime slice now provides a durable SQLite/WAL Task state machine, optimistic revision control, append-only Runtime Events, an evidence-controlled completion gate, resumable pause checkpoints, and recovery routing that reconciles actual effects without replaying commands.
+
 ## Contract gate
 
 Run:
