@@ -73,7 +73,13 @@ class NervousRecordStore:
         except sqlite3.IntegrityError as exc: raise NervousRecordRejected("Step records are immutable per revision") from exc
         return record
     def create_context_manifest(self, *, manifest_id, task_ref, isolation_boundary, entries:Iterable[ContextEntry], excluded_refs=(), version=1):
-        if version < 1: raise NervousRecordRejected("context manifest version must be >= 1")
+        # Context references elsewhere in the canonical runtime are manifest_id-only.
+        # Allowing a second version under the same id would therefore mutate the
+        # meaning of an already-bound Task/Assignment without changing its ref.
+        if version != 1:
+            raise NervousRecordRejected("Context Manifest identity is immutable; changed context requires a new manifest_id")
+        if self.connection.execute("SELECT 1 FROM context_manifests WHERE manifest_id=? LIMIT 1",(manifest_id,)).fetchone():
+            raise NervousRecordRejected("Context Manifest identity is immutable; changed context requires a new manifest_id")
         boundary=self._text("isolation_boundary",isolation_boundary)
         items=tuple(entries)
         for item in items:
@@ -81,10 +87,10 @@ class NervousRecordStore:
         manifest=ContextManifest(self._text("manifest_id",manifest_id),self._text("task_ref",task_ref),utc_now(),boundary,items,tuple(dict.fromkeys(excluded_refs)),version)
         try:
             with self.connection:self.connection.execute("INSERT INTO context_manifests VALUES (?,?,?,?,?)",(manifest.manifest_id,manifest.version,manifest.task_ref,manifest.isolation_boundary,json.dumps(asdict(manifest),sort_keys=True)))
-        except sqlite3.IntegrityError as exc: raise NervousRecordRejected("Context Manifest records are immutable per version") from exc
+        except sqlite3.IntegrityError as exc: raise NervousRecordRejected("Context Manifest records are immutable") from exc
         return manifest
     def context_manifest(self, manifest_id, version=None):
-        if version is None: row=self.connection.execute("SELECT body FROM context_manifests WHERE manifest_id=? ORDER BY version DESC LIMIT 1",(manifest_id,)).fetchone()
-        else: row=self.connection.execute("SELECT body FROM context_manifests WHERE manifest_id=? AND version=?",(manifest_id,version)).fetchone()
+        if version not in {None,1}: raise NervousRecordRejected("Context Manifest identity is immutable and has no mutable version alias")
+        row=self.connection.execute("SELECT body FROM context_manifests WHERE manifest_id=? AND version=1",(manifest_id,)).fetchone()
         if row is None: raise KeyError(manifest_id)
         d=json.loads(row["body"]); d["entries"]=tuple(ContextEntry(**e) for e in d["entries"]); d["excluded_refs"]=tuple(d["excluded_refs"]); return ContextManifest(**d)
