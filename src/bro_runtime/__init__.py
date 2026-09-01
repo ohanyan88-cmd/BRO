@@ -13,6 +13,7 @@ from .perception import Freshness,Intent,Observation,PerceptionRejected,Percepti
 from .memory import MemoryClass,MemoryFreshness,MemoryRecord,MemoryRejected,MemoryRetrieval,MemoryStatus,MemoryStore
 from .continuity import ContinuityEnvelope,ContinuityRejected,ContinuityStatus,ContinuityStore,HeartRecord,SelfRecord
 from .skills import Capability,CapabilityKind,CapabilityMatch,CapabilityRegistry,CapabilityRejected,CapabilityStatus
+from .feet import FeetRejected,FeetStore,RouteCheckpoint,RouteState
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -25,4 +26,5 @@ __all__=[
 "Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState",
 "MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore",
 "ContinuityEnvelope","ContinuityRejected","ContinuityStatus","ContinuityStore","HeartRecord","SelfRecord",
-"Capability","CapabilityKind","CapabilityMatch","CapabilityRegistry","CapabilityRejected","CapabilityStatus"]
+"Capability","CapabilityKind","CapabilityMatch","CapabilityRegistry","CapabilityRejected","CapabilityStatus",
+"FeetRejected","FeetStore","RouteCheckpoint","RouteState"]
