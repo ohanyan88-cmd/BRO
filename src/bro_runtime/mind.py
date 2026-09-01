@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 def utc_now(): return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -20,11 +20,8 @@ class Goal:
 class Decision:
     decision_id:str; goal_ref:str; question:str; conclusion:Any; rationale:str; evidence_refs:tuple[str,...]; assumptions:tuple[str,...]; alternatives:tuple[Any,...]; authority_basis:str; uncertainty:KnowledgeState; reversibility:str; decided_at:str; version:int
 @dataclass(frozen=True)
-class PlanStep:
-    step_id:str; purpose:str; dependencies:tuple[str,...]; required_capabilities:tuple[str,...]; expected_output:str; authority_class:str; verification_requirement:str; retry_policy:str
-@dataclass(frozen=True)
 class Plan:
-    plan_id:str; goal_ref:str; decision_ref:str; revision:int; steps:tuple[PlanStep,...]; checkpoints:tuple[str,...]; recovery_options:tuple[str,...]; completion_path:tuple[str,...]; reason:str; supersedes:str|None; created_at:str
+    plan_id:str; goal_ref:str; decision_ref:str; revision:int; step_refs:tuple[str,...]; checkpoints:tuple[str,...]; recovery_options:tuple[str,...]; completion_path:tuple[str,...]; reason:str; supersedes:str|None; created_at:str
 
 class SQLiteMindStore:
     """Append-only version history for MIND-owned canonical records."""
@@ -57,7 +54,7 @@ class SQLiteMindStore:
     def plan(self,key,revision=None):
         r=self._row("mind_plans","plan_id",key,"revision",revision)
         if r is None:raise KeyError(key)
-        d=json.loads(r["record"]); d["steps"]=tuple(PlanStep(**{**s,"dependencies":tuple(s["dependencies"]),"required_capabilities":tuple(s["required_capabilities"])}) for s in d["steps"]); d.update(checkpoints=tuple(d["checkpoints"]),recovery_options=tuple(d["recovery_options"]),completion_path=tuple(d["completion_path"])); return Plan(**d)
+        d=json.loads(r["record"]); d.update(step_refs=tuple(d["step_refs"]),checkpoints=tuple(d["checkpoints"]),recovery_options=tuple(d["recovery_options"]),completion_path=tuple(d["completion_path"])); return Plan(**d)
 
 class MindRuntime:
     def __init__(self,store):self.store=store
@@ -67,17 +64,10 @@ class MindRuntime:
         if not value:raise MindRejected(f"{label} must not be empty")
         return value
     @staticmethod
-    def _steps(steps):
-        steps=tuple(steps)
-        if not steps:raise MindRejected("Plan requires at least one Step")
-        ids=[s.step_id for s in steps]
-        if len(ids)!=len(set(ids)):raise MindRejected("Plan step IDs must be unique")
-        known=set(ids)
-        for s in steps:
-            unknown=set(s.dependencies)-known
-            if unknown:raise MindRejected(f"{s.step_id} depends on unknown steps: {sorted(unknown)}")
-            if s.step_id in s.dependencies:raise MindRejected(f"{s.step_id} cannot depend on itself")
-        return steps
+    def _refs(step_refs):
+        refs=tuple(dict.fromkeys(x.strip() for x in step_refs if x and x.strip()))
+        if not refs:raise MindRejected("Plan requires at least one Step reference")
+        return refs
     def form_goal(self,*,intent_ref,desired_outcome,interpreted_scope,success_conditions,authority_basis,materiality,risk_class,constraints=(),assumptions=(),uncertainty=KnowledgeState.UNVERIFIED,non_goals=(),goal_id=None):
         success=tuple(dict.fromkeys(x.strip() for x in success_conditions if x.strip()))
         if not success:raise MindRejected("Goal requires at least one success condition")
@@ -85,7 +75,7 @@ class MindRuntime:
     def decide(self,*,goal_ref,question,conclusion,rationale,authority_basis,uncertainty,reversibility,evidence_refs=(),assumptions=(),alternatives=(),decision_id=None):
         if reversibility not in {"REVERSIBLE","PARTIALLY_REVERSIBLE","DIFFICULT","IRREVERSIBLE","UNKNOWN"}:raise MindRejected(f"invalid reversibility {reversibility!r}")
         d=Decision(decision_id or f"decision:{uuid.uuid4()}",self._text("goal_ref",goal_ref),self._text("question",question),conclusion,self._text("rationale",rationale),tuple(dict.fromkeys(evidence_refs)),tuple(dict.fromkeys(assumptions)),tuple(alternatives),self._text("authority_basis",authority_basis),KnowledgeState(uncertainty),reversibility,utc_now(),1); self.store.put_decision(d); return d
-    def plan(self,*,goal_ref,decision_ref,steps,checkpoints,recovery_options,completion_path,reason,plan_id=None):
-        p=Plan(plan_id or f"plan:{uuid.uuid4()}",self._text("goal_ref",goal_ref),self._text("decision_ref",decision_ref),1,self._steps(steps),tuple(dict.fromkeys(checkpoints)),tuple(dict.fromkeys(recovery_options)),tuple(dict.fromkeys(completion_path)),self._text("reason",reason),None,utc_now()); self.store.put_plan(p); return p
-    def replan(self,plan_id,*,steps,reason,decision_ref=None,checkpoints=None,recovery_options=None,completion_path=None):
-        old=self.store.plan(plan_id); p=Plan(old.plan_id,old.goal_ref,decision_ref or old.decision_ref,old.revision+1,self._steps(steps),old.checkpoints if checkpoints is None else tuple(dict.fromkeys(checkpoints)),old.recovery_options if recovery_options is None else tuple(dict.fromkeys(recovery_options)),old.completion_path if completion_path is None else tuple(dict.fromkeys(completion_path)),self._text("reason",reason),f"{old.plan_id}@{old.revision}",utc_now()); self.store.put_plan(p); return p
+    def plan(self,*,goal_ref,decision_ref,step_refs,checkpoints,recovery_options,completion_path,reason,plan_id=None):
+        p=Plan(plan_id or f"plan:{uuid.uuid4()}",self._text("goal_ref",goal_ref),self._text("decision_ref",decision_ref),1,self._refs(step_refs),tuple(dict.fromkeys(checkpoints)),tuple(dict.fromkeys(recovery_options)),tuple(dict.fromkeys(completion_path)),self._text("reason",reason),None,utc_now()); self.store.put_plan(p); return p
+    def replan(self,plan_id,*,step_refs,reason,decision_ref=None,checkpoints=None,recovery_options=None,completion_path=None):
+        old=self.store.plan(plan_id); p=Plan(old.plan_id,old.goal_ref,decision_ref or old.decision_ref,old.revision+1,self._refs(step_refs),old.checkpoints if checkpoints is None else tuple(dict.fromkeys(checkpoints)),old.recovery_options if recovery_options is None else tuple(dict.fromkeys(recovery_options)),old.completion_path if completion_path is None else tuple(dict.fromkeys(completion_path)),self._text("reason",reason),f"{old.plan_id}@{old.revision}",utc_now()); self.store.put_plan(p); return p

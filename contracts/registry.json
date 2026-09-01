@@ -1,5 +1,5 @@
 {
-  "registry_version": "0.1.1",
+  "registry_version": "0.1.2",
   "architecture_baseline": [
     "docs/architecture/BRO_ARCHITECTURE_FOUNDATION_V0_2.md",
     "docs/architecture/BRO_LOGICAL_ARCHITECTURE_V0_1.md",
@@ -12,6 +12,7 @@
     {"primitive":"Goal","owner":"MIND","schema":"contracts/v0.1/goal.schema.json"},
     {"primitive":"Decision","owner":"MIND","schema":"contracts/v0.1/decision.schema.json"},
     {"primitive":"Plan","owner":"MIND","schema":"contracts/v0.1/plan.schema.json"},
+    {"primitive":"Step","owner":"NERVOUS_SYSTEM","schema":"contracts/v0.1/step.schema.json"},
     {"primitive":"ActionRequest","owner":"HANDS","schema":"contracts/v0.1/action-request.schema.json"},
     {"primitive":"ActionAttempt","owner":"HANDS","schema":"contracts/v0.1/action-attempt.schema.json"},
     {"primitive":"Evidence","owner":"IMMUNE_SYSTEM","schema":"contracts/v0.1/evidence.schema.json"},

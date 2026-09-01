@@ -40,9 +40,13 @@ class TaskRuntimeTests(unittest.TestCase):
 
     def test_primary_lifecycle_completes_only_with_evidence(self) -> None:
         task = self.advance_to(TaskState.VERIFYING)
-        task = self.runtime.transition("task:1", TaskState.COMPLETED, "BRO", "verified outcome", task["revision"], completion=complete_evidence())
+        task = self.runtime.transition(
+            "task:1", TaskState.COMPLETED, "BRO", "verified outcome", task["revision"],
+            completion=complete_evidence(), completion_manifest_ref="completion-manifest:task-1",
+        )
         self.assertEqual(task["state"], TaskState.COMPLETED)
         self.assertEqual(task["evidence_refs"], ["evidence:1"])
+        self.assertEqual(task["completion_manifest_ref"], "completion-manifest:task-1")
         self.assertEqual(len(self.store.events("task:1")), 8)
 
     def test_completion_without_evidence_fails_closed(self) -> None:
@@ -52,7 +56,10 @@ class TaskRuntimeTests(unittest.TestCase):
 
     def test_terminal_state_is_immutable(self) -> None:
         task = self.advance_to(TaskState.VERIFYING)
-        task = self.runtime.transition("task:1", TaskState.COMPLETED, "BRO", "verified", task["revision"], completion=complete_evidence())
+        task = self.runtime.transition(
+            "task:1", TaskState.COMPLETED, "BRO", "verified", task["revision"],
+            completion=complete_evidence(), completion_manifest_ref="completion-manifest:task-1",
+        )
         with self.assertRaisesRegex(InvalidTransition, "terminal"):
             self.runtime.transition("task:1", TaskState.EXECUTING, "BRO", "rewrite", task["revision"])
 
@@ -206,4 +213,3 @@ class ArchitectureAlignmentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

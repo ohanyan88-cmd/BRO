@@ -4,10 +4,17 @@ from .immune import AuthorityDecision,AuthorityEnvelope,AuthorityEvaluator,Autho
 from .action_runtime import ActionRequest,ActionRuntime,ActionState,AdapterResult,ApprovalRequired,EffectState,RetryBlocked
 from .orchestration import AssignmentRejected,AssignmentState,LeaseGrant,SpecialistAssignment,StaleWorkerResult,Supervisor
 from .supervision import BoundaryViolation,FlowBinding,NextAction,NextStep,SupervisionRejected,TaskSupervisor
-from .mind import Decision,Goal,KnowledgeState,MindRejected,MindRuntime,Plan,PlanStep,SQLiteMindStore
+from .mind import Decision,Goal,KnowledgeState,MindRejected,MindRuntime,Plan,SQLiteMindStore
+from .nervous_records import ContextEntry,ContextManifest,NervousRecordRejected,NervousRecordStore,Step,StepState
+from .approval import Approval,ApprovalDecision,ApprovalRegistry,ApprovalRejected,RevocationState
+from .reference_integrity import ReferenceIntegrity,ReferenceIntegrityError
+from .governed_supervision import GovernedTaskSupervisor
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
 "AuthorityDecision","AuthorityEnvelope","AuthorityEvaluator","AuthorityRejected","AuthorityVerdict","CompletionManifest","CompletionNotVerified","CompletionVerdict","EffectRecord","Evidence","EvidenceFreshness","EvidenceLedger","EvidenceRejected","EvidenceValidity","evidence_scope","normalize_boundary_scope",
 "ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","EffectState","RetryBlocked","AssignmentRejected","AssignmentState","LeaseGrant","SpecialistAssignment","StaleWorkerResult","Supervisor","BoundaryViolation","FlowBinding","NextAction","NextStep","SupervisionRejected","TaskSupervisor",
-"Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","PlanStep","SQLiteMindStore"]
+"Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","SQLiteMindStore",
+"ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
+"Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState",
+"ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor"]
