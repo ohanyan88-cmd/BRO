@@ -18,7 +18,7 @@ def match(capability_id, provider_ref, status=CapabilityStatus.ACTIVE):
 
 
 class CapabilitySelectionTests(unittest.TestCase):
-    def test_healthy_provider_is_selected_over_degraded_provider(self):
+    def test_degraded_provider_is_ranked_below_healthy_equivalent(self):
         matches = (match("cap:degraded", "adapter:degraded"), match("cap:healthy", "adapter:healthy"))
         health = {"adapter:degraded": ProviderHealth.DEGRADED, "adapter:healthy": ProviderHealth.HEALTHY}
         selected = select_capability(matches, health.__getitem__)
