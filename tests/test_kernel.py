@@ -108,7 +108,7 @@ class KernelIntegrationTests(unittest.TestCase):
         prepared=self.prepare(); task_id=prepared.assignment.task_ref
         binding=self.kernel.open(prepared,self.envelope(task_id),worker_id="specialist:automation",now=T1)
         self.assertEqual(self.kernel.feet.latest(prepared.route_id).state,RouteState.ACTIVE)
-        attempt=self.kernel.supervisor.execute(binding,self.request(prepared),executor="specialist:automation",
+        attempt=self.kernel.supervisor._execute_registered_provider(binding,self.request(prepared),executor="specialist:automation",
             interface_version="1",adapter=lambda _:AdapterResult("deployed",EffectState.CONFIRMED),now=T1)
         self.assertEqual(attempt["effect_state"],"CONFIRMED")
         scope=evidence_scope("BRO",task_id)

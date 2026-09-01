@@ -109,7 +109,7 @@ class GovernedApprovalFlowTests(unittest.TestCase):
             verification_requirements=("tests",), assignment_ref="assignment:1",
             project_boundary="project:BRO",
         )
-        attempt = self.supervisor.execute(
+        attempt = self.supervisor._execute_registered_provider(
             binding, request, executor="github", interface_version="1",
             adapter=lambda _: AdapterResult({"ok": True}, EffectState.CONFIRMED), now=T1,
         )

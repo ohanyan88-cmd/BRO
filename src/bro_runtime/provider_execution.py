@@ -47,7 +47,13 @@ class ProviderExecutionGateway:
         if guaranteed and not request.idempotency_key.strip():
             raise ProviderAdapterRejected("idempotent provider execution requires an idempotency key")
         governed_request = replace(request, idempotency_guaranteed=guaranteed)
-        return self.supervisor.execute(
+        dispatch = getattr(self.supervisor, "_execute_registered_provider", None)
+        if dispatch is None:
+            # Compatibility for non-production supervisors used by isolated tests
+            # and legacy embeddings. BROKernel composes GovernedTaskSupervisor,
+            # whose public raw execute surface is closed.
+            dispatch = self.supervisor.execute
+        return dispatch(
             binding,
             governed_request,
             executor=executor,

@@ -28,7 +28,7 @@ class MultiStepExecutionTests(unittest.TestCase):
     def evidence(self,key,criterion):
         return Evidence(f"evidence:{key}",criterion,"inspection",key,{"ok":True},"read-back",T1,True,evidence_scope("BRO",self.prepared.task_ref),(),EvidenceValidity.VALID,EvidenceFreshness.CURRENT,"IMMUNE_SYSTEM")
     def execute_and_settle(self,binding,key,operation,target,adapter,criterion,output):
-        attempt=self.kernel.supervisor.execute(binding,self.request(key,operation,target,adapter),executor=adapter,interface_version="1",adapter=lambda _:AdapterResult("ok",EffectState.CONFIRMED),now=T1)
+        attempt=self.kernel.supervisor._execute_registered_provider(binding,self.request(key,operation,target,adapter),executor=adapter,interface_version="1",adapter=lambda _:AdapterResult("ok",EffectState.CONFIRMED),now=T1)
         self.assertEqual(attempt["effect_state"],"CONFIRMED")
         settle_multistep(self.kernel,self.prepared,binding,key,result_state=AssignmentState.SUCCEEDED,output_ref=output,evidence=(self.evidence(key,criterion),),now=T1)
     def test_three_step_outcome_executes_on_one_task_and_completes_verified(self):
