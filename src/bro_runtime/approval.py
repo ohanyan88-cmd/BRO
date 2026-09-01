@@ -70,5 +70,13 @@ class ApprovalRegistry:
     def consume(self, approval_id, *, task_ref, action_request_ref=None):
         prior=self.get(approval_id); body=json.loads(prior["body"])
         if prior["decision"] != "APPROVED": raise ApprovalRejected("only APPROVED approval may be consumed")
-        consumed=Approval(approval_id=body["approval_id"],approver=body["approver"],proof_ref=body["proof_ref"],requested_action=body["requested_action"],target=body["target"],scope=tuple(body["scope"]),risk_class=body["risk_class"],consequences=tuple(body["consequences"]),conditions=tuple(body["conditions"]),valid_from=body["valid_from"],expires_at=body["expires_at"],decision=ApprovalDecision.CONSUMED,revocation_state=RevocationState(body["revocation_state"]),task_ref=task_ref,action_request_ref=action_request_ref if action_request_ref is not None else body.get("action_request_ref"),audit_ref=body["audit_ref"],step_ref=body.get("step_ref"))
+        bound_task=body["task_ref"]
+        bound_action=body.get("action_request_ref")
+        if task_ref != bound_task:
+            raise ApprovalRejected("approval task binding cannot change during consumption")
+        if bound_action is not None and action_request_ref != bound_action:
+            raise ApprovalRejected("approval action binding cannot change during consumption")
+        if bound_action is None and action_request_ref is not None:
+            raise ApprovalRejected("unbound approval cannot acquire an action binding during consumption")
+        consumed=Approval(approval_id=body["approval_id"],approver=body["approver"],proof_ref=body["proof_ref"],requested_action=body["requested_action"],target=body["target"],scope=tuple(body["scope"]),risk_class=body["risk_class"],consequences=tuple(body["consequences"]),conditions=tuple(body["conditions"]),valid_from=body["valid_from"],expires_at=body["expires_at"],decision=ApprovalDecision.CONSUMED,revocation_state=RevocationState(body["revocation_state"]),task_ref=bound_task,action_request_ref=bound_action,audit_ref=body["audit_ref"],step_ref=body.get("step_ref"))
         return self.record(consumed, prior["version"]+1)
