@@ -22,7 +22,7 @@ class MultiStepRecovery:
 
 
 def recover_multistep(kernel, *, task_ref: str, plan_ref: str) -> MultiStepRecovery:
-    plan = kernel.mind.plan(plan_ref)
+    plan = kernel.mind.store.plan(plan_ref)
     steps = [kernel.nervous.step(ref) for ref in plan.step_refs]
     if any(step.task_ref != task_ref for step in steps):
         raise MultiStepRejected("plan contains a Step from another Task")
