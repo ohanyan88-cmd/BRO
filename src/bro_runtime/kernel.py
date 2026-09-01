@@ -16,6 +16,7 @@ from .evidence_verification import (
 from .feet import FeetStore, RouteCheckpoint, RouteState
 from .governed_supervision import GovernedTaskSupervisor
 from .immune import AuthorityEnvelope, CompletionManifest, Evidence, evidence_scope
+from .live_readback import LiveReadbackRuntime
 from .memory import MemoryStore
 from .mind import KnowledgeState, MindRuntime, SQLiteMindStore
 from .nervous_records import ContextEntry, NervousRecordStore, StepState
@@ -88,10 +89,12 @@ class BROKernel:
             evidence_verifiers=self.evidence_verifiers,
         )
 
-        # Canonical production boundaries. Provider routing and evidence verification
-        # are composed here so callers do not need to stitch helper modules together.
+        # Canonical production provider boundaries are composed here. Callers
+        # select registered provider identity/version; they do not stitch raw
+        # callables or readback helpers around the Kernel.
         self.providers = ProviderAdapterRegistry()
         self.provider_gateway = ProviderExecutionGateway(self.supervisor, self.providers)
+        self.live_readback = LiveReadbackRuntime(self.supervisor.actions, self.providers)
         self._provider_health_for = provider_health_for or (lambda _provider_ref: ProviderHealth.HEALTHY)
 
     def register_provider(self, adapter: ProviderAdapter) -> ProviderAdapter:
