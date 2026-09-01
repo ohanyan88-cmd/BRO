@@ -86,12 +86,13 @@ class TaskRuntime:
         self._guard_transition(source,target,task,resume_checkpoint_ref)
         if authority_state is not None and authority_state not in AUTHORITY_STATES:raise InvalidTransition(f"unknown authority state {authority_state!r}")
         refs=tuple(dict.fromkeys((*task["evidence_refs"],*evidence_refs))); artifacts=tuple(dict.fromkeys((*task["artifact_refs"],*artifact_refs))); approvals=tuple(dict.fromkeys((*task["approval_refs"],*approval_refs))); exclusions=tuple(dict.fromkeys((*task["excluded_scope"],*excluded_scope)))
-        manifest_ref=completion_manifest_ref if completion_manifest_ref is not None else task["completion_manifest_ref"]
+        payload=payload or {}
+        manifest_ref=completion_manifest_ref or (payload.get("manifest_id") if target is TaskState.COMPLETED else None) or task["completion_manifest_ref"]
         if target is TaskState.COMPLETED:
             if completion is None:raise InvalidTransition("COMPLETED requires an explicit evidence assessment")
             failures=completion.failures()
             if failures:raise InvalidTransition("completion gate failed: "+"; ".join(failures))
-            if not completion_manifest_ref:raise InvalidTransition("COMPLETED requires completion_manifest_ref")
+            if not manifest_ref:raise InvalidTransition("COMPLETED requires completion_manifest_ref")
             refs=tuple(dict.fromkeys((*refs,*completion.criteria_evidence_refs)))
         now=utc_now(); prior_active=task["prior_active_state"]
         if target in {TaskState.BLOCKED,TaskState.PAUSED}:prior_active=source.value
@@ -100,7 +101,7 @@ class TaskRuntime:
         with self.store.connection:
             cursor=self.store.connection.execute("""UPDATE tasks SET state=?,prior_active_state=?,resume_checkpoint_ref=?,evidence_refs=?,artifact_refs=?,approval_refs=?,excluded_scope=?,plan_ref=?,plan_revision=?,context_manifest_ref=?,authority_state=?,active_step_ref=?,blocker_ref=?,completion_manifest_ref=?,revision=revision+1,updated_at=?,termination_reason=? WHERE task_id=? AND revision=?""",(target,prior_active,resume_checkpoint_ref or task["resume_checkpoint_ref"],json.dumps(refs),json.dumps(artifacts),json.dumps(approvals),json.dumps(exclusions),plan_ref if plan_ref is not None else task["plan_ref"],plan_revision if plan_revision is not None else task["plan_revision"],context_manifest_ref if context_manifest_ref is not None else task["context_manifest_ref"],authority_state if authority_state is not None else task["authority_state"],active_step_ref if active_step_ref is not None else task["active_step_ref"],blocker_ref if blocker_ref is not None else task["blocker_ref"],manifest_ref,now,termination,task_id,expected_revision))
             if cursor.rowcount!=1:raise ConcurrencyConflict("task changed during transition")
-            self._append_event(task_id,f"task.{target.value.lower()}",actor,reason,source,target,correlation_ref or task_id,causal_ref,payload or {})
+            self._append_event(task_id,f"task.{target.value.lower()}",actor,reason,source,target,correlation_ref or task_id,causal_ref,payload)
         return self.store.fetch_task(task_id)
     def recover(self,task_id,assessment,actor,reason,expected_revision):
         task=self.store.fetch_task(task_id); source=TaskState(task["state"])
