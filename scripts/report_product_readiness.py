@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report BRO product readiness from declared repository evidence selectors."""
+"""Report repository readiness-evidence coverage without upgrading it to proof."""
 from __future__ import annotations
 import json
 from pathlib import Path
@@ -26,11 +26,17 @@ def evaluate():
         return int(passed*100/len(items)) if items else 0,passed,len(items)
     build,bp,bt=score("build"); production,pp,pt=score("production")
     total_pass=bp+pp; total=bt+pt; overall=int(total_pass*100/total) if total else 0
-    return {"build":build,"production":production,"overall":overall,"passed":total_pass,"total":total,"results":results}
+    production_results=[r for r in results if r["category"]=="production"]
+    assurance={level:sum(1 for r in production_results if r.get("assurance")==level and r["passed"])
+               for level in ("simulation","external_system")}
+    return {"build":build,"production":production,"overall":overall,"passed":total_pass,"total":total,
+            "assurance":assurance,"results":results}
 
 def main():
     report=evaluate()
-    print(f"BRO PRODUCT READINESS: overall={report['overall']}% build={report['build']}% production={report['production']}% ({report['passed']}/{report['total']} criteria)")
+    print(f"BRO REPOSITORY EVIDENCE COVERAGE: overall={report['overall']}% build={report['build']}% production-criteria={report['production']}% ({report['passed']}/{report['total']} selectors)")
+    print("NOT A PRODUCTION-READINESS VERDICT: selectors establish source coverage only; CI execution and durable external acceptance evidence are separate requirements.")
+    print(f"PRODUCTION ASSURANCE DECLARED: simulation={report['assurance']['simulation']} external-system={report['assurance']['external_system']}")
     missing=[r for r in report["results"] if not r["passed"]]
     if missing:
         print("MISSING:")
