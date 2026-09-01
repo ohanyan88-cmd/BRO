@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/runtime-event.schema.json",
+  "title": "BRO Runtime Event v0.1",
+  "x-bro-primitive": "RuntimeEvent",
+  "x-bro-owner": "NERVOUS_SYSTEM",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "event_type", "subject_ref", "actor", "occurred_at", "recorded_at", "correlation_ref", "payload", "schema_version"],
+  "properties": {
+    "event_id": {"$ref": "common.schema.json#/$defs/identifier"}, "event_type": {"type": "string", "minLength": 1},
+    "subject_ref": {"$ref": "common.schema.json#/$defs/reference"}, "actor": {"type": "string", "minLength": 1},
+    "occurred_at": {"$ref": "common.schema.json#/$defs/timestamp"}, "recorded_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "causal_ref": {"type": ["string", "null"]}, "correlation_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "payload": {"$ref": "common.schema.json#/$defs/record"}, "schema_version": {"const": "0.1.0"}
+  }
+}
+

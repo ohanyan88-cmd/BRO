@@ -1,0 +1,21 @@
+{
+  "registry_version": "0.1.0",
+  "architecture_baseline": [
+    "docs/architecture/BRO_ARCHITECTURE_FOUNDATION_V0_2.md",
+    "docs/architecture/BRO_LOGICAL_ARCHITECTURE_V0_1.md",
+    "docs/architecture/BRO_CONSTITUTION_AND_AUTHORITY_MODEL_V0_1.md"
+  ],
+  "allowed_owners": ["MIND", "PERCEPTION", "NERVOUS_SYSTEM", "HANDS", "IMMUNE_SYSTEM"],
+  "contracts": [
+    {"primitive": "Task", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/task.schema.json"},
+    {"primitive": "Observation", "owner": "PERCEPTION", "schema": "contracts/v0.1/observation.schema.json"},
+    {"primitive": "Decision", "owner": "MIND", "schema": "contracts/v0.1/decision.schema.json"},
+    {"primitive": "ActionAttempt", "owner": "HANDS", "schema": "contracts/v0.1/action-attempt.schema.json"},
+    {"primitive": "Evidence", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/evidence.schema.json"},
+    {"primitive": "RuntimeEvent", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/runtime-event.schema.json"},
+    {"primitive": "ContextManifest", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/context-manifest.schema.json"},
+    {"primitive": "AuthorityEnvelope", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/authority-envelope.schema.json"},
+    {"primitive": "Approval", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/approval.schema.json"}
+  ]
+}
+

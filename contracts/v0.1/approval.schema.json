@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/approval.schema.json",
+  "title": "BRO Approval v0.1",
+  "x-bro-primitive": "Approval",
+  "x-bro-owner": "IMMUNE_SYSTEM",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["approval_id", "approver", "proof_ref", "requested_action", "target", "scope", "risk_class", "consequences", "conditions", "valid_from", "expires_at", "decision", "revocation_state", "task_ref", "action_request_ref", "audit_ref"],
+  "properties": {
+    "approval_id": {"$ref": "common.schema.json#/$defs/identifier"}, "approver": {"type": "string", "minLength": 1}, "proof_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "requested_action": {"type": "string", "minLength": 1}, "target": {"type": "string", "minLength": 1}, "scope": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "risk_class": {"$ref": "common.schema.json#/$defs/riskClass"}, "consequences": {"$ref": "common.schema.json#/$defs/stringArray"}, "conditions": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "valid_from": {"$ref": "common.schema.json#/$defs/timestamp"}, "expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "decision": {"enum": ["REQUESTED", "APPROVED", "DENIED", "EXPIRED", "REVOKED", "CONSUMED", "SUPERSEDED"]}, "revocation_state": {"enum": ["ACTIVE", "REVOKED", "NOT_APPLICABLE"]},
+    "task_ref": {"$ref": "common.schema.json#/$defs/reference"}, "step_ref": {"type": ["string", "null"]}, "action_request_ref": {"$ref": "common.schema.json#/$defs/reference"}, "audit_ref": {"$ref": "common.schema.json#/$defs/reference"}
+  }
+}
+

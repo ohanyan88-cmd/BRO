@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/context-manifest.schema.json",
+  "title": "BRO Context Manifest v0.1",
+  "x-bro-primitive": "ContextManifest",
+  "x-bro-owner": "NERVOUS_SYSTEM",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_id", "task_ref", "assembled_at", "isolation_boundary", "entries", "excluded_refs", "version"],
+  "properties": {
+    "manifest_id": {"$ref": "common.schema.json#/$defs/identifier"}, "task_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "assembled_at": {"$ref": "common.schema.json#/$defs/timestamp"}, "isolation_boundary": {"type": "string", "minLength": 1},
+    "entries": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["source_ref", "scope", "authority", "freshness", "trust_state", "sensitivity", "inclusion_reason", "isolation_boundary"], "properties": {"source_ref": {"type": "string", "minLength": 1}, "scope": {"type": "string", "minLength": 1}, "authority": {"type": "string", "minLength": 1}, "freshness": {"type": "string", "minLength": 1}, "trust_state": {"$ref": "common.schema.json#/$defs/claimState"}, "sensitivity": {"enum": ["PUBLIC", "INTERNAL", "PRIVATE", "SECRET"]}, "inclusion_reason": {"type": "string", "minLength": 1}, "isolation_boundary": {"type": "string", "minLength": 1}}}},
+    "excluded_refs": {"$ref": "common.schema.json#/$defs/stringArray"}, "version": {"type": "integer", "minimum": 1}
+  }
+}
+

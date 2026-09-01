@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/common.schema.json",
+  "title": "BRO Common Contract Types v0.1",
+  "$defs": {
+    "identifier": {"type": "string", "minLength": 1, "maxLength": 200},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "reference": {"type": "string", "minLength": 1},
+    "stringArray": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "record": {"type": "object", "additionalProperties": true},
+    "claimState": {"enum": ["CONFIRMED", "DERIVED", "UNVERIFIED", "UNKNOWN", "CONFLICTED"]},
+    "riskClass": {"enum": ["R0", "R1", "R2", "R3", "R4"]}
+  }
+}
+

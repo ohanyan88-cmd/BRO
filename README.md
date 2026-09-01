@@ -37,4 +37,14 @@ Read in this order:
 
 ## Current state
 
-Architecture checkpoints 1–4 are defined. Implementation has not yet begun. The next step is repository foundation plus canonical contracts, followed by selective ports from the OS donor under explicit acceptance gates.
+Architecture checkpoints 1–4 are defined. Repository foundation implementation has begun with provider-independent canonical contracts, a single-owner registry, fail-closed validation, tests, and CI enforcement.
+
+## Contract gate
+
+Run:
+
+```bash
+make check
+```
+
+No runtime implementation or donor port may redefine a canonical primitive, assign a second owner, or bypass these contract gates. Selective ports from the OS donor follow only after the target contract they serve exists and their provenance, behavior, tests, parity evidence, and rollback are recorded.

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/action-attempt.schema.json",
+  "title": "BRO Action Attempt v0.1",
+  "x-bro-primitive": "ActionAttempt",
+  "x-bro-owner": "HANDS",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["attempt_id", "action_request_ref", "executor", "interface_version", "started_at", "ended_at", "sanitized_inputs", "status", "side_effect_state", "artifact_refs", "observation_refs"],
+  "properties": {
+    "attempt_id": {"$ref": "common.schema.json#/$defs/identifier"},
+    "action_request_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "executor": {"type": "string", "minLength": 1}, "interface_version": {"type": "string", "minLength": 1},
+    "started_at": {"$ref": "common.schema.json#/$defs/timestamp"}, "ended_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "sanitized_inputs": {"$ref": "common.schema.json#/$defs/record"},
+    "status": {"enum": ["SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED", "UNKNOWN"]},
+    "result": {}, "error": {},
+    "side_effect_state": {"enum": ["NONE", "POSSIBLE", "CONFIRMED", "UNKNOWN"]},
+    "retry_of_ref": {"type": ["string", "null"]},
+    "artifact_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "observation_refs": {"$ref": "common.schema.json#/$defs/stringArray"}
+  }
+}
+

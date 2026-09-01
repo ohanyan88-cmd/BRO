@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/task.schema.json",
+  "title": "BRO Task v0.1",
+  "x-bro-primitive": "Task",
+  "x-bro-owner": "NERVOUS_SYSTEM",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "goal_ref", "accountable_identity", "state", "plan_ref", "plan_revision", "context_manifest_ref", "authority_state", "evidence_refs", "artifact_refs", "created_at", "updated_at", "revision"],
+  "properties": {
+    "task_id": {"$ref": "common.schema.json#/$defs/identifier"},
+    "goal_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "accountable_identity": {"const": "BRO"},
+    "state": {"enum": ["CREATED", "FRAMING", "READY", "RUNNING", "WAITING_APPROVAL", "BLOCKED", "PAUSED", "RECOVERING", "COMPLETED", "FAILED", "CANCELLED"]},
+    "plan_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "plan_revision": {"type": "integer", "minimum": 1},
+    "active_step_ref": {"type": ["string", "null"]},
+    "blocker_ref": {"type": ["string", "null"]},
+    "context_manifest_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "authority_state": {"enum": ["UNASSESSED", "ALLOWED", "APPROVAL_REQUIRED", "DENIED", "EXPIRED", "REVOKED"]},
+    "approval_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "evidence_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "artifact_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "updated_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "revision": {"type": "integer", "minimum": 1},
+    "termination_reason": {"type": ["string", "null"]},
+    "excluded_scope": {"$ref": "common.schema.json#/$defs/stringArray"}
+  }
+}
+

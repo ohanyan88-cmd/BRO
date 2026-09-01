@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/decision.schema.json",
+  "title": "BRO Decision v0.1",
+  "x-bro-primitive": "Decision",
+  "x-bro-owner": "MIND",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision_id", "question", "conclusion", "rationale", "evidence_refs", "assumptions", "alternatives", "authority_basis", "uncertainty", "reversibility", "decided_at", "version"],
+  "properties": {
+    "decision_id": {"$ref": "common.schema.json#/$defs/identifier"},
+    "question": {"type": "string", "minLength": 1}, "conclusion": {},
+    "rationale": {"type": "string", "minLength": 1},
+    "evidence_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "assumptions": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "alternatives": {"type": "array", "items": {}},
+    "authority_basis": {"$ref": "common.schema.json#/$defs/reference"},
+    "uncertainty": {"$ref": "common.schema.json#/$defs/claimState"},
+    "reversibility": {"enum": ["REVERSIBLE", "PARTIALLY_REVERSIBLE", "DIFFICULT", "IRREVERSIBLE", "UNKNOWN"]},
+    "decided_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "version": {"type": "integer", "minimum": 1}
+  }
+}
+

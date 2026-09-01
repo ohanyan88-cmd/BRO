@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/authority-envelope.schema.json",
+  "title": "BRO Authority Envelope v0.1",
+  "x-bro-primitive": "AuthorityEnvelope",
+  "x-bro-owner": "IMMUNE_SYSTEM",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["envelope_id", "version", "principal", "principal_class", "proof_ref", "authority_source", "operation", "target", "allowed_scope", "prohibited_scope", "constraints", "purpose", "task_ref", "risk_class", "reversibility", "data_sensitivity", "delegation_allowed", "approval_requirement", "valid_from", "expires_at", "environment", "tool_boundary", "evidence_requirements", "decision", "reason", "audit_ref"],
+  "properties": {
+    "envelope_id": {"$ref": "common.schema.json#/$defs/identifier"}, "version": {"type": "integer", "minimum": 1},
+    "principal": {"type": "string", "minLength": 1}, "principal_class": {"type": "string", "minLength": 1}, "proof_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "authority_source": {"type": "string", "minLength": 1}, "operation": {"type": "string", "minLength": 1}, "target": {"type": "string", "minLength": 1},
+    "allowed_scope": {"$ref": "common.schema.json#/$defs/stringArray"}, "prohibited_scope": {"$ref": "common.schema.json#/$defs/stringArray"}, "constraints": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "purpose": {"type": "string", "minLength": 1}, "task_ref": {"$ref": "common.schema.json#/$defs/reference"}, "step_ref": {"type": ["string", "null"]},
+    "risk_class": {"$ref": "common.schema.json#/$defs/riskClass"}, "reversibility": {"type": "string", "minLength": 1}, "data_sensitivity": {"type": "string", "minLength": 1},
+    "commitment_limit": {"type": ["number", "null"], "minimum": 0}, "delegation_allowed": {"type": "boolean"}, "approval_requirement": {"enum": ["NONE", "STANDING", "FRESH"]},
+    "valid_from": {"$ref": "common.schema.json#/$defs/timestamp"}, "expires_at": {"type": ["string", "null"], "format": "date-time"}, "revocation_ref": {"type": ["string", "null"]},
+    "environment": {"type": "string", "minLength": 1}, "tool_boundary": {"$ref": "common.schema.json#/$defs/stringArray"}, "evidence_requirements": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "decision": {"enum": ["ALLOWED", "DENIED", "APPROVAL_REQUIRED"]}, "reason": {"type": "string", "minLength": 1}, "audit_ref": {"$ref": "common.schema.json#/$defs/reference"}
+  }
+}
+
