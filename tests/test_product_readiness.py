@@ -32,4 +32,20 @@ class ProductReadinessTests(unittest.TestCase):
             for selector in item["evidence"]:
                 self.assertTrue(selector["path"]); self.assertTrue(selector["contains"])
 
+    def test_production_criteria_disclose_assurance_and_limitations(self):
+        report=module.evaluate()
+        production=[item for item in report["results"] if item["category"]=="production"]
+        self.assertTrue(production)
+        for item in production:
+            self.assertIn(item.get("assurance"), {"simulation", "external_system"})
+            self.assertTrue(item.get("limitation"))
+        external=[item for item in production if item["assurance"]=="external_system"]
+        self.assertEqual([item["id"] for item in external], ["PROD-REAL-SYSTEM"])
+        self.assertGreater(len(production), len(external))
+
+    def test_report_does_not_present_source_selectors_as_production_readiness(self):
+        source=(ROOT/"scripts"/"report_product_readiness.py").read_text(encoding="utf-8")
+        self.assertIn("NOT A PRODUCTION-READINESS VERDICT", source)
+        self.assertNotIn("BRO PRODUCT READINESS:", source)
+
 if __name__=="__main__": unittest.main()
