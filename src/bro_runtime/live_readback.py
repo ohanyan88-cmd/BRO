@@ -1,10 +1,16 @@
-"""Live provider read-back for reconciling HANDS effects against external truth."""
+"""Live provider read-back for reconciling HANDS effects against external truth.
+
+Canonical read-back resolves a registered, versioned provider read operation.
+The legacy callable entry point remains for compatibility, but production code
+can use the provider-bound path so write output cannot impersonate reality.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
 
-from .action_runtime import ActionRejected, ActionRuntime, EffectState
+from .action_runtime import ActionRejected, ActionRuntime, AdapterResult, EffectState
+from .provider_adapters import ProviderAdapterRegistry, ProviderAdapterRejected
 
 
 class LiveReadbackRejected(ActionRejected):
@@ -22,10 +28,74 @@ class ExternalObservation:
 
 
 class LiveReadbackRuntime:
-    """Reconcile an attempted effect from a fresh provider read, never from write output."""
+    """Reconcile an attempted effect from a fresh provider read, never write output."""
 
-    def __init__(self, actions: ActionRuntime) -> None:
+    def __init__(self, actions: ActionRuntime, providers: ProviderAdapterRegistry | None = None) -> None:
         self.actions = actions
+        self.providers = providers
+
+    def observe_from_provider(
+        self,
+        *,
+        provider: str,
+        adapter_id: str,
+        version: str,
+        operation: str,
+        resource_ref: str,
+        inputs: dict,
+    ) -> ExternalObservation:
+        if self.providers is None:
+            raise LiveReadbackRejected("registered provider read-back is not configured")
+        try:
+            adapter = self.providers.resolve(
+                provider=provider,
+                adapter_id=adapter_id,
+                version=version,
+                operation=operation,
+            )
+        except ProviderAdapterRejected as exc:
+            raise LiveReadbackRejected(str(exc)) from exc
+        result = adapter.invoke(dict(inputs))
+        if not isinstance(result, AdapterResult):
+            raise LiveReadbackRejected("provider read-back must return AdapterResult")
+        if result.effect_state is not EffectState.NONE:
+            raise LiveReadbackRejected("provider read-back operation must be observational and effect-free")
+        if not result.observation_refs:
+            raise LiveReadbackRejected("provider read-back requires an observation reference")
+        if not resource_ref.strip():
+            raise LiveReadbackRejected("provider read-back requires a resource reference")
+        return ExternalObservation(
+            provider_ref=adapter.ref,
+            resource_ref=resource_ref,
+            observed_state=result.result,
+            evidence_ref=result.observation_refs[0],
+        )
+
+    def reconcile_from_provider_state(
+        self,
+        request_id: str,
+        *,
+        provider: str,
+        adapter_id: str,
+        version: str,
+        operation: str,
+        resource_ref: str,
+        inputs: dict,
+        expected: Callable[[object], bool],
+    ) -> ExternalObservation:
+        if self.actions.latest_attempt(request_id) is None:
+            raise LiveReadbackRejected("live read-back requires an action attempt")
+        observation = self.observe_from_provider(
+            provider=provider,
+            adapter_id=adapter_id,
+            version=version,
+            operation=operation,
+            resource_ref=resource_ref,
+            inputs=inputs,
+        )
+        effect = EffectState.CONFIRMED if expected(observation.observed_state) else EffectState.NONE
+        self.actions.reconcile(request_id, effect, observation.evidence_ref)
+        return observation
 
     def reconcile_from_external_state(
         self,
@@ -34,6 +104,7 @@ class LiveReadbackRuntime:
         read: Callable[[], ExternalObservation],
         expected: Callable[[object], bool],
     ) -> ExternalObservation:
+        """Legacy compatibility path; canonical production code should use a registered provider read."""
         attempt = self.actions.latest_attempt(request_id)
         if attempt is None:
             raise LiveReadbackRejected("live read-back requires an action attempt")
