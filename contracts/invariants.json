@@ -11,7 +11,9 @@
     {"id":"INV-MEMORY-001","statement":"Retrieved memory never silently becomes current truth","enforcement":["tests/test_memory.py","tests/test_kernel.py"]},
     {"id":"INV-RECOVERY-001","statement":"Recovery reconstructs next work without replaying external commands","enforcement":["tests/test_supervision.py","tests/test_kernel.py"]},
     {"id":"INV-READINESS-001","statement":"Runtime readiness percentages are derived from canonical evidence-bearing state and 100 percent requires consistent VERIFIED completion","enforcement":["tests/test_readiness.py","tests/test_kernel.py"]},
+    {"id":"INV-READINESS-002","statement":"BRO product readiness is computed from declared repository evidence criteria and missing future evidence remains incomplete","enforcement":["tests/test_product_readiness.py"]},
     {"id":"INV-PLAN-001","statement":"Multi-step plans preserve canonical Step dependencies and only dependency-satisfied Steps become READY","enforcement":["tests/test_multistep.py"]},
-    {"id":"INV-PLAN-002","statement":"A multi-step business outcome advances dependency-ready Steps on one canonical Task and only completes after all required evidence is VERIFIED","enforcement":["tests/test_multistep_execution.py"]}
+    {"id":"INV-PLAN-002","statement":"A multi-step business outcome advances dependency-ready Steps on one canonical Task and only completes after all required evidence is VERIFIED","enforcement":["tests/test_multistep_execution.py"]},
+    {"id":"INV-REPLAN-001","statement":"Only CURRENT CONFIRMED observations may automatically supersede unfinished Steps and create a new MIND Plan revision","enforcement":["tests/test_replan.py"]}
   ]
 }

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "method": "Equal-weight criteria pass only when every declared repository evidence selector resolves. Missing future evidence remains visibly incomplete.",
+  "criteria": [
+    {"id":"BUILD-CONTRACTS","category":"build","label":"Canonical ownership contracts are executable","evidence":[{"path":"tests/test_contracts.py","contains":"test_repository_contracts_pass"}]},
+    {"id":"BUILD-INVARIANTS","category":"build","label":"Recurring architecture lessons are executable invariants","evidence":[{"path":"tests/test_invariants.py","contains":"test_repository_invariants_have_executable_enforcement"}]},
+    {"id":"BUILD-KERNEL","category":"build","label":"Single-step canonical request reaches verified completion","evidence":[{"path":"tests/test_kernel.py","contains":"test_outcome_request_reaches_verified_terminal_state_and_truthful_voice"}]},
+    {"id":"BUILD-APPROVAL","category":"build","label":"Kernel approval resume preserves Task Step and route","evidence":[{"path":"tests/test_kernel_approval.py","contains":"test_kernel_resume_preserves_same_task_step_route_and_cannot_replay_consumed_approval"}]},
+    {"id":"BUILD-RECOVERY","category":"build","label":"Crash recovery reconstructs work without replay","evidence":[{"path":"tests/test_supervision.py","contains":"test_restart_reconstructs_the_next_step_without_replaying_the_command"}]},
+    {"id":"BUILD-READINESS","category":"build","label":"Runtime readiness derives from canonical state","evidence":[{"path":"tests/test_readiness.py","contains":"test_verified_consistent_runtime_is_100"}]},
+    {"id":"BUILD-MULTISTEP-PLAN","category":"build","label":"Multi-step dependency planning is canonical","evidence":[{"path":"tests/test_multistep.py","contains":"test_three_step_business_plan_preserves_canonical_owners_and_dependencies"}]},
+    {"id":"BUILD-MULTISTEP-EXEC","category":"build","label":"Multi-step execution continues on one Task","evidence":[{"path":"tests/test_multistep_execution.py","contains":"test_three_step_outcome_executes_on_one_task_and_completes_verified"}]},
+    {"id":"BUILD-REPLAN","category":"build","label":"Current confirmed observations can trigger governed replan","evidence":[{"path":"tests/test_replan.py","contains":"test_current_confirmed_observation_supersedes_unfinished_route_and_completes"}]},
+    {"id":"BUILD-CONTINUITY-MEMORY","category":"build","label":"Minimal continuity and governed memory feed context","evidence":[{"path":"tests/test_kernel.py","contains":"test_prepare_uses_minimal_continuity_and_memory_as_supporting_context"}]},
+    {"id":"BUILD-CAPABILITY-GOVERNANCE","category":"build","label":"Capability discovery never grants authority","evidence":[{"path":"tests/test_skills.py","contains":"test_discovery_returns_capability_and_authority_requirements_without_granting_authority"}]},
+    {"id":"BUILD-ARTIFACT-RUNTIME","category":"build","label":"Artifact runtime records are integrated and verified","evidence":[{"path":"tests/test_artifact_runtime.py","contains":"test_artifact_runtime_is_canonical_and_verified"}]},
+
+    {"id":"PROD-GOVERNED-ACCEPTANCE","category":"production","label":"Governed multi-step business acceptance completes verified","evidence":[{"path":"tests/test_multistep_execution.py","contains":"test_three_step_outcome_executes_on_one_task_and_completes_verified"}]},
+    {"id":"PROD-REALITY-ADAPTATION","category":"production","label":"Runtime adapts to current observed reality","evidence":[{"path":"tests/test_replan.py","contains":"test_current_confirmed_observation_supersedes_unfinished_route_and_completes"}]},
+    {"id":"PROD-ADAPTER-REGISTRY","category":"production","label":"Real provider connector adapter registry is integrated","evidence":[{"path":"tests/test_provider_adapters.py","contains":"test_real_adapter_registry_routes_versioned_providers"}]},
+    {"id":"PROD-LIVE-READBACK","category":"production","label":"External effects are verified by live read-back","evidence":[{"path":"tests/test_live_readback.py","contains":"test_live_effect_is_reconciled_from_external_state"}]},
+    {"id":"PROD-SECRETS","category":"production","label":"Credentials and secrets are mediated by governed runtime","evidence":[{"path":"tests/test_secret_mediation.py","contains":"test_secret_never_crosses_unapproved_boundary"}]},
+    {"id":"PROD-DEPLOY","category":"production","label":"Deployment and release promotion are integrated","evidence":[{"path":"tests/test_deployment_runtime.py","contains":"test_verified_release_promotes_and_reads_back"}]},
+    {"id":"PROD-MULTISTEP-RECOVERY","category":"production","label":"Multi-step crash recovery resumes correct dependency step","evidence":[{"path":"tests/test_multistep_recovery.py","contains":"test_restart_resumes_dependency_ready_step_without_replay"}]},
+    {"id":"PROD-ARTIFACT-VERIFY","category":"production","label":"Produced artifacts have canonical verification lifecycle","evidence":[{"path":"tests/test_artifact_runtime.py","contains":"test_artifact_runtime_is_canonical_and_verified"}]},
+    {"id":"PROD-HEALTH-ROUTING","category":"production","label":"Capability selection accounts for health and degraded providers","evidence":[{"path":"tests/test_capability_selection.py","contains":"test_degraded_provider_is_ranked_below_healthy_equivalent"}]},
+    {"id":"PROD-REAL-SYSTEM","category":"production","label":"A real external business system acceptance run is evidence-backed","evidence":[{"path":"tests/test_real_system_acceptance.py","contains":"test_real_business_outcome_reaches_verified_done"}]}
+  ]
+}
