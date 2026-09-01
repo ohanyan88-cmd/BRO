@@ -1,9 +1,10 @@
 """Durable provider connection health and outage circuit state."""
 from __future__ import annotations
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass,replace
 from enum import StrEnum
 from .task_runtime import utc_now
+from .provider_adapters import ProviderAdapter
 class ProviderConnectionState(StrEnum): HEALTHY='HEALTHY'; DEGRADED='DEGRADED'; UNAVAILABLE='UNAVAILABLE'
 class ProviderLifecycleRejected(RuntimeError):pass
 @dataclass(frozen=True)
@@ -31,3 +32,12 @@ class ProviderLifecycleStore:
         current=self.fetch(provider,adapter_id,version); failures=current.consecutive_failures+1; state='UNAVAILABLE' if failures>=self.failure_threshold else 'DEGRADED'
         with self.connection:self.connection.execute("UPDATE provider_lifecycle SET state=?,consecutive_failures=?,last_error_kind=?,updated_at=? WHERE provider=? AND adapter_id=? AND version=?",(state,failures,error_kind,utc_now(),provider,adapter_id,version))
         return self.fetch(provider,adapter_id,version)
+    def guard(self,adapter:ProviderAdapter)->ProviderAdapter:
+        self.register(adapter.provider,adapter.adapter_id,adapter.version)
+        def invoke(inputs):
+            self.assert_available(adapter.provider,adapter.adapter_id,adapter.version)
+            try: result=adapter.invoke(inputs)
+            except Exception as exc:
+                self.failure(adapter.provider,adapter.adapter_id,adapter.version,type(exc).__name__);raise
+            self.success(adapter.provider,adapter.adapter_id,adapter.version);return result
+        return replace(adapter,invoke=invoke)
