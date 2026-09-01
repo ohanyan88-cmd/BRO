@@ -1,4 +1,4 @@
-"""Opt-in authenticated acceptance; intentionally skipped by normal offline CI."""
+"""Legacy direct-provider acceptance; superseded by the governed workflow harness."""
 import hashlib
 import json
 import os
@@ -7,10 +7,12 @@ import unittest
 
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
 
-REQUIRED=("BRO_GITHUB_ACCEPTANCE", "BRO_GITHUB_TOKEN", "BRO_GITHUB_OWNER", "BRO_GITHUB_REPOSITORY", "BRO_GITHUB_ISSUE")
+REQUIRED=("BRO_GITHUB_TOKEN", "BRO_GITHUB_OWNER", "BRO_GITHUB_REPOSITORY", "BRO_GITHUB_ISSUE")
+LIVE_ENABLED = os.environ.get("BRO_GITHUB_ACCEPTANCE") == "1"
+LIVE_CONFIGURED = all(os.environ.get(k) for k in REQUIRED)
 
 
-@unittest.skipUnless(all(os.environ.get(k) for k in REQUIRED), "requires " + ", ".join(REQUIRED))
+@unittest.skipUnless(LIVE_ENABLED and LIVE_CONFIGURED, "requires BRO_GITHUB_ACCEPTANCE=1 and " + ", ".join(REQUIRED))
 class GitHubAuthenticatedAcceptanceTests(unittest.TestCase):
     def test_authenticated_write_retry_and_independent_readback(self):
         target=GitHubAcceptanceTarget(os.environ["BRO_GITHUB_OWNER"], os.environ["BRO_GITHUB_REPOSITORY"], int(os.environ["BRO_GITHUB_ISSUE"]))

@@ -50,6 +50,9 @@ class ProviderExecutionGateway:
         if guaranteed and not request.idempotency_key.strip():
             raise ProviderAdapterRejected("idempotent provider execution requires an idempotency key")
         governed_request = replace(request, idempotency_guaranteed=guaranteed)
+        binding_names = [name for name, _ in route.secret_bindings]
+        if len(binding_names) != len(set(binding_names)):
+            raise ProviderAdapterRejected("provider secret bindings contain duplicate names")
         bindings = dict(route.secret_bindings)
         if set(bindings) != set(adapter.required_secrets):
             raise ProviderAdapterRejected("provider secret bindings must exactly match its declared requirements")
