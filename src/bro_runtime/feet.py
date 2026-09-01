@@ -5,6 +5,7 @@ import json
 import sqlite3
 from dataclasses import asdict, dataclass
 from enum import StrEnum
+from typing import Callable
 
 from .task_runtime import utc_now
 
@@ -104,9 +105,8 @@ class FeetStore:
         prior = self.latest(route_id)
         if prior.state in {RouteState.COMPLETED, RouteState.CANCELLED}:
             raise FeetRejected(f"terminal route {prior.state} cannot move")
-        for blocker in (prior.authority_blocker_ref, prior.integrity_blocker_ref, prior.risk_blocker_ref):
-            if blocker:
-                raise FeetRejected("route is blocked; movement requires blocker resolution")
+        if any((prior.authority_blocker_ref, prior.integrity_blocker_ref, prior.risk_blocker_ref)):
+            raise FeetRejected("route is blocked; movement requires blocker resolution")
         record = RouteCheckpoint(
             route_id=prior.route_id, version=prior.version + 1, task_ref=prior.task_ref,
             plan_ref=prior.plan_ref, current_step_ref=current_step_ref,
@@ -130,14 +130,21 @@ class FeetStore:
         )
         return self.append(record)
 
-    def resume(self, route_id: str) -> RouteCheckpoint:
+    def resume(self, route_id: str, *, blocker_resolved: Callable[[str], bool]) -> RouteCheckpoint:
         prior = self.latest(route_id)
         if prior.state is not RouteState.BLOCKED:
             raise FeetRejected("only BLOCKED routes require explicit resume")
-        if any((prior.authority_blocker_ref, prior.integrity_blocker_ref, prior.risk_blocker_ref)):
-            raise FeetRejected("cannot resume until canonical blocker refs are cleared by their owners")
+        blockers = tuple(ref for ref in (
+            prior.authority_blocker_ref, prior.integrity_blocker_ref, prior.risk_blocker_ref
+        ) if ref)
+        if not blockers or not all(blocker_resolved(ref) for ref in blockers):
+            raise FeetRejected("cannot resume until canonical blocker refs resolve")
         record = RouteCheckpoint(
-            **{**asdict(prior), "version": prior.version + 1, "state": RouteState.ACTIVE,
-               "unresolved_refs": prior.unresolved_refs, "recorded_at": utc_now()}
+            route_id=prior.route_id, version=prior.version + 1, task_ref=prior.task_ref,
+            plan_ref=prior.plan_ref, current_step_ref=prior.current_step_ref,
+            current_location=prior.current_location, next_location=prior.next_location,
+            unresolved_refs=prior.unresolved_refs, authority_blocker_ref=None,
+            integrity_blocker_ref=None, risk_blocker_ref=None,
+            state=RouteState.ACTIVE, recorded_at=utc_now(),
         )
         return self.append(record)
