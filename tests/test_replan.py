@@ -29,7 +29,7 @@ class ObservationReplanTests(unittest.TestCase):
     def evidence(self,prepared,key,criterion):
         return Evidence(f"evidence:{key}",criterion,"inspection",key,{"ok":True},"read-back",T1,True,evidence_scope("BRO",prepared.task_ref),(),EvidenceValidity.VALID,EvidenceFreshness.CURRENT,"IMMUNE_SYSTEM")
     def execute_settle(self,prepared,binding,key,operation,target,adapter,criterion,output):
-        self.kernel.supervisor.execute(binding,self.request(prepared,key,operation,target,adapter),executor=adapter,interface_version="1",adapter=lambda _:AdapterResult("ok",EffectState.CONFIRMED),now=T1)
+        self.kernel.supervisor._execute_registered_provider(binding,self.request(prepared,key,operation,target,adapter),executor=adapter,interface_version="1",adapter=lambda _:AdapterResult("ok",EffectState.CONFIRMED),now=T1)
         settle_multistep(self.kernel,prepared,binding,key,result_state=AssignmentState.SUCCEEDED,output_ref=output,evidence=(self.evidence(prepared,key,criterion),),now=T1)
     def test_current_confirmed_observation_supersedes_unfinished_route_and_completes(self):
         binding=open_multistep(self.kernel,self.prepared,self.envelope(self.prepared,"route","write","crm:lead-routing","adapter:crm"),worker_id="worker:route",now=T1)
