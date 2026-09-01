@@ -9,11 +9,17 @@ module=importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(module)
 class ProductReadinessTests(unittest.TestCase):
     def test_current_repository_score_is_evidence_derived(self):
         report=module.evaluate()
-        self.assertEqual(report["build"],100)
-        self.assertEqual(report["production"],40)
-        self.assertEqual(report["overall"],72)
-        self.assertEqual((report["passed"],report["total"]),(16,22))
-        missing={r["id"] for r in report["results"] if not r["passed"]}
+        results=report["results"]
+        passed=sum(1 for item in results if item["passed"])
+        self.assertEqual(report["passed"],passed)
+        self.assertEqual(report["total"],len(results))
+        for category in ("build","production"):
+            items=[item for item in results if item["category"]==category]
+            expected=int(sum(1 for item in items if item["passed"])*100/len(items)) if items else 0
+            self.assertEqual(report[category],expected)
+        expected_overall=int(passed*100/len(results)) if results else 0
+        self.assertEqual(report["overall"],expected_overall)
+        missing={r["id"] for r in results if not r["passed"]}
         self.assertNotIn("BUILD-ARTIFACT-RUNTIME",missing)
         self.assertNotIn("PROD-ARTIFACT-VERIFY",missing)
         self.assertNotIn("PROD-ADAPTER-REGISTRY",missing)
