@@ -176,7 +176,7 @@ class DurableExternalWriteRecoveryTests(unittest.TestCase):
                 envelope=authority(target, provider),
                 worker_id="worker:before-crash",
                 now=T0,
-                lease_seconds=1,
+                lease_seconds=5,
             )
             attempt = supervisor1.execute(
                 binding1,
