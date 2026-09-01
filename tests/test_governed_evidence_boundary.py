@@ -67,6 +67,10 @@ class GovernedEvidenceBoundaryTests(unittest.TestCase):
         recorded = self.supervisor.evidence.record(evidence)
         self.assertEqual(recorded["evidence_id"], evidence.evidence_id)
 
+    def test_canonical_ledger_rejects_direct_completion_manifest_minting(self):
+        with self.assertRaisesRegex(BoundaryViolation, "direct completion evaluation is disabled"):
+            self.supervisor.evidence.evaluate_completion()
+
     def test_canonical_supervisor_rejects_self_minted_reconciliation_evidence(self):
         forged = Evidence(**self.verified().__dict__)
         with self.assertRaisesRegex(BoundaryViolation, "untrusted evidence is disabled"):
