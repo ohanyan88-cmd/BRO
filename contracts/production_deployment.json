@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "purpose": "Host-level production deployment contract for BRO. Host deployment and health readback do not by themselves satisfy final production graduation.",
+  "platform": "Debian 13 + systemd",
+  "states": {
+    "HOST_DEPLOYED": [
+      "exact current-main source revision installed from git archive",
+      "systemd service enabled and active",
+      "durable SQLite/WAL state writable by dedicated bro service user",
+      "exclusive host process lock held",
+      "fresh heartbeat read back from durable state for the exact deployed revision"
+    ],
+    "PRODUCTION_ACCEPTED": [
+      "HOST_DEPLOYED evidence",
+      "repository contract gates green for the deployed revision",
+      "real external-system acceptance evidence bound to the deployed revision"
+    ],
+    "PRODUCTION_GRADUATED": [
+      "all contracts/final_delivery.json graduation requirements"
+    ]
+  },
+  "forbids": [
+    "claiming host heartbeat as external-system evidence",
+    "claiming systemd active state as final production graduation",
+    "deploying a revision that is not current origin/main",
+    "embedding secrets in release artifacts or deployment evidence"
+  ]
+}

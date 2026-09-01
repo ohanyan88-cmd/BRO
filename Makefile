@@ -1,4 +1,4 @@
-.PHONY: validate invariants truth-boundaries remediation-wave readiness test check
+.PHONY: validate invariants truth-boundaries remediation-wave readiness production-deployment test check
 
 validate:
 	python3 scripts/validate_contracts.py
@@ -15,7 +15,10 @@ remediation-wave:
 readiness:
 	python3 scripts/report_product_readiness.py
 
+production-deployment:
+	python3 scripts/validate_production_deployment.py
+
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests -v
 
-check: validate invariants truth-boundaries readiness test
+check: validate invariants truth-boundaries readiness production-deployment test
