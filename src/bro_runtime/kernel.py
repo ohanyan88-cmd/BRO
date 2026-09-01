@@ -80,7 +80,12 @@ class BROKernel:
         self.feet = FeetStore(c)
         self.voice = VoiceRuntime()
         self.readiness = RuntimeReadiness()
-        self.supervisor = GovernedTaskSupervisor(task_store, mind_store=mind_store)
+        self.evidence_verifiers = EvidenceVerificationRegistry()
+        self.supervisor = GovernedTaskSupervisor(
+            task_store,
+            mind_store=mind_store,
+            evidence_verifiers=self.evidence_verifiers,
+        )
 
         # Canonical production boundaries. Provider routing, evidence verification,
         # and restart reconciliation are composed here so callers do not stitch
@@ -88,7 +93,6 @@ class BROKernel:
         self.providers = ProviderAdapterRegistry()
         self.secrets = SecretMediator()
         self.provider_gateway = ProviderExecutionGateway(self.supervisor, self.providers, self.secrets)
-        self.evidence_verifiers = EvidenceVerificationRegistry()
         self.restart_recovery = RestartRecoveryRuntime(self.supervisor)
         self._provider_health_for = provider_health_for or (lambda _provider_ref: ProviderHealth.HEALTHY)
 
