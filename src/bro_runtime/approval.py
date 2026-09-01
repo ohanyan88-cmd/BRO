@@ -45,7 +45,14 @@ class ApprovalRegistry:
         if row is None: raise ApprovalRejected(f"unknown approval: {approval_id}")
         return dict(row)
     def approved_for(self, *, task_ref, action_request_ref=None, step_ref=None, operation, target, required_scope, risk_class, now):
-        rows=self.connection.execute("SELECT * FROM approvals WHERE task_ref=? ORDER BY sequence DESC",(task_ref,)).fetchall()
+        rows=self.connection.execute("""
+            SELECT a.* FROM approvals a
+            JOIN (
+              SELECT approval_id, MAX(version) AS version
+              FROM approvals WHERE task_ref=? GROUP BY approval_id
+            ) latest ON latest.approval_id=a.approval_id AND latest.version=a.version
+            WHERE a.task_ref=? ORDER BY a.sequence DESC
+        """,(task_ref,task_ref)).fetchall()
         for row in rows:
             body=json.loads(row["body"])
             if row["decision"] != "APPROVED": continue
