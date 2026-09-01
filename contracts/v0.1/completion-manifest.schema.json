@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/completion-manifest.schema.json",
+  "title": "BRO Completion Manifest v0.1",
+  "x-bro-primitive": "CompletionManifest",
+  "x-bro-owner": "IMMUNE_SYSTEM",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_id", "task_ref", "task_revision", "assignment_ref", "verdict", "outcome_statement", "outcome_exists", "artifact_refs", "effects", "exclusions", "criteria_satisfied", "criteria_unsatisfied", "evidence_refs", "evaluated_at", "verifier", "reason"],
+  "properties": {
+    "manifest_id": {"$ref": "common.schema.json#/$defs/identifier"},
+    "task_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "task_revision": {"type": "integer", "minimum": 1},
+    "assignment_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "verdict": {"enum": ["VERIFIED", "INSUFFICIENT_EVIDENCE", "EFFECT_UNRECONCILED", "PARTIAL", "WORK_FAILED"]},
+    "outcome_statement": {"type": "string", "minLength": 1},
+    "outcome_exists": {"type": "boolean"},
+    "artifact_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "effects": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["action_request_ref", "effect_state"], "properties": {"action_request_ref": {"type": "string", "minLength": 1}, "effect_state": {"enum": ["NONE", "POSSIBLE", "CONFIRMED", "UNKNOWN", "REVERSED"]}}}},
+    "exclusions": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "criteria_satisfied": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "criteria_unsatisfied": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "evidence_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "evaluated_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "verifier": {"type": "string", "minLength": 1},
+    "reason": {"type": "string", "minLength": 1}
+  }
+}

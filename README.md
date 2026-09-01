@@ -45,6 +45,21 @@ The HANDS execution slice adds canonical Action Requests, immutable Authority En
 
 The orchestration slice adds durable Specialist Assignments, serialized claims, scoped worker leases, heartbeats, expiry-driven recovery, monotonic fencing tokens, stale-result rejection, evidence-backed settlement, and explicit partial-result preservation. Workers execute bounded assignments; they never become canonical owners or alternate BRO identities.
 
+The supervision slice connects those owners into one governed flow:
+
+`Task → Specialist Assignment → Authority → Action Request/Attempt → Effect Reconciliation → Evidence → Verified Completion Manifest`
+
+It adds the IMMUNE SYSTEM runtime (`src/bro_runtime/immune.py`) — the single authority evaluator, the append-only Evidence ledger with scope isolation and freshness/validity sufficiency, and the Completion Manifest gate — and the NERVOUS SYSTEM controller (`src/bro_runtime/supervision.py`), which sequences the existing owners without taking their state. HANDS no longer evaluates authority: it submits an Action Request and consumes an explicit `ALLOW` / `DENY` / `APPROVAL_REQUIRED` verdict, and every verdict is recorded.
+
+`COMPLETED` is reachable only through a `VERIFIED` Completion Manifest. A failed gate durably records its verdict and reason and leaves the Task blocked, recoverable, and auditable. Unknown or possible effects, insufficient or stale Evidence, partial results, boundary mismatches, superseded fencing tokens, and stale Task revisions all fail closed. `resume()` reconstructs the valid next step from durable state alone and replays no command.
+
+The Task record now conforms to `contracts/v0.1/task.schema.json`: canonical plan, context, authority, artifact, approval, and excluded-scope references are stored, bound by the transition that establishes them, and projected by `SQLiteTaskStore.canonical_task()`. Databases written by an earlier build migrate in place.
+
+### Boundary and tool semantics
+
+- A project boundary has one canonical scope token, normalised exactly once: `project:BRO` stays `project:BRO`, and a bare `BRO` becomes `project:BRO`.
+- `SpecialistAssignment.allowed_tools` holds **adapter identifiers** — the same namespace as `ActionRequest.adapter_id` and `AuthorityEnvelope.tool_boundary`. Targets belong to `target` and the envelope's `allowed_scope`. A delegated tool grant may never exceed the envelope's tool boundary.
+
 ## Contract gate
 
 Run:

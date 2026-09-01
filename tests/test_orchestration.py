@@ -7,7 +7,9 @@ from bro_runtime import AssignmentRejected, AssignmentState, SpecialistAssignmen
 
 
 def assignment() -> SpecialistAssignment:
-    return SpecialistAssignment("assignment:1", "task:1", "step:1", "project:BRO", "capability:code", "context:1", "contract:output", "auth:1", ("repo:BRO",), None, {"seconds": 60}, ("tests",))
+    # allowed_tools holds adapter identifiers, never targets: "repo:BRO" is a
+    # target and belongs in the envelope's allowed_scope, not in the tool grant.
+    return SpecialistAssignment("assignment:1", "task:1", "step:1", "project:BRO", "capability:code", "context:1", "contract:output", "auth:1", ("github",), None, {"seconds": 60}, ("tests",))
 
 
 class SupervisorTests(unittest.TestCase):
@@ -62,6 +64,20 @@ class SupervisorTests(unittest.TestCase):
         invalid = SpecialistAssignment("a", "t", "s", "", "c", "ctx", "out", "auth", (), None, {}, ())
         with self.assertRaisesRegex(AssignmentRejected, "boundaries"):
             other.create_assignment(invalid, "BRO", "2026-09-01T00:00:00Z")
+
+    def test_empty_tool_grant_fails_closed(self) -> None:
+        other = Supervisor(sqlite3.connect(":memory:"))
+        toolless = SpecialistAssignment("a", "t", "s", "project:BRO", "c", "ctx", "out", "auth", (), None, {}, ())
+        with self.assertRaisesRegex(AssignmentRejected, "at least one adapter"):
+            other.create_assignment(toolless, "BRO", "2026-09-01T00:00:00Z")
+
+    def test_lease_validation_is_public_and_rejects_a_superseded_token(self) -> None:
+        old = self.supervisor.claim("assignment:1", "worker:old", "2026-09-01T00:00:01Z", 5)
+        self.supervisor.validate_lease(old, "2026-09-01T00:00:02Z")
+        self.supervisor.expire_leases("2026-09-01T00:00:07Z")
+        self.supervisor.claim("assignment:1", "worker:new", "2026-09-01T00:00:08Z")
+        with self.assertRaises(StaleWorkerResult):
+            self.supervisor.validate_lease(old, "2026-09-01T00:00:09Z")
 
 
 if __name__ == "__main__": unittest.main()

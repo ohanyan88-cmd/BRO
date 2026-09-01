@@ -6,11 +6,31 @@ from .task_runtime import (
     InvalidTransition,
     RecoveryAssessment,
     SQLiteTaskStore,
+    TaskContractViolation,
     TaskRuntime,
     TaskState,
 )
-from .action_runtime import ActionRequest, ActionRuntime, ActionState, AdapterResult, AuthorityEnvelope, EffectState, RetryBlocked
+from .immune import (
+    AuthorityDecision,
+    AuthorityEnvelope,
+    AuthorityEvaluator,
+    AuthorityRejected,
+    AuthorityVerdict,
+    CompletionManifest,
+    CompletionNotVerified,
+    CompletionVerdict,
+    EffectRecord,
+    Evidence,
+    EvidenceFreshness,
+    EvidenceLedger,
+    EvidenceRejected,
+    EvidenceValidity,
+    evidence_scope,
+    normalize_boundary_scope,
+)
+from .action_runtime import ActionRequest, ActionRuntime, ActionState, AdapterResult, ApprovalRequired, EffectState, RetryBlocked
 from .orchestration import AssignmentRejected, AssignmentState, LeaseGrant, SpecialistAssignment, StaleWorkerResult, Supervisor
+from .supervision import BoundaryViolation, FlowBinding, NextAction, NextStep, SupervisionRejected, TaskSupervisor
 
 __all__ = [
     "CompletionEvidence",
@@ -18,8 +38,14 @@ __all__ = [
     "InvalidTransition",
     "RecoveryAssessment",
     "SQLiteTaskStore",
+    "TaskContractViolation",
     "TaskRuntime",
     "TaskState",
-    "ActionRequest", "ActionRuntime", "ActionState", "AdapterResult", "AuthorityEnvelope", "EffectState", "RetryBlocked",
+    "AuthorityDecision", "AuthorityEnvelope", "AuthorityEvaluator", "AuthorityRejected", "AuthorityVerdict",
+    "CompletionManifest", "CompletionNotVerified", "CompletionVerdict", "EffectRecord", "Evidence",
+    "EvidenceFreshness", "EvidenceLedger", "EvidenceRejected", "EvidenceValidity",
+    "evidence_scope", "normalize_boundary_scope",
+    "ActionRequest", "ActionRuntime", "ActionState", "AdapterResult", "ApprovalRequired", "EffectState", "RetryBlocked",
     "AssignmentRejected", "AssignmentState", "LeaseGrant", "SpecialistAssignment", "StaleWorkerResult", "Supervisor",
+    "BoundaryViolation", "FlowBinding", "NextAction", "NextStep", "SupervisionRejected", "TaskSupervisor",
 ]

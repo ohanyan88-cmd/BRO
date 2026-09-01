@@ -11,6 +11,8 @@
     "action_request_id": {"$ref": "common.schema.json#/$defs/identifier"},
     "task_ref": {"$ref": "common.schema.json#/$defs/reference"},
     "step_ref": {"type": ["string", "null"]},
+    "assignment_ref": {"type": ["string", "null"]},
+    "project_boundary": {"type": ["string", "null"]},
     "intended_effect": {"type": "string", "minLength": 1},
     "operation": {"type": "string", "minLength": 1},
     "target": {"type": "string", "minLength": 1},

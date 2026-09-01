@@ -1,17 +1,28 @@
-"""HANDS-owned action lifecycle with fail-closed IMMUNE SYSTEM control."""
+"""HANDS-owned action lifecycle under IMMUNE SYSTEM authority.
+
+HANDS owns the Action Request, the Action Attempt, and execution truth. It does
+not decide whether an action is permitted: it submits the request to the single
+`AuthorityEvaluator` in `immune.py` and records the state its verdict implies.
+`AuthorityEnvelope` is re-exported here so existing HANDS-facing imports keep
+working, but it is defined and owned once, by IMMUNE SYSTEM.
+"""
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sqlite3
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Callable
 
+from .immune import AuthorityDecision, AuthorityEnvelope, AuthorityEvaluator, AuthorityRejected
 from .task_runtime import utc_now
+
+__all__ = [
+    "ActionRejected", "ActionRequest", "ActionRuntime", "ActionState", "AdapterResult",
+    "ApprovalRequired", "AuthorityEnvelope", "EffectState", "RetryBlocked",
+]
 
 
 class ActionRejected(Exception):
@@ -20,6 +31,10 @@ class ActionRejected(Exception):
 
 class RetryBlocked(ActionRejected):
     pass
+
+
+class ApprovalRequired(ActionRejected):
+    """Authority exists but requires an approval that has not been recorded."""
 
 
 class ActionState(StrEnum):
@@ -45,35 +60,15 @@ class EffectState(StrEnum):
 
 
 @dataclass(frozen=True)
-class AuthorityEnvelope:
-    envelope_id: str
-    version: int
-    principal: str
-    proof_ref: str
-    authority_source: str
-    operation: str
-    target: str
-    allowed_scope: tuple[str, ...]
-    prohibited_scope: tuple[str, ...]
-    task_ref: str
-    risk_class: str
-    valid_from: str
-    expires_at: str | None
-    revocation_ref: str | None
-    environment: str
-    tool_boundary: tuple[str, ...]
-    decision: str
-    reason: str
-    audit_ref: str
-
-    @property
-    def digest(self) -> str:
-        encoded = json.dumps(asdict(self), sort_keys=True, separators=(",", ":")).encode()
-        return hashlib.sha256(encoded).hexdigest()
-
-
-@dataclass(frozen=True)
 class ActionRequest:
+    """Canonical Action Request — contracts/v0.1/action-request.schema.json.
+
+    `assignment_ref` and `project_boundary` are optional so a direct HANDS call
+    behaves exactly as before. Under supervision both are required, and a present
+    `project_boundary` makes IMMUNE SYSTEM demand the matching boundary scope
+    token in the envelope, so cross-boundary work fails closed.
+    """
+
     action_request_id: str
     task_ref: str
     intended_effect: str
@@ -89,6 +84,8 @@ class ActionRequest:
     idempotency_guaranteed: bool
     expected_result: object
     verification_requirements: tuple[str, ...]
+    assignment_ref: str | None = None
+    project_boundary: str | None = None
 
 
 @dataclass(frozen=True)
@@ -103,12 +100,9 @@ class ActionRuntime:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self.connection = connection
         self.connection.row_factory = sqlite3.Row
+        self.authority = AuthorityEvaluator(connection)
         self.connection.executescript(
             """
-            CREATE TABLE IF NOT EXISTS authority_envelopes (
-              envelope_id TEXT NOT NULL, version INTEGER NOT NULL, digest TEXT NOT NULL,
-              body TEXT NOT NULL, PRIMARY KEY(envelope_id, version)
-            );
             CREATE TABLE IF NOT EXISTS action_requests (
               action_request_id TEXT PRIMARY KEY, task_ref TEXT NOT NULL, body TEXT NOT NULL,
               state TEXT NOT NULL, revision INTEGER NOT NULL, authority_digest TEXT
@@ -130,15 +124,18 @@ class ActionRuntime:
         )
 
     def register_authority(self, envelope: AuthorityEnvelope) -> None:
-        body = json.dumps(asdict(envelope), sort_keys=True)
+        """Hand an envelope to IMMUNE SYSTEM, which owns the registry."""
         try:
-            with self.connection:
-                self.connection.execute(
-                    "INSERT INTO authority_envelopes VALUES (?, ?, ?, ?)",
-                    (envelope.envelope_id, envelope.version, envelope.digest, body),
-                )
-        except sqlite3.IntegrityError as exc:
-            raise ActionRejected("authority envelopes are immutable; create a new version") from exc
+            self.authority.register(envelope)
+        except AuthorityRejected as exc:
+            raise ActionRejected(str(exc)) from exc
+
+    def authority_envelope(self, envelope_id: str, version: int | None = None) -> AuthorityEnvelope:
+        """Read back a registered envelope. IMMUNE SYSTEM remains its owner."""
+        try:
+            return self.authority.envelope(envelope_id, version)
+        except AuthorityRejected as exc:
+            raise ActionRejected(str(exc)) from exc
 
     def propose(self, request: ActionRequest) -> dict:
         with self.connection:
@@ -149,19 +146,25 @@ class ActionRuntime:
         return self.get_request(request.action_request_id)
 
     def authorize(self, request_id: str, envelope: AuthorityEnvelope, now: str | None = None) -> dict:
+        """Submit the request to IMMUNE SYSTEM and record the state its verdict implies.
+
+        HANDS performs no authority evaluation of its own. There is one evaluator.
+        """
         request = self.get_request(request_id)
         body = json.loads(request["body"])
-        reasons = self._authority_failures(body, envelope, now or utc_now())
-        target_state = ActionState.DENIED if reasons else ActionState.AUTHORIZED
+        verdict = self.authority.evaluate(body, envelope, now or utc_now(), subject_ref=request_id)
+        target_state = ActionState.AUTHORIZED if verdict.is_allowed() else ActionState.DENIED
         with self.connection:
             cursor = self.connection.execute(
                 "UPDATE action_requests SET state=?, revision=revision+1, authority_digest=? WHERE action_request_id=? AND state=?",
-                (target_state, envelope.digest, request_id, ActionState.PROPOSED),
+                (target_state, verdict.envelope_digest, request_id, ActionState.PROPOSED),
             )
             if cursor.rowcount != 1:
                 raise ActionRejected("only a PROPOSED action may be authorized")
-        if reasons:
-            raise ActionRejected("authority denied: " + "; ".join(reasons))
+        if verdict.decision is AuthorityDecision.APPROVAL_REQUIRED:
+            raise ApprovalRequired("authority requires approval: " + "; ".join(verdict.reasons))
+        if not verdict.is_allowed():
+            raise ActionRejected("authority denied: " + "; ".join(verdict.reasons))
         return self.get_request(request_id)
 
     def dispatch(self, request_id: str, executor: str, interface_version: str, adapter: Callable[[dict], AdapterResult]) -> dict:
@@ -244,21 +247,8 @@ class ActionRuntime:
         row = self.connection.execute("SELECT effect_state FROM action_reconciliations WHERE attempt_id=? ORDER BY sequence DESC LIMIT 1", (attempt["attempt_id"],)).fetchone()
         return EffectState(row["effect_state"] if row else attempt["effect_state"])
 
-    @staticmethod
-    def _authority_failures(request: dict, envelope: AuthorityEnvelope, now: str) -> list[str]:
-        failures: list[str] = []
-        required = {f"operation:{request['operation']}", f"target:{request['target']}", request["task_ref"]}
-        if envelope.decision != "ALLOWED": failures.append("decision is not ALLOWED")
-        if envelope.operation != request["operation"]: failures.append("operation mismatch")
-        if envelope.target != request["target"]: failures.append("target mismatch")
-        if envelope.task_ref != request["task_ref"]: failures.append("task mismatch")
-        if envelope.environment != request["environment"]: failures.append("environment mismatch")
-        if request["adapter_id"] not in envelope.tool_boundary: failures.append("adapter outside tool boundary")
-        if not required.issubset(set(envelope.allowed_scope)): failures.append("allowed scope is insufficient")
-        if required & set(envelope.prohibited_scope): failures.append("prohibited scope matched")
-        if envelope.revocation_ref: failures.append("authority is revoked")
-        if now < envelope.valid_from: failures.append("authority is not yet valid")
-        if envelope.expires_at and now >= envelope.expires_at: failures.append("authority is expired")
-        risk_rank = {f"R{i}": i for i in range(5)}
-        if risk_rank.get(envelope.risk_class, -1) < risk_rank.get(request["risk_class"], 99): failures.append("authority risk ceiling is insufficient")
-        return failures
+    def requests_for_task(self, task_ref: str) -> list[dict]:
+        rows = self.connection.execute(
+            "SELECT * FROM action_requests WHERE task_ref=? ORDER BY rowid", (task_ref,)
+        ).fetchall()
+        return [dict(row) for row in rows]

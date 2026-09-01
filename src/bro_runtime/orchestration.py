@@ -38,6 +38,15 @@ class AssignmentState(StrEnum):
 
 @dataclass(frozen=True)
 class SpecialistAssignment:
+    """Canonical Specialist Assignment — contracts/v0.1/specialist-assignment.schema.json.
+
+    `allowed_tools` holds **adapter/tool identifiers** — the same namespace as
+    `ActionRequest.adapter_id` and `AuthorityEnvelope.tool_boundary`. It is the
+    delegated tool grant, never a list of targets: what may be touched lives in
+    `target` and the envelope's `allowed_scope`. A tool grant is a capability
+    boundary, and capability never grants authority on its own.
+    """
+
     assignment_id: str
     task_ref: str
     step_ref: str
@@ -101,6 +110,8 @@ class Supervisor:
     def create_assignment(self, assignment: SpecialistAssignment, actor: str, now: str) -> dict:
         if not assignment.project_boundary or not assignment.context_manifest_ref or not assignment.authority_envelope_ref:
             raise AssignmentRejected("project, context, and authority boundaries are mandatory")
+        if not assignment.allowed_tools:
+            raise AssignmentRejected("an assignment must grant at least one adapter; an empty tool grant executes nothing")
         with self.connection:
             self.connection.execute(
                 "INSERT INTO assignments(assignment_id,task_ref,body,state) VALUES (?,?,?,?)",
@@ -182,6 +193,24 @@ class Supervisor:
 
     def events(self, assignment_id: str) -> list[dict]:
         return [dict(row) for row in self.connection.execute("SELECT * FROM orchestration_events WHERE assignment_id=? ORDER BY sequence", (assignment_id,)).fetchall()]
+
+    def assignments_for_task(self, task_ref: str) -> list[dict]:
+        rows = self.connection.execute(
+            "SELECT * FROM assignments WHERE task_ref=? ORDER BY rowid", (task_ref,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def result(self, result_id: str) -> dict | None:
+        row = self.connection.execute("SELECT * FROM assignment_results WHERE result_id=?", (result_id,)).fetchone()
+        return dict(row) if row else None
+
+    def validate_lease(self, grant: LeaseGrant, now: str) -> None:
+        """Raise unless this grant is the current fenced owner of its assignment.
+
+        NERVOUS SYSTEM owns leases, so this is the one place the question is
+        answered. Callers outside this module use it rather than re-deriving it.
+        """
+        self._validate_active(grant, now)
 
     def _validate_active(self, grant: LeaseGrant, now: str) -> None:
         lease = self.connection.execute("SELECT * FROM worker_leases WHERE lease_id=?", (grant.lease_id,)).fetchone()

@@ -54,11 +54,33 @@ CONTROL_FROM = {
 }
 
 
+# Canonical Task fields added by migration. Each carries a default so an existing
+# row stays valid the moment the column appears.
+CANONICAL_TASK_COLUMNS = {
+    "accountable_identity": "accountable_identity TEXT NOT NULL DEFAULT 'BRO'",
+    "plan_ref": "plan_ref TEXT",
+    "plan_revision": "plan_revision INTEGER",
+    "active_step_ref": "active_step_ref TEXT",
+    "blocker_ref": "blocker_ref TEXT",
+    "context_manifest_ref": "context_manifest_ref TEXT",
+    "authority_state": "authority_state TEXT NOT NULL DEFAULT 'UNASSESSED'",
+    "approval_refs": "approval_refs TEXT NOT NULL DEFAULT '[]'",
+    "artifact_refs": "artifact_refs TEXT NOT NULL DEFAULT '[]'",
+    "excluded_scope": "excluded_scope TEXT NOT NULL DEFAULT '[]'",
+}
+JSON_TASK_COLUMNS = ("evidence_refs", "artifact_refs", "approval_refs", "excluded_scope")
+AUTHORITY_STATES = frozenset({"UNASSESSED", "ALLOWED", "APPROVAL_REQUIRED", "DENIED", "EXPIRED", "REVOKED"})
+
+
 class RuntimeErrorBase(Exception):
     """Base class for explicit runtime rejections."""
 
 
 class InvalidTransition(RuntimeErrorBase):
+    pass
+
+
+class TaskContractViolation(RuntimeErrorBase):
     pass
 
 
@@ -161,34 +183,102 @@ class SQLiteTaskStore:
             );
             """
         )
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Add canonical Task columns to a store created before they existed.
+
+        `CREATE TABLE IF NOT EXISTS` never widens an existing table, so a database
+        written by an earlier build keeps its rows and gains the canonical columns
+        here. Every added column carries a default, so existing rows stay valid.
+        """
+        present = {row["name"] for row in self.connection.execute("PRAGMA table_info(tasks)").fetchall()}
+        with self.connection:
+            for column, ddl in CANONICAL_TASK_COLUMNS.items():
+                if column not in present:
+                    self.connection.execute(f"ALTER TABLE tasks ADD COLUMN {ddl}")
 
     def fetch_task(self, task_id: str) -> dict:
         row = self.connection.execute("SELECT * FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
         if row is None:
             raise TaskNotFound(task_id)
         task = dict(row)
-        task["evidence_refs"] = json.loads(task["evidence_refs"])
+        for column in JSON_TASK_COLUMNS:
+            task[column] = json.loads(task[column])
         return task
+
+    def canonical_task(self, task_id: str) -> dict:
+        """Project the stored Task into contracts/v0.1/task.schema.json shape.
+
+        `prior_active_state` and `resume_checkpoint_ref` are FEET-owned operational
+        columns and are deliberately excluded: the canonical record is a closed
+        object and does not carry them. The projection fails closed rather than
+        emitting a record that would not validate.
+        """
+        task = self.fetch_task(task_id)
+        unbound = [field for field in ("plan_ref", "plan_revision", "context_manifest_ref") if not task[field]]
+        if unbound:
+            raise TaskContractViolation(
+                f"{task_id} cannot be projected as a canonical Task; unbound references: {', '.join(unbound)}"
+            )
+        return {
+            "task_id": task["task_id"], "goal_ref": task["goal_ref"],
+            "accountable_identity": task["accountable_identity"], "state": task["state"],
+            "plan_ref": task["plan_ref"], "plan_revision": task["plan_revision"],
+            "active_step_ref": task["active_step_ref"], "blocker_ref": task["blocker_ref"],
+            "context_manifest_ref": task["context_manifest_ref"], "authority_state": task["authority_state"],
+            "approval_refs": task["approval_refs"], "evidence_refs": task["evidence_refs"],
+            "artifact_refs": task["artifact_refs"], "created_at": task["created_at"],
+            "updated_at": task["updated_at"], "revision": task["revision"],
+            "termination_reason": task["termination_reason"], "excluded_scope": task["excluded_scope"],
+        }
 
     def events(self, task_id: str) -> list[dict]:
         rows = self.connection.execute("SELECT * FROM runtime_events WHERE task_id = ? ORDER BY sequence", (task_id,)).fetchall()
         return [dict(row) for row in rows]
+
+    def close(self) -> None:
+        """Release the durable handle. Reopening the same path restores the store."""
+        self.connection.close()
 
 
 class TaskRuntime:
     def __init__(self, store: SQLiteTaskStore) -> None:
         self.store = store
 
-    def create_task(self, task_id: str, goal_ref: str, actor: str, reason: str, correlation_ref: str | None = None) -> dict:
+    def create_task(self, task_id: str, goal_ref: str, actor: str, reason: str, correlation_ref: str | None = None,
+                    *, accountable_identity: str = "BRO") -> dict:
+        """Create a Task at RECEIVED.
+
+        Plan, context, and authority references are unbound here by design: at
+        RECEIVED none of them exists yet. They are bound by the transition that
+        establishes them, and `canonical_task()` refuses to project a Task whose
+        canonical references are still unbound.
+        """
         now = utc_now()
         correlation = correlation_ref or task_id
         with self.store.connection:
             self.store.connection.execute(
-                "INSERT INTO tasks(task_id, goal_ref, state, revision, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)",
-                (task_id, goal_ref, TaskState.RECEIVED, now, now),
+                """INSERT INTO tasks(task_id, goal_ref, state, revision, created_at, updated_at,
+                   accountable_identity, authority_state) VALUES (?, ?, ?, 1, ?, ?, ?, 'UNASSESSED')""",
+                (task_id, goal_ref, TaskState.RECEIVED, now, now, accountable_identity),
             )
             self._append_event(task_id, "task.received", actor, reason, None, TaskState.RECEIVED, correlation, None, {})
         return self.store.fetch_task(task_id)
+
+    def record_event(self, task_id: str, event_type: str, actor: str, reason: str, *,
+                     correlation_ref: str | None = None, causal_ref: str | None = None,
+                     payload: dict | None = None) -> str:
+        """Append a non-transition Runtime Event to the canonical NERVOUS ledger.
+
+        There is exactly one Runtime Event ledger. Other organs report occurrences
+        through here; they do not open a second one.
+        """
+        task = self.store.fetch_task(task_id)
+        state = TaskState(task["state"])
+        with self.store.connection:
+            return self._append_event(task_id, event_type, actor, reason, None, state,
+                                      correlation_ref or task_id, causal_ref, payload or {})
 
     def transition(
         self,
@@ -204,13 +294,32 @@ class TaskRuntime:
         completion: CompletionEvidence | None = None,
         evidence_refs: Iterable[str] = (),
         payload: dict | None = None,
+        plan_ref: str | None = None,
+        plan_revision: int | None = None,
+        context_manifest_ref: str | None = None,
+        authority_state: str | None = None,
+        active_step_ref: str | None = None,
+        blocker_ref: str | None = None,
+        artifact_refs: Iterable[str] = (),
+        approval_refs: Iterable[str] = (),
+        excluded_scope: Iterable[str] = (),
     ) -> dict:
+        """Advance the Task and bind the canonical references this step establishes.
+
+        The transition that establishes a canonical reference is the one that writes
+        it, so the Task row has exactly one writer and one revision bump per change.
+        """
         task = self.store.fetch_task(task_id)
         source = TaskState(task["state"])
         if task["revision"] != expected_revision:
             raise ConcurrencyConflict(f"expected revision {expected_revision}, found {task['revision']}")
         self._guard_transition(source, target, task, resume_checkpoint_ref)
+        if authority_state is not None and authority_state not in AUTHORITY_STATES:
+            raise InvalidTransition(f"unknown authority state {authority_state!r}")
         refs = tuple(dict.fromkeys((*task["evidence_refs"], *evidence_refs)))
+        artifacts = tuple(dict.fromkeys((*task["artifact_refs"], *artifact_refs)))
+        approvals = tuple(dict.fromkeys((*task["approval_refs"], *approval_refs)))
+        exclusions = tuple(dict.fromkeys((*task["excluded_scope"], *excluded_scope)))
         if target is TaskState.COMPLETED:
             if completion is None:
                 raise InvalidTransition("COMPLETED requires an explicit evidence assessment")
@@ -229,9 +338,20 @@ class TaskRuntime:
         with self.store.connection:
             cursor = self.store.connection.execute(
                 """UPDATE tasks SET state = ?, prior_active_state = ?, resume_checkpoint_ref = ?,
-                   evidence_refs = ?, revision = revision + 1, updated_at = ?, termination_reason = ?
+                   evidence_refs = ?, artifact_refs = ?, approval_refs = ?, excluded_scope = ?,
+                   plan_ref = ?, plan_revision = ?, context_manifest_ref = ?, authority_state = ?,
+                   active_step_ref = ?, blocker_ref = ?,
+                   revision = revision + 1, updated_at = ?, termination_reason = ?
                    WHERE task_id = ? AND revision = ?""",
-                (target, prior_active, resume_checkpoint_ref or task["resume_checkpoint_ref"], json.dumps(refs), now, termination, task_id, expected_revision),
+                (target, prior_active, resume_checkpoint_ref or task["resume_checkpoint_ref"],
+                 json.dumps(refs), json.dumps(artifacts), json.dumps(approvals), json.dumps(exclusions),
+                 plan_ref if plan_ref is not None else task["plan_ref"],
+                 plan_revision if plan_revision is not None else task["plan_revision"],
+                 context_manifest_ref if context_manifest_ref is not None else task["context_manifest_ref"],
+                 authority_state if authority_state is not None else task["authority_state"],
+                 active_step_ref if active_step_ref is not None else task["active_step_ref"],
+                 blocker_ref if blocker_ref is not None else task["blocker_ref"],
+                 now, termination, task_id, expected_revision),
             )
             if cursor.rowcount != 1:
                 raise ConcurrencyConflict("task changed during transition")
@@ -271,10 +391,12 @@ class TaskRuntime:
         if target is TaskState.PAUSED and not (checkpoint or task["resume_checkpoint_ref"]):
             raise InvalidTransition("PAUSED requires a resume checkpoint")
 
-    def _append_event(self, task_id: str, event_type: str, actor: str, reason: str, prior: TaskState | None, new: TaskState, correlation: str, causal: str | None, payload: dict) -> None:
+    def _append_event(self, task_id: str, event_type: str, actor: str, reason: str, prior: TaskState | None, new: TaskState, correlation: str, causal: str | None, payload: dict) -> str:
+        event_id = str(uuid.uuid4())
         self.store.connection.execute(
             """INSERT INTO runtime_events(event_id, task_id, event_type, actor, reason, prior_state,
                new_state, occurred_at, correlation_ref, causal_ref, payload, schema_version)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0.1.0')""",
-            (str(uuid.uuid4()), task_id, event_type, actor, reason, prior.value if prior else None, new.value, utc_now(), correlation, causal, json.dumps(payload, sort_keys=True)),
+            (event_id, task_id, event_type, actor, reason, prior.value if prior else None, new.value, utc_now(), correlation, causal, json.dumps(payload, sort_keys=True)),
         )
+        return event_id
