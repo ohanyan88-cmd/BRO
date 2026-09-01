@@ -14,6 +14,7 @@
     {"id":"INV-READINESS-002","statement":"BRO product readiness is computed from declared repository evidence criteria and missing future evidence remains incomplete","enforcement":["tests/test_product_readiness.py"]},
     {"id":"INV-PLAN-001","statement":"Multi-step plans preserve canonical Step dependencies and only dependency-satisfied Steps become READY","enforcement":["tests/test_multistep.py"]},
     {"id":"INV-PLAN-002","statement":"A multi-step business outcome advances dependency-ready Steps on one canonical Task and only completes after all required evidence is VERIFIED","enforcement":["tests/test_multistep_execution.py"]},
-    {"id":"INV-REPLAN-001","statement":"Only CURRENT CONFIRMED observations may automatically supersede unfinished Steps and create a new MIND Plan revision","enforcement":["tests/test_replan.py"]}
+    {"id":"INV-REPLAN-001","statement":"Only CURRENT CONFIRMED observations may automatically supersede unfinished Steps and create a new MIND Plan revision","enforcement":["tests/test_replan.py"]},
+    {"id":"INV-ARTIFACT-001","statement":"HANDS-owned Artifact runtime revisions are immutable and VERIFIED requires sufficient IMMUNE Evidence from the same task boundary","enforcement":["tests/test_artifact_runtime.py"]}
   ]
 }
