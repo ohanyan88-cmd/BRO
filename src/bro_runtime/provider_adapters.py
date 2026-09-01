@@ -2,6 +2,8 @@
 
 Adapters describe how HANDS reaches a provider. Registration and selection do
 not grant authority; ActionRuntime/IMMUNE SYSTEM still govern every effect.
+Provider-declared idempotency is part of the immutable adapter contract so a
+caller cannot self-assert retry safety.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -29,10 +31,14 @@ class ProviderAdapter:
     operations: tuple[str, ...]
     invoke: Callable[[dict], AdapterResult]
     health: ProviderHealth = ProviderHealth.HEALTHY
+    idempotent_operations: tuple[str, ...] = ()
 
     @property
     def ref(self) -> str:
         return f"{self.provider}:{self.adapter_id}@{self.version}"
+
+    def guarantees_idempotency(self, operation: str) -> bool:
+        return operation in self.idempotent_operations
 
 
 class ProviderAdapterRegistry:
@@ -46,6 +52,9 @@ class ProviderAdapterRegistry:
             raise ProviderAdapterRejected("adapter_id, provider and version are required")
         if not adapter.operations:
             raise ProviderAdapterRejected("provider adapter requires operations")
+        unknown_idempotent = set(adapter.idempotent_operations) - set(adapter.operations)
+        if unknown_idempotent:
+            raise ProviderAdapterRejected("idempotent operations must be declared provider operations")
         key = (adapter.provider, adapter.adapter_id, adapter.version)
         if key in self._adapters:
             raise ProviderAdapterRejected("provider adapter version is immutable")
