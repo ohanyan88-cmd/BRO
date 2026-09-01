@@ -6,6 +6,7 @@ and SKILLS only supplies capability candidates. This module composes them.
 from __future__ import annotations
 from dataclasses import dataclass
 from .nervous_records import StepState
+from .orchestration import SpecialistAssignment
 
 class MultiStepRejected(ValueError): pass
 
@@ -31,7 +32,7 @@ class PreparedStep:
     key: str
     step_ref: str
     capability_ref: str
-    assignment_ref: str
+    assignment: SpecialistAssignment
 
 @dataclass(frozen=True)
 class PreparedPlan:
@@ -70,12 +71,11 @@ def validate_graph(requests:tuple[StepRequest,...])->tuple[str,...]:
 
 def ready_step_refs(prepared:PreparedPlan,nervous)->tuple[str,...]:
     """Promote dependency-satisfied PLANNED steps and return currently READY refs."""
-    refs={s.key:s.step_ref for s in prepared.steps}
     ready=[]
     for item in prepared.steps:
         step=nervous.step(item.step_ref)
         if step.state is StepState.PLANNED:
-            dependencies=[nervous.step(refs[key]) for key in step.dependencies]
+            dependencies=[nervous.step(ref) for ref in step.dependencies]
             if dependencies and all(dep.state is StepState.SUCCEEDED for dep in dependencies):
                 step=nervous.transition_step(step.step_id,StepState.READY)
         if step.state is StepState.READY: ready.append(step.step_id)
