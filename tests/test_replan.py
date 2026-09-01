@@ -63,14 +63,16 @@ class ObservationReplanTests(unittest.TestCase):
             StepRequest("notify-current","Notify current owner channel","send","notification","artifact:notification-current","inspect current notification"),
             StepRequest("verify-current","Verify changed workflow","inspect","crm","artifact:acceptance-current","acceptance check",("notify-current",)),
         )
+    def replan(self):
+        return replan_from_observation(
+            self.kernel,self.prepared,verifier_id="IMMUNE:replan-test",observation=self.reality(),
+            replacements=self.replacements(),now=T1,
+        )
 
     def test_verified_current_observation_supersedes_unfinished_route_and_completes(self):
         self.routed()
         old_notify=self.prepared.step("notify").step_ref; old_verify=self.prepared.step("verify").step_ref
-        result=replan_from_observation(
-            self.kernel,self.prepared,verifier_id="IMMUNE:replan-test",observation=self.reality(),
-            replacements=self.replacements(),now=T1,
-        )
+        result=self.replan()
         revised=result.prepared
         self.assertEqual(result.prior_plan_revision,1); self.assertEqual(result.plan_revision,2)
         observed=self.kernel.perception.observation(result.observation_ref)
@@ -109,10 +111,7 @@ class ObservationReplanTests(unittest.TestCase):
 
     def test_expired_authority_blocks_replanned_step_before_claim(self):
         self.routed()
-        result=replan_from_observation(
-            self.kernel,self.prepared,verifier_id="IMMUNE:replan-test",observation=self.reality(),
-            replacements=self.replacements(),now=T1,
-        )
+        result=self.replan()
         expired=replace(
             self.envelope(result.prepared,"notify-current","send","notification:ops-alerts","adapter:notify"),
             expires_at=T1,
@@ -122,5 +121,21 @@ class ObservationReplanTests(unittest.TestCase):
         assignment=self.kernel.supervisor.assignments.get_assignment(result.prepared.step("notify-current").assignment.assignment_id)
         self.assertEqual(assignment["state"],AssignmentState.READY)
         self.assertEqual(self.tasks.fetch_task(result.prepared.task_ref)["state"],"BLOCKED")
+
+    def test_stale_prepared_plan_cannot_replan_current_revision(self):
+        self.routed()
+        result=self.replan()
+        revised=result.prepared
+        binding=open_replanned_step(
+            self.kernel,result,self.envelope(revised,"notify-current","send","notification:ops-alerts","adapter:notify"),
+            worker_id="worker:notify",step_key="notify-current",now=T1,
+        )
+        self.execute_settle(revised,binding,"notify-current","send","notification:ops-alerts","adapter:notify","owner notified","artifact:notification-current")
+        with self.assertRaisesRegex(Exception,"stale Plan revision"):
+            replan_from_observation(
+                self.kernel,self.prepared,verifier_id="IMMUNE:replan-test",observation=self.reality({"owner_channel":"other"}),
+                replacements=self.replacements(),now=T1,
+            )
+        self.assertEqual(self.kernel.mind_store.plan(revised.plan_ref).revision,2)
 
 if __name__=="__main__": unittest.main()
