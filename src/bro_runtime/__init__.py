@@ -10,6 +10,7 @@ from .approval import Approval,ApprovalDecision,ApprovalRegistry,ApprovalRejecte
 from .reference_integrity import ReferenceIntegrity,ReferenceIntegrityError
 from .governed_supervision import GovernedTaskSupervisor
 from .perception import Freshness,Intent,Observation,PerceptionRejected,PerceptionStore,TrustState
+from .memory import MemoryClass,MemoryFreshness,MemoryRecord,MemoryRejected,MemoryRetrieval,MemoryStatus,MemoryStore
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -19,4 +20,5 @@ __all__=[
 "ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
 "Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState",
 "ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor",
-"Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState"]
+"Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState",
+"MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore"]
