@@ -1,9 +1,9 @@
 import json
-import sqlite3
 import unittest
 from urllib.request import Request, urlopen
 
-from bro_runtime.immune import AuthorityEnvelope, Evidence, EvidenceFreshness, EvidenceValidity, evidence_scope
+from bro_runtime.evidence_verification import EvidenceObservation, EvidenceVerifier, VerificationResult
+from bro_runtime.immune import AuthorityEnvelope, EvidenceFreshness, EvidenceValidity, evidence_scope
 from bro_runtime.kernel import BROKernel
 from bro_runtime.mind import SQLiteMindStore
 from bro_runtime.orchestration import AssignmentState
@@ -31,6 +31,14 @@ class RealSystemAcceptanceTests(unittest.TestCase):
             authority_requirements=("inspect",), evidence_capabilities=("inspect",),
             provider_ref="adapter:github-rest", health_ref="health:github-rest",
             status=CapabilityStatus.ACTIVE, recorded_at=T0,
+        ))
+        self.kernel.register_evidence_verifier(EvidenceVerifier(
+            "IMMUNE:github-acceptance",
+            lambda _observation: VerificationResult(
+                EvidenceValidity.VALID,
+                EvidenceFreshness.CURRENT,
+                {"verification_source": "live-github-rest"},
+            ),
         ))
 
     @staticmethod
@@ -68,14 +76,22 @@ class RealSystemAcceptanceTests(unittest.TestCase):
         )
         binding = self.kernel.open(prepared, envelope, worker_id="specialist:real-system", now=T1)
         scope = evidence_scope("BRO", task_ref)
-        evidence = Evidence(
-            "evidence:real-github", "live repository is externally readable", "external-readback", "github",
-            {"full_name": external["full_name"], "default_branch": external["default_branch"], "id": external["id"]},
-            REPO_API, T1, True, scope, (), EvidenceValidity.VALID, EvidenceFreshness.CURRENT, "IMMUNE_SYSTEM",
+        observation = EvidenceObservation(
+            criterion="live repository is externally readable",
+            evidence_type="external-readback",
+            source="github",
+            provenance={"full_name": external["full_name"], "default_branch": external["default_branch"], "id": external["id"]},
+            collection_method=REPO_API,
+            result=True,
+            scope=scope,
         )
-        self.kernel.supervisor.settle_assignment(
-            binding, result_state=AssignmentState.SUCCEEDED,
-            output_ref=f"github:repo:{external['full_name']}", evidence=(evidence,), now=T1,
+        self.kernel.settle_verified_assignment(
+            prepared,
+            binding,
+            result_state=AssignmentState.SUCCEEDED,
+            output_ref=f"github:repo:{external['full_name']}",
+            observations=(("IMMUNE:github-acceptance", observation),),
+            now=T1,
         )
         manifest = self.kernel.complete(
             prepared, binding,

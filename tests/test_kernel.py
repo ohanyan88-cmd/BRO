@@ -2,8 +2,9 @@ import unittest
 
 from bro_runtime.action_runtime import ActionRequest, AdapterResult, EffectState
 from bro_runtime.continuity import ContinuityStatus, HeartRecord, SelfRecord
+from bro_runtime.evidence_verification import EvidenceObservation, EvidenceVerifier, VerificationResult
 from bro_runtime.feet import RouteState
-from bro_runtime.immune import AuthorityEnvelope, Evidence, EvidenceFreshness, EvidenceValidity, evidence_scope
+from bro_runtime.immune import AuthorityEnvelope, EvidenceFreshness, EvidenceValidity, evidence_scope
 from bro_runtime.kernel import BROKernel, KernelRejected
 from bro_runtime.memory import MemoryClass, MemoryFreshness
 from bro_runtime.mind import SQLiteMindStore
@@ -26,6 +27,10 @@ class KernelIntegrationTests(unittest.TestCase):
             input_contract_ref=None,output_contract_ref="artifact:automation",dependency_refs=(),
             authority_requirements=("write",),evidence_capabilities=("inspect",),provider_ref="adapter:crm",
             health_ref=None,status=CapabilityStatus.ACTIVE,recorded_at=T0))
+        self.kernel.register_evidence_verifier(EvidenceVerifier(
+            "IMMUNE:kernel-test",
+            lambda _observation: VerificationResult(EvidenceValidity.VALID,EvidenceFreshness.CURRENT,{"verified":True}),
+        ))
 
     def prepare(self, **changes):
         values=dict(request="Automate lead routing",source="user:gev",project_boundary="BRO",
@@ -112,13 +117,12 @@ class KernelIntegrationTests(unittest.TestCase):
             interface_version="1",adapter=lambda _:AdapterResult("deployed",EffectState.CONFIRMED),now=T1)
         self.assertEqual(attempt["effect_state"],"CONFIRMED")
         scope=evidence_scope("BRO",task_id)
-        self.kernel.supervisor.reconcile(binding,"action:1",EffectState.CONFIRMED,
-            Evidence("evidence:effect","effect reconciled","inspection","crm",{"record":"routing"},"read-back",T1,
-                True,scope,(),EvidenceValidity.VALID,EvidenceFreshness.CURRENT,"IMMUNE_SYSTEM"),now=T1)
-        self.kernel.supervisor.settle_assignment(binding,result_state=AssignmentState.SUCCEEDED,
-            output_ref="artifact:routing-v1",evidence=(Evidence("evidence:criterion","automation works","inspection","crm",
-                {"record":"routing"},"functional-check",T1,True,scope,(),EvidenceValidity.VALID,
-                EvidenceFreshness.CURRENT,"IMMUNE_SYSTEM"),),now=T1)
+        self.kernel.reconcile_verified(prepared,binding,"action:1",EffectState.CONFIRMED,
+            EvidenceObservation("effect reconciled","inspection","crm",{"record":"routing"},"read-back",True,scope),
+            verifier_id="IMMUNE:kernel-test",now=T1)
+        self.kernel.settle_verified_assignment(prepared,binding,result_state=AssignmentState.SUCCEEDED,
+            output_ref="artifact:routing-v1",observations=(("IMMUNE:kernel-test",
+                EvidenceObservation("automation works","inspection","crm",{"record":"routing"},"functional-check",True,scope)),),now=T1)
         manifest=self.kernel.complete(prepared,binding,outcome_statement="Lead routing automation is deployed and verified",
             required_criteria=("automation works",),now=T1)
         self.assertTrue(manifest.is_verified())

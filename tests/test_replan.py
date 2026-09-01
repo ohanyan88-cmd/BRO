@@ -2,12 +2,13 @@ import unittest
 
 from bro_runtime import (
     ActionRequest, AdapterResult, AssignmentState, AuthorityEnvelope, BROKernel,
-    Capability, CapabilityKind, CapabilityStatus, EffectState, Evidence,
-    EvidenceFreshness, EvidenceValidity, Freshness, SQLiteMindStore, SQLiteTaskStore,
-    StepRequest, StepState, TrustState, complete_multistep, continue_multistep,
-    evidence_scope, open_multistep, open_replanned_step, prepare_multistep,
-    replan_from_observation, settle_multistep,
+    Capability, CapabilityKind, CapabilityStatus, EffectState, EvidenceFreshness,
+    EvidenceValidity, Freshness, SQLiteMindStore, SQLiteTaskStore, StepRequest,
+    StepState, TrustState, complete_multistep, continue_multistep, evidence_scope,
+    open_multistep, open_replanned_step, prepare_multistep, replan_from_observation,
+    settle_multistep,
 )
+from bro_runtime.evidence_verification import EvidenceObservation, EvidenceVerifier, VerificationResult
 
 T0="2026-09-01T00:00:00Z"; T1="2026-09-01T00:00:01Z"
 
@@ -17,6 +18,10 @@ class ObservationReplanTests(unittest.TestCase):
         self.addCleanup(self.tasks.close); self.addCleanup(self.mind.close)
         for cid,operation,domain,provider in (("cap:crm","write","crm","adapter:crm"),("cap:notify","send","notification","adapter:notify"),("cap:verify","inspect","crm","adapter:verify")):
             self.kernel.skills.register(Capability(cid,1,CapabilityKind.TOOL_ADAPTER,cid,cid,(operation,),(domain,),None,f"artifact:{cid}",(),(operation,),("inspect",),provider,None,CapabilityStatus.ACTIVE,T0))
+        self.kernel.register_evidence_verifier(EvidenceVerifier(
+            "IMMUNE:replan-test",
+            lambda _observation: VerificationResult(EvidenceValidity.VALID,EvidenceFreshness.CURRENT,{"verified":True}),
+        ))
         self.prepared=prepare_multistep(self.kernel,request="Automate lead handling",source="user",project_boundary="BRO",desired_outcome="Lead handling adapts to current reality",interpreted_scope=("crm","notification"),success_conditions=("lead routed","owner notified","acceptance verified"),authority_basis="user request",materiality="MATERIAL",risk_class="R2",steps=(
             StepRequest("route","Route lead","write","crm","artifact:routing","inspect routing"),
             StepRequest("notify","Notify old owner channel","send","notification","artifact:notification","inspect notification",("route",)),
@@ -27,10 +32,10 @@ class ObservationReplanTests(unittest.TestCase):
         step=prepared.step(key)
         return ActionRequest(f"action:{key}",prepared.task_ref,f"perform {key}",operation,target,"prod",adapter,{"key":key},f"auth:{key}","R2","REVERSIBLE",f"idem:{key}",True,"ok",("inspect",),step.assignment.assignment_id,"BRO")
     def evidence(self,prepared,key,criterion):
-        return Evidence(f"evidence:{key}",criterion,"inspection",key,{"ok":True},"read-back",T1,True,evidence_scope("BRO",prepared.task_ref),(),EvidenceValidity.VALID,EvidenceFreshness.CURRENT,"IMMUNE_SYSTEM")
+        return EvidenceObservation(criterion,"inspection",key,{"ok":True},"read-back",True,evidence_scope("BRO",prepared.task_ref))
     def execute_settle(self,prepared,binding,key,operation,target,adapter,criterion,output):
         self.kernel.supervisor._execute_registered_provider(binding,self.request(prepared,key,operation,target,adapter),executor=adapter,interface_version="1",adapter=lambda _:AdapterResult("ok",EffectState.CONFIRMED),now=T1)
-        settle_multistep(self.kernel,prepared,binding,key,result_state=AssignmentState.SUCCEEDED,output_ref=output,evidence=(self.evidence(prepared,key,criterion),),now=T1)
+        settle_multistep(self.kernel,prepared,binding,key,result_state=AssignmentState.SUCCEEDED,output_ref=output,observations=(("IMMUNE:replan-test",self.evidence(prepared,key,criterion)),),now=T1)
     def test_current_confirmed_observation_supersedes_unfinished_route_and_completes(self):
         binding=open_multistep(self.kernel,self.prepared,self.envelope(self.prepared,"route","write","crm:lead-routing","adapter:crm"),worker_id="worker:route",now=T1)
         self.execute_settle(self.prepared,binding,"route","write","crm:lead-routing","adapter:crm","lead routed","artifact:routing")
@@ -51,7 +56,7 @@ class ObservationReplanTests(unittest.TestCase):
         manifest=complete_multistep(self.kernel,revised,binding,outcome_statement="Lead handling followed current observed owner channel and was verified",required_criteria=("lead routed","owner notified","acceptance verified"),now=T1)
         self.assertTrue(manifest.is_verified())
         self.assertEqual(self.tasks.fetch_task(revised.task_ref)["state"],"COMPLETED")
-        self.assertEqual(self.mind.plan if False else self.mind, self.mind)  # keep fixture ownership explicit
+        self.assertEqual(self.mind.plan if False else self.mind, self.mind)
         self.assertEqual(self.kernel.mind_store.plan(revised.plan_ref).revision,2)
     def test_unverified_or_stale_observation_cannot_auto_replan(self):
         binding=open_multistep(self.kernel,self.prepared,self.envelope(self.prepared,"route","write","crm:lead-routing","adapter:crm"),worker_id="worker:route",now=T1)

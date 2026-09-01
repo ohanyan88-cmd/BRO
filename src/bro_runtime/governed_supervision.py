@@ -5,6 +5,7 @@ import json
 
 from .action_runtime import ApprovalRequired
 from .approval import ApprovalRegistry
+from .evidence_verification import is_trusted_evidence
 from .governed_authority import GovernedAuthorityEvaluator
 from .immune import AUTHORITY_DECISION_TO_TASK_STATE, ENVELOPE_DECISION_TO_AUTHORITY, AuthorityDecision
 from .mind import SQLiteMindStore
@@ -15,11 +16,12 @@ from .task_runtime import TaskState, utc_now
 
 
 class GovernedTaskSupervisor(TaskSupervisor):
-    """Reference-closed supervisor with a recoverable Approval gate.
+    """Reference-closed supervisor with recoverable Approval and evidence gates.
 
-    Production callers must not inject arbitrary execution callables. External
-    effects enter through ProviderExecutionGateway, which resolves a registered,
-    versioned provider and then uses the narrow internal dispatch hook below.
+    Production callers must not inject arbitrary execution callables or self-minted
+    Evidence. External effects enter through ProviderExecutionGateway, while
+    reconciliation and successful settlement accept only Evidence minted by a
+    registered trusted verifier.
     """
 
     def __init__(self, store, *, mind_store: SQLiteMindStore, verifier: str = "IMMUNE_SYSTEM") -> None:
@@ -47,6 +49,30 @@ class GovernedTaskSupervisor(TaskSupervisor):
             executor=executor,
             interface_version=interface_version,
             adapter=adapter,
+            now=now,
+        )
+
+    def reconcile(self, binding, request_id, effect_state, evidence, *, now=None):
+        """Reject caller-minted Evidence on canonical effect reconciliation."""
+        if not is_trusted_evidence(evidence):
+            raise BoundaryViolation(
+                "untrusted evidence is disabled on GovernedTaskSupervisor; use the registered evidence verifier"
+            )
+        return super().reconcile(binding, request_id, effect_state, evidence, now=now)
+
+    def settle_assignment(self, binding, *, result_state, output_ref, evidence=(), limitations=(), now=None):
+        """Reject caller-minted Evidence on canonical assignment settlement."""
+        items = tuple(evidence)
+        if any(not is_trusted_evidence(item) for item in items):
+            raise BoundaryViolation(
+                "untrusted evidence is disabled on GovernedTaskSupervisor; use the registered evidence verifier"
+            )
+        return super().settle_assignment(
+            binding,
+            result_state=result_state,
+            output_ref=output_ref,
+            evidence=items,
+            limitations=limitations,
             now=now,
         )
 

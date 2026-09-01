@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 from .action_runtime import ApprovalRequired
 from .approval import ApprovalDecision
+from .evidence_verification import EvidenceObservation
 from .feet import RouteCheckpoint,RouteState
-from .immune import AUTHORITY_DECISION_TO_TASK_STATE,ENVELOPE_DECISION_TO_AUTHORITY,AuthorityDecision,AuthorityEnvelope,CompletionManifest
+from .immune import AUTHORITY_DECISION_TO_TASK_STATE,ENVELOPE_DECISION_TO_AUTHORITY,AuthorityDecision,AuthorityEnvelope,CompletionManifest,evidence_scope
 from .multistep import MultiStepRejected,PreparedPlan
 from .multistep_runtime import ready_multistep
 from .nervous_records import StepState
@@ -37,10 +38,16 @@ def open_multistep(kernel,prepared:PreparedPlan,envelope:AuthorityEnvelope,*,wor
     kernel.feet.append(RouteCheckpoint(prepared.route_id,1,prepared.task_ref,prepared.plan_ref,target.step_ref,"EXECUTING","NEXT_STEP",(),None,None,None,RouteState.ACTIVE,utc_now()))
     return binding
 
-def settle_multistep(kernel,prepared:PreparedPlan,binding:FlowBinding,step_key:str,*,result_state:AssignmentState,output_ref:str|None,evidence=(),limitations=(),now:str|None=None):
+def settle_multistep(kernel,prepared:PreparedPlan,binding:FlowBinding,step_key:str,*,result_state:AssignmentState,output_ref:str|None,observations=(),limitations=(),now:str|None=None):
     target=prepared.step(step_key)
     if target.assignment.assignment_id!=binding.assignment_id: raise MultiStepRejected("binding does not belong to the named Step")
-    result=kernel.supervisor.settle_assignment(binding,result_state=result_state,output_ref=output_ref,evidence=evidence,limitations=limitations,now=now)
+    expected_scope=evidence_scope(target.assignment.project_boundary,prepared.task_ref)
+    evidence=[]
+    for verifier_id,observation in observations:
+        if not isinstance(observation,EvidenceObservation): raise MultiStepRejected("multistep settlement requires EvidenceObservation values")
+        if observation.scope!=expected_scope: raise MultiStepRejected("evidence observation crosses the prepared task boundary")
+        evidence.append(kernel.evidence_verifiers.verify(verifier_id,observation,collected_at=now))
+    result=kernel.supervisor.settle_assignment(binding,result_state=result_state,output_ref=output_ref,evidence=tuple(evidence),limitations=limitations,now=now)
     state={AssignmentState.SUCCEEDED:StepState.SUCCEEDED,AssignmentState.PARTIAL:StepState.PARTIAL,AssignmentState.FAILED:StepState.FAILED}[AssignmentState(result_state)]
     kernel.nervous.transition_step(target.step_ref,state)
     ready_multistep(kernel,prepared)
