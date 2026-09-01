@@ -1,1 +1,23 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://bro.local/contracts/v0.1/plan.schema.json","title":"BRO Plan v0.1","x-bro-primitive":"Plan","x-bro-owner":"MIND","type":"object","additionalProperties":false,"required":["plan_id","goal_ref","decision_ref","revision","steps","checkpoints","recovery_options","completion_path","reason","supersedes","created_at"],"properties":{"plan_id":{"$ref":"common.schema.json#/$defs/identifier"},"goal_ref":{"$ref":"common.schema.json#/$defs/reference"},"decision_ref":{"$ref":"common.schema.json#/$defs/reference"},"revision":{"type":"integer","minimum":1},"steps":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["step_id","purpose","dependencies","required_capabilities","expected_output","authority_class","verification_requirement","retry_policy"],"properties":{"step_id":{"$ref":"common.schema.json#/$defs/identifier"},"purpose":{"type":"string","minLength":1},"dependencies":{"$ref":"common.schema.json#/$defs/stringArray"},"required_capabilities":{"$ref":"common.schema.json#/$defs/stringArray"},"expected_output":{"type":"string","minLength":1},"authority_class":{"type":"string","minLength":1},"verification_requirement":{"type":"string","minLength":1},"retry_policy":{"type":"string","minLength":1}}}},"checkpoints":{"$ref":"common.schema.json#/$defs/stringArray"},"recovery_options":{"$ref":"common.schema.json#/$defs/stringArray"},"completion_path":{"$ref":"common.schema.json#/$defs/stringArray"},"reason":{"type":"string","minLength":1},"supersedes":{"anyOf":[{"$ref":"common.schema.json#/$defs/reference"},{"type":"null"}]},"created_at":{"$ref":"common.schema.json#/$defs/timestamp"}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/plan.schema.json",
+  "title": "BRO Plan v0.1",
+  "x-bro-primitive": "Plan",
+  "x-bro-owner": "MIND",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan_id", "goal_ref", "decision_ref", "revision", "step_refs", "checkpoints", "recovery_options", "completion_path", "reason", "supersedes", "created_at"],
+  "properties": {
+    "plan_id": {"$ref": "common.schema.json#/$defs/identifier"},
+    "goal_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "decision_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "revision": {"type": "integer", "minimum": 1},
+    "step_refs": {"type": "array", "minItems": 1, "items": {"$ref": "common.schema.json#/$defs/reference"}},
+    "checkpoints": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "recovery_options": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "completion_path": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "reason": {"type": "string", "minLength": 1},
+    "supersedes": {"anyOf": [{"$ref": "common.schema.json#/$defs/reference"}, {"type": "null"}]},
+    "created_at": {"$ref": "common.schema.json#/$defs/timestamp"}
+  }
+}
