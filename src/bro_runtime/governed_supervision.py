@@ -10,7 +10,7 @@ from .immune import AUTHORITY_DECISION_TO_TASK_STATE, ENVELOPE_DECISION_TO_AUTHO
 from .mind import SQLiteMindStore
 from .nervous_records import NervousRecordStore
 from .reference_integrity import ReferenceIntegrity
-from .supervision import BoundaryViolation, FlowBinding, TaskSupervisor
+from .supervision import BoundaryViolation, FlowBinding, NextAction, NextStep, TaskSupervisor
 from .task_runtime import TaskState, utc_now
 
 
@@ -22,8 +22,6 @@ class GovernedTaskSupervisor(TaskSupervisor):
         self.mind_store = mind_store
         self.nervous_records = NervousRecordStore(store.connection)
         self.approvals = ApprovalRegistry(store.connection)
-        # HANDS still has exactly one authority evaluator. In governed flows that
-        # evaluator is the IMMUNE-owned approval-aware specialization.
         self.actions.authority = GovernedAuthorityEvaluator(store.connection, self.approvals)
         self.reference_integrity = ReferenceIntegrity(
             mind=mind_store, nervous=self.nervous_records,
@@ -60,8 +58,6 @@ class GovernedTaskSupervisor(TaskSupervisor):
             authority_state=AUTHORITY_DECISION_TO_TASK_STATE[decision],
         )
         self.actions.register_authority(envelope)
-        # Persist the assignment before blocking. Approval resumes this exact Task
-        # and exact assignment; it never creates replacement work.
         self.assignments.create_assignment(assignment, actor, moment)
         self.tasks.transition(
             task_id, TaskState.BLOCKED, self.verifier,
@@ -73,7 +69,6 @@ class GovernedTaskSupervisor(TaskSupervisor):
     def resume_with_approval(self, task_id: str, approval_id: str, worker_id: str, *,
                              now: str | None = None, lease_seconds: int = 30,
                              actor: str = "BRO") -> FlowBinding:
-        """Resume the same blocked Task after a current, scope-compatible Approval."""
         moment = now or utc_now()
         task = self.store.fetch_task(task_id)
         if task["state"] != TaskState.BLOCKED or task["authority_state"] != "APPROVAL_REQUIRED":
@@ -120,6 +115,17 @@ class GovernedTaskSupervisor(TaskSupervisor):
             context_manifest_ref=assignment["context_manifest_ref"],
             authority_envelope_ref=envelope.envelope_id, correlation_ref=task_id,
         )
+
+    def resume(self, task_id: str) -> NextStep:
+        """Read-only recovery that recognizes the human Approval wait state."""
+        task = self.store.fetch_task(task_id)
+        if task["state"] == TaskState.BLOCKED and task["authority_state"] == "APPROVAL_REQUIRED":
+            return NextStep(
+                TaskState.BLOCKED,
+                NextAction.NONE,
+                "task is waiting for a fresh Approval; no assignment claim or command is safe yet",
+            )
+        return super().resume(task_id)
 
     def canonical_task(self, task_id: str) -> dict:
         task = self.store.canonical_task(task_id)
