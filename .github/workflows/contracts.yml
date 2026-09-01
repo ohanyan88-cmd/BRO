@@ -10,6 +10,19 @@ permissions:
   pull-requests: read
 
 jobs:
+  remediation-wave:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Enforce remediation wave policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/validate_remediation_wave.py
+
   contracts:
     runs-on: ubuntu-latest
     steps:
@@ -17,15 +30,53 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: python3 scripts/validate_contracts.py
+
+  invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 scripts/validate_invariants.py
+
+  truth-boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 scripts/validate_truth_boundaries.py
+
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 scripts/report_product_readiness.py
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: PYTHONPATH=src python3 -m unittest discover -s tests -v
+
+  main-delivery:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Reject direct main delivery
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/validate_main_delivery.py
-      - name: Enforce remediation wave policy
-        if: github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/validate_remediation_wave.py
-      - run: make check
-
