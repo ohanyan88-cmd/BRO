@@ -1,5 +1,5 @@
 {
-  "registry_version": "0.1.0",
+  "registry_version": "0.1.1",
   "architecture_baseline": [
     "docs/architecture/BRO_ARCHITECTURE_FOUNDATION_V0_2.md",
     "docs/architecture/BRO_LOGICAL_ARCHITECTURE_V0_1.md",
@@ -7,17 +7,19 @@
   ],
   "allowed_owners": ["MIND", "PERCEPTION", "NERVOUS_SYSTEM", "HANDS", "IMMUNE_SYSTEM"],
   "contracts": [
-    {"primitive": "Task", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/task.schema.json"},
-    {"primitive": "Observation", "owner": "PERCEPTION", "schema": "contracts/v0.1/observation.schema.json"},
-    {"primitive": "Decision", "owner": "MIND", "schema": "contracts/v0.1/decision.schema.json"},
-    {"primitive": "ActionRequest", "owner": "HANDS", "schema": "contracts/v0.1/action-request.schema.json"},
-    {"primitive": "ActionAttempt", "owner": "HANDS", "schema": "contracts/v0.1/action-attempt.schema.json"},
-    {"primitive": "Evidence", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/evidence.schema.json"},
-    {"primitive": "RuntimeEvent", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/runtime-event.schema.json"},
-    {"primitive": "ContextManifest", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/context-manifest.schema.json"},
-    {"primitive": "SpecialistAssignment", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/specialist-assignment.schema.json"},
-    {"primitive": "AuthorityEnvelope", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/authority-envelope.schema.json"},
-    {"primitive": "Approval", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/approval.schema.json"},
-    {"primitive": "CompletionManifest", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/completion-manifest.schema.json"}
+    {"primitive":"Task","owner":"NERVOUS_SYSTEM","schema":"contracts/v0.1/task.schema.json"},
+    {"primitive":"Observation","owner":"PERCEPTION","schema":"contracts/v0.1/observation.schema.json"},
+    {"primitive":"Goal","owner":"MIND","schema":"contracts/v0.1/goal.schema.json"},
+    {"primitive":"Decision","owner":"MIND","schema":"contracts/v0.1/decision.schema.json"},
+    {"primitive":"Plan","owner":"MIND","schema":"contracts/v0.1/plan.schema.json"},
+    {"primitive":"ActionRequest","owner":"HANDS","schema":"contracts/v0.1/action-request.schema.json"},
+    {"primitive":"ActionAttempt","owner":"HANDS","schema":"contracts/v0.1/action-attempt.schema.json"},
+    {"primitive":"Evidence","owner":"IMMUNE_SYSTEM","schema":"contracts/v0.1/evidence.schema.json"},
+    {"primitive":"RuntimeEvent","owner":"NERVOUS_SYSTEM","schema":"contracts/v0.1/runtime-event.schema.json"},
+    {"primitive":"ContextManifest","owner":"NERVOUS_SYSTEM","schema":"contracts/v0.1/context-manifest.schema.json"},
+    {"primitive":"SpecialistAssignment","owner":"NERVOUS_SYSTEM","schema":"contracts/v0.1/specialist-assignment.schema.json"},
+    {"primitive":"AuthorityEnvelope","owner":"IMMUNE_SYSTEM","schema":"contracts/v0.1/authority-envelope.schema.json"},
+    {"primitive":"Approval","owner":"IMMUNE_SYSTEM","schema":"contracts/v0.1/approval.schema.json"},
+    {"primitive":"CompletionManifest","owner":"IMMUNE_SYSTEM","schema":"contracts/v0.1/completion-manifest.schema.json"}
   ]
 }
