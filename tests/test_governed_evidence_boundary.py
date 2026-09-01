@@ -22,7 +22,6 @@ class GovernedEvidenceBoundaryTests(unittest.TestCase):
         self.mind = SQLiteMindStore()
         self.addCleanup(self.tasks.close)
         self.addCleanup(self.mind.close)
-        self.supervisor = GovernedTaskSupervisor(self.tasks, mind_store=self.mind)
         self.registry = EvidenceVerificationRegistry()
         self.registry.register(
             EvidenceVerifier(
@@ -34,19 +33,25 @@ class GovernedEvidenceBoundaryTests(unittest.TestCase):
                 ),
             )
         )
+        self.supervisor = GovernedTaskSupervisor(
+            self.tasks, mind_store=self.mind, evidence_verifiers=self.registry
+        )
+
+    def observation(self):
+        return EvidenceObservation(
+            criterion="criterion",
+            evidence_type="readback",
+            source="provider",
+            provenance={"resource": "crm:1"},
+            collection_method="registered-provider-readback",
+            result={"ok": True},
+            scope="project:BRO::task:1",
+        )
 
     def verified(self):
         return self.registry.verify(
             "IMMUNE:test-readback",
-            EvidenceObservation(
-                criterion="criterion",
-                evidence_type="readback",
-                source="provider",
-                provenance={"resource": "crm:1"},
-                collection_method="registered-provider-readback",
-                result={"ok": True},
-                scope="project:BRO::task:1",
-            ),
+            self.observation(),
             evidence_id="evidence:verified",
             collected_at="2026-09-01T00:00:00Z",
         )
@@ -54,8 +59,28 @@ class GovernedEvidenceBoundaryTests(unittest.TestCase):
     def test_registered_verifier_attests_exact_evidence_object(self):
         evidence = self.verified()
         self.assertTrue(is_trusted_evidence(evidence))
+        self.assertTrue(self.registry.is_trusted(evidence))
         clone = Evidence(**evidence.__dict__)
         self.assertFalse(is_trusted_evidence(clone))
+        self.assertFalse(self.registry.is_trusted(clone))
+
+    def test_foreign_registry_cannot_mint_evidence_for_canonical_supervisor(self):
+        foreign = EvidenceVerificationRegistry()
+        foreign.register(
+            EvidenceVerifier(
+                "IMMUNE:foreign",
+                lambda _observation: VerificationResult(
+                    EvidenceValidity.VALID,
+                    EvidenceFreshness.CURRENT,
+                    {"verified_by": "foreign-registry"},
+                ),
+            )
+        )
+        evidence = foreign.verify("IMMUNE:foreign", self.observation())
+        self.assertTrue(is_trusted_evidence(evidence))
+        self.assertFalse(self.registry.is_trusted(evidence))
+        with self.assertRaisesRegex(BoundaryViolation, "cannot enter the canonical ledger"):
+            self.supervisor.evidence.record(evidence)
 
     def test_canonical_ledger_rejects_direct_self_minted_evidence(self):
         forged = Evidence(**self.verified().__dict__)
