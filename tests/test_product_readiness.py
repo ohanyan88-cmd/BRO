@@ -9,12 +9,13 @@ module=importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(module)
 class ProductReadinessTests(unittest.TestCase):
     def test_current_repository_score_is_evidence_derived(self):
         report=module.evaluate()
-        self.assertEqual(report["build"],91)
-        self.assertEqual(report["production"],20)
-        self.assertEqual(report["overall"],59)
-        self.assertEqual((report["passed"],report["total"]),(13,22))
+        self.assertEqual(report["build"],100)
+        self.assertEqual(report["production"],30)
+        self.assertEqual(report["overall"],68)
+        self.assertEqual((report["passed"],report["total"]),(15,22))
         missing={r["id"] for r in report["results"] if not r["passed"]}
-        self.assertIn("BUILD-ARTIFACT-RUNTIME",missing)
+        self.assertNotIn("BUILD-ARTIFACT-RUNTIME",missing)
+        self.assertNotIn("PROD-ARTIFACT-VERIFY",missing)
         self.assertIn("PROD-REAL-SYSTEM",missing)
     def test_every_criterion_has_explicit_repository_evidence(self):
         report=module.evaluate()
