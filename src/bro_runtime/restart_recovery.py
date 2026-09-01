@@ -11,7 +11,7 @@ import json
 from dataclasses import dataclass
 
 from .action_runtime import EffectState
-from .immune import Evidence
+from .immune import Evidence, evidence_scope
 from .orchestration import AssignmentState
 from .supervision import FlowBinding, NextAction, TaskSupervisor
 from .task_runtime import TERMINAL_STATES, TaskState
@@ -85,6 +85,12 @@ class RestartRecoveryRuntime:
             )
 
         body = json.loads(assignment["body"])
+        expected_scope = evidence_scope(body["project_boundary"], task_id)
+        if evidence.scope != expected_scope:
+            raise RestartRecoveryRejected(
+                f"restart evidence is scoped to {evidence.scope}, not {expected_scope}"
+            )
+
         lease = self.supervisor.assignments.claim(
             assignment["assignment_id"], worker_id, now, lease_seconds
         )
