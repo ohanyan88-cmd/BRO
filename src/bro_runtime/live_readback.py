@@ -1,8 +1,9 @@
 """Live provider read-back for reconciling HANDS effects against external truth.
 
 Canonical read-back resolves a registered, versioned provider read operation.
-The legacy callable entry point remains for compatibility, but production code
-can use the provider-bound path so write output cannot impersonate reality.
+Arbitrary callable read-back is disabled by default and exists only as an
+explicit lower-level compatibility hook; production source must use registered
+providers so caller-controlled write output cannot impersonate reality.
 """
 from __future__ import annotations
 
@@ -30,9 +31,16 @@ class ExternalObservation:
 class LiveReadbackRuntime:
     """Reconcile an attempted effect from a fresh provider read, never write output."""
 
-    def __init__(self, actions: ActionRuntime, providers: ProviderAdapterRegistry | None = None) -> None:
+    def __init__(
+        self,
+        actions: ActionRuntime,
+        providers: ProviderAdapterRegistry | None = None,
+        *,
+        allow_legacy_callable: bool = False,
+    ) -> None:
         self.actions = actions
         self.providers = providers
+        self.allow_legacy_callable = allow_legacy_callable
 
     def observe_from_provider(
         self,
@@ -104,7 +112,11 @@ class LiveReadbackRuntime:
         read: Callable[[], ExternalObservation],
         expected: Callable[[object], bool],
     ) -> ExternalObservation:
-        """Legacy compatibility path; canonical production code should use a registered provider read."""
+        """Explicit legacy/test hook; disabled unless the caller opts in."""
+        if not self.allow_legacy_callable:
+            raise LiveReadbackRejected(
+                "arbitrary callable read-back is disabled; use a registered provider read"
+            )
         attempt = self.actions.latest_attempt(request_id)
         if attempt is None:
             raise LiveReadbackRejected("live read-back requires an action attempt")
