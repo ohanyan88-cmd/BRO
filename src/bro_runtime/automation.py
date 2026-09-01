@@ -302,8 +302,7 @@ class AutomationRuntime:
 
     def _active(self, kind: TriggerKind) -> Iterable[AutomationDefinition]:
         rows = self.connection.execute(
-            "SELECT * FROM automation_definitions WHERE status=? ORDER BY automation_id, version",
-            (AutomationStatus.ACTIVE,),
+            "SELECT * FROM automation_definitions ORDER BY automation_id, version"
         ).fetchall()
         latest: dict[str, AutomationDefinition] = {}
         for row in rows:
@@ -311,7 +310,11 @@ class AutomationRuntime:
             prior = latest.get(definition.automation_id)
             if prior is None or definition.version > prior.version:
                 latest[definition.automation_id] = definition
-        return tuple(d for d in latest.values() if d.trigger_kind is kind)
+        return tuple(
+            definition
+            for definition in latest.values()
+            if definition.status is AutomationStatus.ACTIVE and definition.trigger_kind is kind
+        )
 
     def _materialize(
         self,
