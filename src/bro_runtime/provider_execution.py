@@ -3,12 +3,14 @@
 Production execution resolves a concrete versioned provider adapter before
 HANDS dispatch. Callers choose provider identity/version, never an arbitrary
 callable. IMMUNE authority is still evaluated by TaskSupervisor/ActionRuntime.
+Retry safety is derived from the immutable provider contract; the caller's
+`idempotency_guaranteed` value is never trusted as a source of authority.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .action_runtime import ActionRequest
-from .provider_adapters import ProviderAdapterRegistry
+from .provider_adapters import ProviderAdapterRegistry, ProviderAdapterRejected
 from .supervision import FlowBinding, TaskSupervisor
 
 
@@ -24,19 +26,30 @@ class ProviderExecutionGateway:
         self.supervisor = supervisor
         self.providers = providers
 
-    def execute(self, binding: FlowBinding, request: ActionRequest, *, route: ProviderRoute,
-                executor: str, now: str | None = None) -> dict:
+    def execute(
+        self,
+        binding: FlowBinding,
+        request: ActionRequest,
+        *,
+        route: ProviderRoute,
+        executor: str,
+        now: str | None = None,
+    ) -> dict:
         if request.adapter_id != route.adapter_id:
-            raise ValueError("action adapter_id does not match the selected provider route")
+            raise ProviderAdapterRejected("action adapter_id does not match the selected provider route")
         adapter = self.providers.resolve(
             provider=route.provider,
             adapter_id=route.adapter_id,
             version=route.version,
             operation=request.operation,
         )
+        guaranteed = adapter.guarantees_idempotency(request.operation)
+        if guaranteed and not request.idempotency_key.strip():
+            raise ProviderAdapterRejected("idempotent provider execution requires an idempotency key")
+        governed_request = replace(request, idempotency_guaranteed=guaranteed)
         return self.supervisor.execute(
             binding,
-            request,
+            governed_request,
             executor=executor,
             interface_version=adapter.version,
             adapter=adapter.invoke,
