@@ -16,19 +16,15 @@ from .skills import Capability,CapabilityKind,CapabilityMatch,CapabilityRegistry
 from .feet import FeetRejected,FeetStore,RouteCheckpoint,RouteState
 from .voice import VoiceInput,VoiceProjection,VoiceRejected,VoiceRuntime,VoiceState
 from .kernel import BROKernel,KernelRejected,PreparedFlow,RecoveryView
+from .readiness import CheckState,ReadinessCheck,ReadinessMeter,ReadinessReport
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
 "AuthorityDecision","AuthorityEnvelope","AuthorityEvaluator","AuthorityRejected","AuthorityVerdict","CompletionManifest","CompletionNotVerified","CompletionVerdict","EffectRecord","Evidence","EvidenceFreshness","EvidenceLedger","EvidenceRejected","EvidenceValidity","evidence_scope","normalize_boundary_scope",
 "ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","EffectState","RetryBlocked","AssignmentRejected","AssignmentState","LeaseGrant","SpecialistAssignment","StaleWorkerResult","Supervisor","BoundaryViolation","FlowBinding","NextAction","NextStep","SupervisionRejected","TaskSupervisor",
-"Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","SQLiteMindStore",
-"ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
-"Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState",
-"ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor",
-"Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState",
-"MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore",
-"ContinuityEnvelope","ContinuityRejected","ContinuityStatus","ContinuityStore","HeartRecord","SelfRecord",
-"Capability","CapabilityKind","CapabilityMatch","CapabilityRegistry","CapabilityRejected","CapabilityStatus",
-"FeetRejected","FeetStore","RouteCheckpoint","RouteState",
-"VoiceInput","VoiceProjection","VoiceRejected","VoiceRuntime","VoiceState",
-"BROKernel","KernelRejected","PreparedFlow","RecoveryView"]
+"Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","SQLiteMindStore","ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
+"Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState","ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor",
+"Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState","MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore",
+"ContinuityEnvelope","ContinuityRejected","ContinuityStatus","ContinuityStore","HeartRecord","SelfRecord","Capability","CapabilityKind","CapabilityMatch","CapabilityRegistry","CapabilityRejected","CapabilityStatus",
+"FeetRejected","FeetStore","RouteCheckpoint","RouteState","VoiceInput","VoiceProjection","VoiceRejected","VoiceRuntime","VoiceState","BROKernel","KernelRejected","PreparedFlow","RecoveryView",
+"CheckState","ReadinessCheck","ReadinessMeter","ReadinessReport"]
