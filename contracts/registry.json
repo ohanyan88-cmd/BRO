@@ -1,5 +1,5 @@
 {
-  "registry_version": "0.1.3",
+  "registry_version": "0.1.4",
   "architecture_baseline": [
     "docs/architecture/BRO_ARCHITECTURE_FOUNDATION_V0_2.md",
     "docs/architecture/BRO_LOGICAL_ARCHITECTURE_V0_1.md",

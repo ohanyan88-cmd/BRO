@@ -6,7 +6,7 @@
   "x-bro-owner": "NERVOUS_SYSTEM",
   "type": "object",
   "additionalProperties": false,
-  "required": ["automation_id", "project_boundary", "desired_outcome", "schedule_kind", "interval_seconds", "next_due_at", "status", "revision"],
+  "required": ["automation_id", "project_boundary", "desired_outcome", "schedule_kind", "interval_seconds", "next_due_at", "misfire_policy", "max_catch_up", "status", "revision"],
   "properties": {
     "automation_id": {"$ref": "common.schema.json#/$defs/identifier"},
     "project_boundary": {"type": "string", "minLength": 1},
@@ -14,6 +14,8 @@
     "schedule_kind": {"enum": ["INTERVAL"]},
     "interval_seconds": {"type": "integer", "minimum": 1},
     "next_due_at": {"$ref": "common.schema.json#/$defs/timestamp"},
+    "misfire_policy": {"enum": ["COALESCE", "CATCH_UP"]},
+    "max_catch_up": {"type": "integer", "minimum": 1},
     "status": {"enum": ["ACTIVE", "PAUSED", "CANCELLED"]},
     "revision": {"type": "integer", "minimum": 1}
   }
