@@ -11,6 +11,7 @@ from dataclasses import dataclass, replace
 
 from .action_runtime import ActionRequest
 from .provider_adapters import ProviderAdapterRegistry, ProviderAdapterRejected
+from .secret_runtime import SecretMediator, SecretRejected
 from .supervision import FlowBinding, TaskSupervisor
 
 
@@ -19,12 +20,14 @@ class ProviderRoute:
     provider: str
     adapter_id: str
     version: str
+    secret_bindings: tuple[tuple[str, str], ...] = ()
 
 
 class ProviderExecutionGateway:
-    def __init__(self, supervisor: TaskSupervisor, providers: ProviderAdapterRegistry) -> None:
+    def __init__(self, supervisor: TaskSupervisor, providers: ProviderAdapterRegistry, secrets: SecretMediator | None = None) -> None:
         self.supervisor = supervisor
         self.providers = providers
+        self.secrets = secrets
 
     def execute(
         self,
@@ -47,6 +50,23 @@ class ProviderExecutionGateway:
         if guaranteed and not request.idempotency_key.strip():
             raise ProviderAdapterRejected("idempotent provider execution requires an idempotency key")
         governed_request = replace(request, idempotency_guaranteed=guaranteed)
+        bindings = dict(route.secret_bindings)
+        if set(bindings) != set(adapter.required_secrets):
+            raise ProviderAdapterRejected("provider secret bindings must exactly match its declared requirements")
+        if bindings and self.secrets is None:
+            raise ProviderAdapterRejected("provider requires configured secret mediation")
+
+        def mediated_invoke(public_inputs: dict):
+            # This closure is entered by ActionRuntime only after its current IMMUNE
+            # verdict has authorized this exact request. Plaintext never enters the
+            # request, attempt inputs, or supervisor events.
+            try:
+                runtime_inputs = dict(public_inputs)
+                runtime_inputs.update({name: self.secrets.resolve(ref, adapter.adapter_id, now=now).value
+                                       for name, ref in bindings.items()})
+                return adapter.invoke(runtime_inputs)
+            except SecretRejected:
+                raise
         dispatch = getattr(self.supervisor, "_execute_registered_provider", None)
         if dispatch is None:
             raise ProviderAdapterRejected(
@@ -57,6 +77,6 @@ class ProviderExecutionGateway:
             governed_request,
             executor=executor,
             interface_version=adapter.version,
-            adapter=adapter.invoke,
+            adapter=mediated_invoke,
             now=now,
         )

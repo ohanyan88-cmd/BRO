@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable, Mapping
+import os
 
 from .action_runtime import ActionRejected, ActionRuntime, ActionState, AdapterResult
 
@@ -27,22 +28,44 @@ class SecretGrant:
 
 class SecretMediator:
     def __init__(self) -> None:
-        self._secrets: dict[str, tuple[str, str]] = {}
+        self._secrets: dict[str, tuple[str, str, str | None, bool]] = {}
 
-    def register(self, secret_ref: str, adapter_id: str, value: str) -> None:
+    def register(self, secret_ref: str, adapter_id: str, value: str, *, expires_at: str | None = None) -> None:
         if not secret_ref or not adapter_id or not value:
             raise SecretRejected("secret registration requires ref, adapter boundary, and value")
         if secret_ref in self._secrets:
             raise SecretRejected("secret references are immutable")
-        self._secrets[secret_ref] = (adapter_id, value)
+        self._secrets[secret_ref] = (adapter_id, value, expires_at, False)
 
-    def resolve(self, secret_ref: str, adapter_id: str) -> SecretGrant:
+    def register_environment(self, secret_ref: str, adapter_id: str, variable: str, *, expires_at: str | None = None) -> None:
+        """Acceptance-only resolver: copy an explicitly named environment secret into mediation."""
+        value = os.environ.get(variable)
+        if not value:
+            raise SecretRejected(f"required mediated environment secret is unavailable: {variable}")
+        self.register(secret_ref, adapter_id, value, expires_at=expires_at)
+
+    def revoke(self, secret_ref: str) -> None:
+        try:
+            adapter, value, expiry, _ = self._secrets[secret_ref]
+        except KeyError as exc:
+            raise SecretRejected("unknown secret reference") from exc
+        self._secrets[secret_ref] = (adapter, value, expiry, True)
+
+    def resolve(self, secret_ref: str, adapter_id: str, *, now: str | None = None) -> SecretGrant:
         bound = self._secrets.get(secret_ref)
         if bound is None:
             raise SecretRejected("unknown secret reference")
-        allowed_adapter, value = bound
+        allowed_adapter, value, expires_at, revoked = bound
         if adapter_id != allowed_adapter:
             raise SecretRejected("secret cannot cross its approved adapter boundary")
+        if revoked:
+            raise SecretRejected("secret reference is revoked")
+        if expires_at is not None:
+            from datetime import datetime
+            from .task_runtime import utc_now
+            parse = lambda value: datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parse(now or utc_now()) >= parse(expires_at):
+                raise SecretRejected("secret reference is expired")
         return SecretGrant(secret_ref, adapter_id, value)
 
 

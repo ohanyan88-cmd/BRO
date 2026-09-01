@@ -75,3 +75,28 @@ make check
 ```
 
 No runtime implementation or donor port may redefine a canonical primitive, assign a second owner, or bypass these contract gates. Selective ports from the OS donor follow only after the target contract they serve exists and their provenance, behavior, tests, parity evidence, and rollback are recorded.
+
+## Authenticated GitHub write acceptance
+
+BRO's first production-like external write connector is an issue-comment `ensure`
+operation. It is restricted at construction to one owner/repository/issue and
+uses a stable comment marker as provider-owned reconciliation identity. A retry
+reads GitHub first: an exact existing effect is reused, a conflicting or
+ambiguous effect fails closed, and no local cache is accepted as external truth.
+This slice does **not** establish general production readiness.
+
+Normal CI is offline. To opt into the real authenticated acceptance, set all of:
+
+- `BRO_GITHUB_ACCEPTANCE=1`
+- `BRO_GITHUB_TOKEN` (a token permitted to comment only on the configured target,
+  where practical)
+- `BRO_GITHUB_OWNER`, `BRO_GITHUB_REPOSITORY`, and `BRO_GITHUB_ISSUE`
+- optionally `BRO_GITHUB_IDEMPOTENCY_KEY`, `BRO_GITHUB_COMMENT_BODY`, and
+  `BRO_GITHUB_ACCEPTANCE_RECORD` (defaults to
+  `artifacts/github-write-acceptance.json`)
+
+The environment-backed resolver is only an acceptance adapter, not a production
+secret-manager claim. Provider execution receives the token through
+`SecretMediator`; acceptance records contain only resource identifiers and
+hashes. The marker comment is intentionally non-destructive and is not cleaned
+up automatically.
