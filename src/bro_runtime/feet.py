@@ -117,9 +117,22 @@ class FeetStore:
         )
         return self.append(record)
 
+    def pause(self, route_id: str, *, unresolved_refs: tuple[str, ...] = ()) -> RouteCheckpoint:
+        prior = self.latest(route_id)
+        if prior.state in {RouteState.COMPLETED, RouteState.CANCELLED}:
+            raise FeetRejected(f"terminal route {prior.state} cannot pause")
+        record = RouteCheckpoint(
+            **{**asdict(prior), "version": prior.version + 1, "state": RouteState.PAUSED,
+               "unresolved_refs": tuple(dict.fromkeys((*prior.unresolved_refs, *unresolved_refs))),
+               "recorded_at": utc_now()}
+        )
+        return self.append(record)
+
     def block(self, route_id: str, *, authority_ref: str | None = None,
               integrity_ref: str | None = None, risk_ref: str | None = None) -> RouteCheckpoint:
         prior = self.latest(route_id)
+        if prior.state in {RouteState.COMPLETED, RouteState.CANCELLED}:
+            raise FeetRejected(f"terminal route {prior.state} cannot block")
         if not any((authority_ref, integrity_ref, risk_ref)):
             raise FeetRejected("blocking requires a blocker reference")
         record = RouteCheckpoint(
@@ -146,5 +159,22 @@ class FeetStore:
             unresolved_refs=prior.unresolved_refs, authority_blocker_ref=None,
             integrity_blocker_ref=None, risk_blocker_ref=None,
             state=RouteState.ACTIVE, recorded_at=utc_now(),
+        )
+        return self.append(record)
+
+    def complete(self, route_id: str, *, current_location: str = "COMPLETED") -> RouteCheckpoint:
+        prior = self.latest(route_id)
+        if prior.state is RouteState.CANCELLED:
+            raise FeetRejected("CANCELLED route cannot complete")
+        if prior.state is RouteState.COMPLETED:
+            return prior
+        if any((prior.authority_blocker_ref, prior.integrity_blocker_ref, prior.risk_blocker_ref)):
+            raise FeetRejected("blocked route cannot complete")
+        record = RouteCheckpoint(
+            route_id=prior.route_id, version=prior.version + 1, task_ref=prior.task_ref,
+            plan_ref=prior.plan_ref, current_step_ref=prior.current_step_ref,
+            current_location=current_location, next_location=None, unresolved_refs=(),
+            authority_blocker_ref=None, integrity_blocker_ref=None, risk_blocker_ref=None,
+            state=RouteState.COMPLETED, recorded_at=utc_now(),
         )
         return self.append(record)
