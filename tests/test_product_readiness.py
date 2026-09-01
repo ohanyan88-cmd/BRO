@@ -10,12 +10,13 @@ class ProductReadinessTests(unittest.TestCase):
     def test_current_repository_score_is_evidence_derived(self):
         report=module.evaluate()
         self.assertEqual(report["build"],100)
-        self.assertEqual(report["production"],30)
-        self.assertEqual(report["overall"],68)
-        self.assertEqual((report["passed"],report["total"]),(15,22))
+        self.assertEqual(report["production"],40)
+        self.assertEqual(report["overall"],72)
+        self.assertEqual((report["passed"],report["total"]),(16,22))
         missing={r["id"] for r in report["results"] if not r["passed"]}
         self.assertNotIn("BUILD-ARTIFACT-RUNTIME",missing)
         self.assertNotIn("PROD-ARTIFACT-VERIFY",missing)
+        self.assertNotIn("PROD-ADAPTER-REGISTRY",missing)
         self.assertIn("PROD-REAL-SYSTEM",missing)
     def test_every_criterion_has_explicit_repository_evidence(self):
         report=module.evaluate()
