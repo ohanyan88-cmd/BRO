@@ -15,7 +15,12 @@ from .task_runtime import TaskState, utc_now
 
 
 class GovernedTaskSupervisor(TaskSupervisor):
-    """Reference-closed supervisor with a recoverable Approval gate."""
+    """Reference-closed supervisor with a recoverable Approval gate.
+
+    Production callers must not inject arbitrary execution callables. External
+    effects enter through ProviderExecutionGateway, which resolves a registered,
+    versioned provider and then uses the narrow internal dispatch hook below.
+    """
 
     def __init__(self, store, *, mind_store: SQLiteMindStore, verifier: str = "IMMUNE_SYSTEM") -> None:
         super().__init__(store, verifier=verifier)
@@ -26,6 +31,23 @@ class GovernedTaskSupervisor(TaskSupervisor):
         self.reference_integrity = ReferenceIntegrity(
             mind=mind_store, nervous=self.nervous_records,
             approvals=self.approvals, evidence=self.evidence,
+        )
+
+    def execute(self, *args, **kwargs):
+        """Reject raw callable execution on the canonical governed supervisor."""
+        raise BoundaryViolation(
+            "raw execution is disabled on GovernedTaskSupervisor; use the registered provider gateway"
+        )
+
+    def _execute_registered_provider(self, binding, request, *, executor, interface_version, adapter, now=None):
+        """Internal gateway hook after provider identity/version has been resolved."""
+        return super().execute(
+            binding,
+            request,
+            executor=executor,
+            interface_version=interface_version,
+            adapter=adapter,
+            now=now,
         )
 
     def open_flow(self, *, task_id, goal_ref, plan_ref, assignment, envelope, worker_id,
