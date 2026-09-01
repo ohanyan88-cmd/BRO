@@ -1,5 +1,6 @@
 """BRO's provider-independent durable runtime core."""
 from .task_runtime import CompletionEvidence,ConcurrencyConflict,InvalidTransition,RecoveryAssessment,SQLiteTaskStore,TaskContractViolation,TaskRuntime,TaskState
+from .automation import AutomationDefinition,AutomationOccurrence,AutomationRejected,AutomationRuntime,AutomationStatus,OccurrenceState
 from .immune import AuthorityDecision,AuthorityEnvelope,AuthorityEvaluator,AuthorityRejected,AuthorityVerdict,CompletionManifest,CompletionNotVerified,CompletionVerdict,EffectRecord,Evidence,EvidenceFreshness,EvidenceLedger,EvidenceRejected,EvidenceValidity,evidence_scope,normalize_boundary_scope
 from .action_runtime import ActionRequest,ActionRuntime,ActionState,AdapterResult,ApprovalRequired,EffectState,RetryBlocked
 from .artifact_runtime import ArtifactRecord,ArtifactRejected,ArtifactState,ArtifactStore
@@ -28,6 +29,7 @@ from .replan import ReplanResult,open_replanned_step,replan_from_observation
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
+"AutomationDefinition","AutomationOccurrence","AutomationRejected","AutomationRuntime","AutomationStatus","OccurrenceState",
 "AuthorityDecision","AuthorityEnvelope","AuthorityEvaluator","AuthorityRejected","AuthorityVerdict","CompletionManifest","CompletionNotVerified","CompletionVerdict","EffectRecord","Evidence","EvidenceFreshness","EvidenceLedger","EvidenceRejected","EvidenceValidity","evidence_scope","normalize_boundary_scope",
 "ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","EffectState","RetryBlocked","ArtifactRecord","ArtifactRejected","ArtifactState","ArtifactStore","ProviderAdapter","ProviderAdapterRegistry","ProviderAdapterRejected","ProviderHealth","ExternalObservation","LiveReadbackRejected","LiveReadbackRuntime","AssignmentRejected","AssignmentState","LeaseGrant","SpecialistAssignment","StaleWorkerResult","Supervisor","BoundaryViolation","FlowBinding","NextAction","NextStep","SupervisionRejected","TaskSupervisor","RestartReconciliation","RestartRecoveryRejected","RestartRecoveryRuntime",
 "Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","SQLiteMindStore","ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
