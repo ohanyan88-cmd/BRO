@@ -22,6 +22,7 @@ class TruthBoundaryGateTests(unittest.TestCase):
             "evidence_verification.py": "Evidence(\n",
             "supervision.py": "self.evidence.record(x)\nself.evidence.evaluate_completion(x)\n",
             "governed_supervision.py": "self.evidence._evaluate_bound_completion(x)\n",
+            "replan.py": "kernel.mind.replan(plan_id, step_refs=refs, reason='verified reality')\n",
         })
         self.assertEqual(validate(root), [])
 
@@ -39,6 +40,11 @@ class TruthBoundaryGateTests(unittest.TestCase):
         root = self.tree({"rogue.py": "LiveReadbackRuntime(actions, allow_legacy_callable=True)\n"})
         errors = validate(root)
         self.assertTrue(any("legacy callable live readback opt-in" in error for error in errors))
+
+    def test_new_direct_plan_revision_writer_fails_closed(self):
+        root = self.tree({"rogue.py": "kernel.mind.replan(plan_id, step_refs=refs, reason='caller said so')\n"})
+        errors = validate(root)
+        self.assertTrue(any("canonical Plan revision writer" in error for error in errors))
 
 
 if __name__ == "__main__":
