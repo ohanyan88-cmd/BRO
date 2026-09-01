@@ -14,21 +14,34 @@ from .immune import Evidence, EvidenceFreshness, EvidenceRejected, EvidenceValid
 from .task_runtime import utc_now
 
 
-# Process-local attestation of Evidence objects minted by this boundary. The
-# canonical governed supervisor checks object identity, not caller-controlled
-# fields such as ``verifier``. Weak values avoid retaining Evidence solely for
-# attestation after the runtime no longer references it.
-_TRUSTED_EVIDENCE: weakref.WeakValueDictionary[int, Evidence] = weakref.WeakValueDictionary()
+# Process-local object attestation remains useful for preventing caller-cloned
+# Evidence from crossing a live write boundary, but trust is also bound to the
+# exact EvidenceVerificationRegistry that minted it. This prevents another
+# registry in the same process from creating Evidence accepted by the canonical
+# kernel's supervisor. Persisted ledger truth is read as durable history; fresh
+# canonical writes after restart must be re-verified by the active registry.
+_ATTESTATIONS: dict[int, tuple[weakref.ReferenceType[Evidence], object]] = {}
 
 
-def _attest(evidence: Evidence) -> Evidence:
-    _TRUSTED_EVIDENCE[id(evidence)] = evidence
+def _attest(evidence: Evidence, registry_marker: object) -> Evidence:
+    evidence_id = id(evidence)
+
+    def cleanup(ref):
+        current = _ATTESTATIONS.get(evidence_id)
+        if current is not None and current[0] is ref:
+            _ATTESTATIONS.pop(evidence_id, None)
+
+    ref = weakref.ref(evidence, cleanup)
+    _ATTESTATIONS[evidence_id] = (ref, registry_marker)
     return evidence
 
 
 def is_trusted_evidence(evidence: object) -> bool:
-    """Return whether this exact Evidence object was minted by a trusted verifier."""
-    return isinstance(evidence, Evidence) and _TRUSTED_EVIDENCE.get(id(evidence)) is evidence
+    """Compatibility introspection: was this exact object minted by any verifier registry?"""
+    if not isinstance(evidence, Evidence):
+        return False
+    attestation = _ATTESTATIONS.get(id(evidence))
+    return bool(attestation and attestation[0]() is evidence)
 
 
 @dataclass(frozen=True)
@@ -62,6 +75,7 @@ class EvidenceVerificationRegistry:
 
     def __init__(self) -> None:
         self._verifiers: dict[str, EvidenceVerifier] = {}
+        self._trust_marker = object()
 
     def register(self, verifier: EvidenceVerifier) -> EvidenceVerifier:
         if not verifier.verifier_id.strip():
@@ -70,6 +84,17 @@ class EvidenceVerificationRegistry:
             raise EvidenceRejected("evidence verifier identity is immutable")
         self._verifiers[verifier.verifier_id] = verifier
         return verifier
+
+    def is_trusted(self, evidence: object) -> bool:
+        """Return whether this exact Evidence object was minted by this registry."""
+        if not isinstance(evidence, Evidence):
+            return False
+        attestation = _ATTESTATIONS.get(id(evidence))
+        return bool(
+            attestation
+            and attestation[0]() is evidence
+            and attestation[1] is self._trust_marker
+        )
 
     def verify(self, verifier_id: str, observation: EvidenceObservation, *, evidence_id: str | None = None,
                collected_at: str | None = None) -> Evidence:
@@ -96,4 +121,4 @@ class EvidenceVerificationRegistry:
             freshness=verdict.freshness,
             verifier=verifier.verifier_id,
         )
-        return _attest(evidence)
+        return _attest(evidence, self._trust_marker)
