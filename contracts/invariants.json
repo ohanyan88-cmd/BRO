@@ -7,6 +7,7 @@
     {"id":"INV-EFFECT-001","statement":"Unknown external effect never permits blind unsafe retry","enforcement":["tests/test_action_runtime.py","tests/test_supervision.py"]},
     {"id":"INV-DONE-001","statement":"Task completion requires an IMMUNE-owned verified completion manifest","enforcement":["tests/test_task_runtime.py","tests/test_immune.py"]},
     {"id":"INV-TRUTH-001","statement":"Production source cannot create new direct Evidence, completion-manifest, ledger-write, or legacy callable readback truth paths outside canonical owners","enforcement":["tests/test_truth_boundaries.py","tests/test_governed_evidence_boundary.py","tests/test_live_readback.py"]},
+    {"id":"INV-EXECUTION-001","statement":"Registered provider execution fails closed unless it reaches the governed registered-provider dispatch boundary; no raw supervisor execute fallback is allowed","enforcement":["tests/test_evidence_provider_spine.py","tests/test_truth_boundaries.py"]},
     {"id":"INV-STATE-001","statement":"Verified terminal completion closes Task, Step, and FEET route consistently","enforcement":["tests/test_kernel.py"]},
     {"id":"INV-VOICE-001","statement":"VOICE never upgrades tool/effect success into verified completion","enforcement":["tests/test_voice.py","tests/test_kernel.py"]},
     {"id":"INV-MEMORY-001","statement":"Retrieved memory never silently becomes current truth","enforcement":["tests/test_memory.py","tests/test_kernel.py"]},
