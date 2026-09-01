@@ -7,12 +7,28 @@ from .action_runtime import ApprovalRequired
 from .approval import ApprovalRegistry
 from .evidence_verification import is_trusted_evidence
 from .governed_authority import GovernedAuthorityEvaluator
-from .immune import AUTHORITY_DECISION_TO_TASK_STATE, ENVELOPE_DECISION_TO_AUTHORITY, AuthorityDecision
+from .immune import (
+    AUTHORITY_DECISION_TO_TASK_STATE,
+    ENVELOPE_DECISION_TO_AUTHORITY,
+    AuthorityDecision,
+    EvidenceLedger,
+)
 from .mind import SQLiteMindStore
 from .nervous_records import NervousRecordStore
 from .reference_integrity import ReferenceIntegrity
 from .supervision import BoundaryViolation, FlowBinding, NextAction, NextStep, TaskSupervisor
 from .task_runtime import TaskState, utc_now
+
+
+class TrustedEvidenceLedger(EvidenceLedger):
+    """Canonical IMMUNE ledger that refuses caller-minted Evidence at the writer boundary."""
+
+    def record(self, evidence):
+        if not is_trusted_evidence(evidence):
+            raise BoundaryViolation(
+                "untrusted evidence cannot enter the canonical ledger; use a registered evidence verifier"
+            )
+        return super().record(evidence)
 
 
 class GovernedTaskSupervisor(TaskSupervisor):
@@ -26,6 +42,10 @@ class GovernedTaskSupervisor(TaskSupervisor):
 
     def __init__(self, store, *, mind_store: SQLiteMindStore, verifier: str = "IMMUNE_SYSTEM") -> None:
         super().__init__(store, verifier=verifier)
+        # Replace the lower-level ledger with the canonical trusted writer. This
+        # closes direct ``supervisor.evidence.record(...)`` bypasses in addition to
+        # guarding reconcile/settlement entrypoints below.
+        self.evidence = TrustedEvidenceLedger(store.connection)
         self.mind_store = mind_store
         self.nervous_records = NervousRecordStore(store.connection)
         self.approvals = ApprovalRegistry(store.connection)
