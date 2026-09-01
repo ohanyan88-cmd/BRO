@@ -50,9 +50,22 @@ class LiveReadbackTests(unittest.TestCase):
         )
         return request_id
 
-    def test_live_effect_is_reconciled_from_external_state(self):
-        request_id = self.request()
+    def test_raw_callable_readback_is_disabled_by_default(self):
+        request_id = self.request("action-default-closed")
         runtime = LiveReadbackRuntime(self.actions)
+        with self.assertRaisesRegex(LiveReadbackRejected, "arbitrary callable read-back is disabled"):
+            runtime.reconcile_from_external_state(
+                request_id,
+                read=lambda: ExternalObservation(
+                    "acme:crm@v1", "customer:C-1", {"customer_exists": True}, "evidence:readback:C-1"
+                ),
+                expected=lambda state: state.get("customer_exists") is True,
+            )
+        self.assertEqual(self.actions.effective_effect(self.actions.latest_attempt(request_id)), EffectState.POSSIBLE)
+
+    def test_legacy_live_effect_reconciliation_requires_explicit_opt_in(self):
+        request_id = self.request()
+        runtime = LiveReadbackRuntime(self.actions, allow_legacy_callable=True)
         observation = runtime.reconcile_from_external_state(
             request_id,
             read=lambda: ExternalObservation(
@@ -67,7 +80,7 @@ class LiveReadbackTests(unittest.TestCase):
 
     def test_write_result_cannot_substitute_for_live_readback(self):
         request_id = self.request("action-no-read")
-        runtime = LiveReadbackRuntime(self.actions)
+        runtime = LiveReadbackRuntime(self.actions, allow_legacy_callable=True)
         with self.assertRaisesRegex(LiveReadbackRejected, "ExternalObservation"):
             runtime.reconcile_from_external_state(
                 request_id,
