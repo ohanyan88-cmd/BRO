@@ -2,7 +2,7 @@ import sqlite3
 import unittest
 
 from bro_runtime import (
-    Approval, ApprovalDecision, ApprovalRegistry, GovernedTaskSupervisor,
+    Approval, ApprovalDecision, ApprovalRegistry, ApprovalRejected, GovernedTaskSupervisor,
     NextAction, RevocationState, SQLiteMindStore, SQLiteTaskStore,
     TaskRuntime, TaskState,
 )
@@ -18,7 +18,7 @@ class ApprovalReplayTests(unittest.TestCase):
         self.registry = ApprovalRegistry(self.connection)
         self.addCleanup(self.connection.close)
 
-    def approval(self):
+    def approval(self, *, action_request_ref="action:1"):
         return Approval(
             approval_id="approval:1", approver="user:1", proof_ref="proof:1",
             requested_action="write", target="repo:BRO",
@@ -26,7 +26,7 @@ class ApprovalReplayTests(unittest.TestCase):
             risk_class="R3", consequences=("change",), conditions=(), valid_from=T0,
             expires_at="2026-09-02T00:00:00Z", decision=ApprovalDecision.APPROVED,
             revocation_state=RevocationState.ACTIVE, task_ref="task:1",
-            action_request_ref=None, audit_ref="audit:1", step_ref="step:1",
+            action_request_ref=action_request_ref, audit_ref="audit:1", step_ref="step:1",
         )
 
     def test_consumed_approval_cannot_be_replayed_from_older_version(self):
@@ -41,6 +41,22 @@ class ApprovalReplayTests(unittest.TestCase):
         self.registry.consume("approval:1", task_ref="task:1", action_request_ref="action:1")
         self.assertEqual(self.registry.get("approval:1")["decision"], "CONSUMED")
         self.assertIsNone(self.registry.approved_for(**kwargs))
+
+    def test_consumption_cannot_rebind_task_or_action(self):
+        self.registry.record(self.approval())
+        with self.assertRaises(ApprovalRejected):
+            self.registry.consume("approval:1", task_ref="task:other", action_request_ref="action:1")
+        with self.assertRaises(ApprovalRejected):
+            self.registry.consume("approval:1", task_ref="task:1", action_request_ref="action:other")
+        latest = self.registry.get("approval:1")
+        self.assertEqual(latest["decision"], "APPROVED")
+        self.assertEqual(latest["version"], 1)
+
+    def test_unbound_approval_cannot_gain_action_binding_when_consumed(self):
+        self.registry.record(self.approval(action_request_ref=None))
+        with self.assertRaises(ApprovalRejected):
+            self.registry.consume("approval:1", task_ref="task:1", action_request_ref="action:1")
+        self.assertEqual(self.registry.get("approval:1")["decision"], "APPROVED")
 
 
 class ApprovalRecoveryRoutingTests(unittest.TestCase):
