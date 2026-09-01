@@ -19,6 +19,7 @@ from .kernel import BROKernel,KernelRejected,PreparedFlow,RecoveryView
 from .readiness import CheckState,ReadinessCheck,ReadinessMeter,ReadinessReport,RuntimeReadiness
 from .multistep import MultiStepRejected,PreparedPlan,PreparedStep,StepRequest,ready_step_refs,validate_graph
 from .multistep_runtime import prepare_multistep,ready_multistep
+from .multistep_execution import complete_multistep,continue_multistep,open_multistep,resume_multistep_with_approval,settle_multistep
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -29,4 +30,5 @@ __all__=[
 "Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState","MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore",
 "ContinuityEnvelope","ContinuityRejected","ContinuityStatus","ContinuityStore","HeartRecord","SelfRecord","Capability","CapabilityKind","CapabilityMatch","CapabilityRegistry","CapabilityRejected","CapabilityStatus",
 "FeetRejected","FeetStore","RouteCheckpoint","RouteState","VoiceInput","VoiceProjection","VoiceRejected","VoiceRuntime","VoiceState","BROKernel","KernelRejected","PreparedFlow","RecoveryView",
-"CheckState","ReadinessCheck","ReadinessMeter","ReadinessReport","RuntimeReadiness","MultiStepRejected","PreparedPlan","PreparedStep","StepRequest","ready_step_refs","validate_graph","prepare_multistep","ready_multistep"]
+"CheckState","ReadinessCheck","ReadinessMeter","ReadinessReport","RuntimeReadiness","MultiStepRejected","PreparedPlan","PreparedStep","StepRequest","ready_step_refs","validate_graph","prepare_multistep","ready_multistep",
+"open_multistep","settle_multistep","continue_multistep","resume_multistep_with_approval","complete_multistep"]
