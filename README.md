@@ -39,7 +39,7 @@ Read in this order:
 
 All repository changes must follow **branch → pull request → green CI → merge**. Direct delivery to `main` is forbidden. The canonical CI workflow checks every `main` push against GitHub's associated pull requests and fails closed when the pushed commit is not associated with a merged PR targeting `main`.
 
-Product readiness is evidence-derived from `contracts/product_readiness.json`. Tests calculate expected readiness from the current declared criteria and evidence instead of duplicating manually maintained percentages.
+Repository readiness-evidence coverage is derived from `contracts/product_readiness.json`. Its selectors show that expected test source exists; they do not prove test execution or production readiness. Production criteria explicitly distinguish simulated/in-memory coverage from external-system acceptance, and CI results plus durable environment-specific acceptance evidence must be assessed separately.
 
 ## Current state
 
