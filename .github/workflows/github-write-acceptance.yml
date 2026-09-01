@@ -1,0 +1,33 @@
+name: Governed GitHub write acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  governed-github-write:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run governed authenticated external-write acceptance
+        env:
+          BRO_GITHUB_ACCEPTANCE: "1"
+          BRO_GITHUB_TOKEN: ${{ github.token }}
+          BRO_GITHUB_OWNER: ohanyan88-cmd
+          BRO_GITHUB_REPOSITORY: BRO
+          BRO_GITHUB_ISSUE: "45"
+          BRO_GITHUB_IDEMPOTENCY_KEY: bro-governed-live-write-v1
+          BRO_GITHUB_COMMENT_BODY: BRO governed authenticated external write acceptance v1
+        run: PYTHONPATH=src python3 scripts/run_github_authenticated_acceptance.py
+      - name: Upload sanitized acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-write-acceptance
+          path: artifacts/github-write-acceptance.json
+          if-no-files-found: error
