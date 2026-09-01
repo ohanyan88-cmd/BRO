@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "owner": "src/bro_runtime/production_control.py",
+  "purpose": "Bind production activation to independently read-back deployment evidence, passing external acceptance, durable release provenance, and observable service heartbeats.",
+  "invariants": [
+    "Deploy acknowledgement alone cannot activate a production release.",
+    "Production activation requires DeploymentResult state PROMOTED with deployment evidence.",
+    "Production activation requires AcceptanceRun PASS with at least one passing external_system or production assurance result.",
+    "Exactly one release is ACTIVE per environment; a newer activation supersedes the prior active release.",
+    "Service heartbeat records require explicit revision, state, timestamp, instance identity, and evidence reference.",
+    "This repository contract does not claim that any deployment platform, multi-node service, or production environment is actually deployed."
+  ],
+  "evidence": [
+    "tests/test_production_control.py::test_activation_requires_promoted_deployment_and_external_acceptance",
+    "tests/test_production_control.py::test_repository_only_acceptance_cannot_activate_production",
+    "tests/test_production_control.py::test_new_activation_supersedes_previous_active_release",
+    "tests/test_production_control.py::test_latest_heartbeat_is_observable_per_instance"
+  ]
+}
