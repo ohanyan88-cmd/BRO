@@ -57,6 +57,16 @@ class GovernedEvidenceBoundaryTests(unittest.TestCase):
         clone = Evidence(**evidence.__dict__)
         self.assertFalse(is_trusted_evidence(clone))
 
+    def test_canonical_ledger_rejects_direct_self_minted_evidence(self):
+        forged = Evidence(**self.verified().__dict__)
+        with self.assertRaisesRegex(BoundaryViolation, "cannot enter the canonical ledger"):
+            self.supervisor.evidence.record(forged)
+
+    def test_canonical_ledger_accepts_registered_verifier_evidence(self):
+        evidence = self.verified()
+        recorded = self.supervisor.evidence.record(evidence)
+        self.assertEqual(recorded["evidence_id"], evidence.evidence_id)
+
     def test_canonical_supervisor_rejects_self_minted_reconciliation_evidence(self):
         forged = Evidence(**self.verified().__dict__)
         with self.assertRaisesRegex(BoundaryViolation, "untrusted evidence is disabled"):
