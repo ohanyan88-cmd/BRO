@@ -1,6 +1,7 @@
 """Canonical BRO runtime composition without stealing organ ownership."""
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass
 from typing import Callable, Iterable
@@ -23,6 +24,7 @@ from .orchestration import AssignmentState, SpecialistAssignment
 from .perception import PerceptionStore
 from .provider_adapters import ProviderAdapter, ProviderAdapterRegistry, ProviderHealth
 from .provider_execution import ProviderExecutionGateway, ProviderRoute
+from .restart_recovery import RestartReconciliation, RestartRecoveryRuntime
 from .secret_runtime import SecretMediator
 from .readiness import ReadinessReport, RuntimeReadiness
 from .skills import CapabilityRegistry
@@ -80,12 +82,14 @@ class BROKernel:
         self.readiness = RuntimeReadiness()
         self.supervisor = GovernedTaskSupervisor(task_store, mind_store=mind_store)
 
-        # Canonical production boundaries. Provider routing and evidence verification
-        # are composed here so callers do not need to stitch helper modules together.
+        # Canonical production boundaries. Provider routing, evidence verification,
+        # and restart reconciliation are composed here so callers do not stitch
+        # privileged helper paths together themselves.
         self.providers = ProviderAdapterRegistry()
         self.secrets = SecretMediator()
         self.provider_gateway = ProviderExecutionGateway(self.supervisor, self.providers, self.secrets)
         self.evidence_verifiers = EvidenceVerificationRegistry()
+        self.restart_recovery = RestartRecoveryRuntime(self.supervisor)
         self._provider_health_for = provider_health_for or (lambda _provider_ref: ProviderHealth.HEALTHY)
 
     def register_provider(self, adapter: ProviderAdapter) -> ProviderAdapter:
@@ -382,6 +386,41 @@ class BROKernel:
     ) -> dict:
         evidence = self.verify_evidence(prepared, observation, verifier_id=verifier_id, collected_at=now)
         return self.supervisor.reconcile(binding, request_id, effect_state, evidence, now=now)
+
+    def reconcile_after_restart(
+        self,
+        task_id: str,
+        request_id: str,
+        effect_state: EffectState,
+        observation: EvidenceObservation,
+        *,
+        verifier_id: str,
+        worker_id: str,
+        now: str,
+        lease_seconds: int = 30,
+    ) -> RestartReconciliation:
+        """Canonical restart path: trusted Evidence first, then fenced reconciliation; never replay."""
+        assignments = self.supervisor.assignments.assignments_for_task(task_id)
+        if not assignments:
+            raise KernelRejected("persisted Task has no specialist assignment for restart reconciliation")
+        body = json.loads(assignments[-1]["body"])
+        expected_scope = evidence_scope(body["project_boundary"], task_id)
+        if observation.scope != expected_scope:
+            raise KernelRejected("restart observation crosses the persisted Task boundary")
+        evidence = self.evidence_verifiers.verify(
+            verifier_id,
+            observation,
+            collected_at=now,
+        )
+        return self.restart_recovery.reconcile_observed_effect(
+            task_id,
+            request_id,
+            effect_state=effect_state,
+            evidence=evidence,
+            worker_id=worker_id,
+            now=now,
+            lease_seconds=lease_seconds,
+        )
 
     def settle_verified_assignment(
         self,

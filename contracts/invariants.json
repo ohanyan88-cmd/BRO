@@ -107,7 +107,16 @@
       "id": "INV-RECOVERY-003",
       "statement": "After process restart, a persisted POSSIBLE or UNKNOWN external effect must be independently observed and reconciled under a fresh fenced lease; recovery never steals a live lease or replays the external command",
       "enforcement": [
-        "tests/test_durable_external_write_recovery.py"
+        "tests/test_durable_external_write_recovery.py",
+        "tests/test_kernel_restart_recovery.py"
+      ]
+    },
+    {
+      "id": "INV-RECOVERY-004",
+      "statement": "Canonical restart reconciliation through BROKernel must reject foreign observations before recovery state mutation and mint trusted IMMUNE Evidence through a registered verifier before effect reconciliation",
+      "enforcement": [
+        "tests/test_kernel_restart_recovery.py",
+        "tests/test_governed_evidence_boundary.py"
       ]
     },
     {
