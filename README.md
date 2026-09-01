@@ -35,6 +35,12 @@ Read in this order:
 - Project/private boundaries are enforced.
 - Models, tools, and providers remain replaceable mechanisms.
 
+## Development delivery rule
+
+All repository changes must follow **branch → pull request → green CI → merge**. Direct delivery to `main` is forbidden. The canonical CI workflow checks every `main` push against GitHub's associated pull requests and fails closed when the pushed commit is not associated with a merged PR targeting `main`.
+
+Product readiness is evidence-derived from `contracts/product_readiness.json`. Tests calculate expected readiness from the current declared criteria and evidence instead of duplicating manually maintained percentages.
+
 ## Current state
 
 Architecture checkpoints 1–4 are defined. Repository foundation implementation has begun with provider-independent canonical contracts, a single-owner registry, fail-closed validation, tests, and CI enforcement.
