@@ -22,5 +22,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/validate_main_delivery.py
+      - name: Enforce remediation wave policy
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/validate_remediation_wave.py
       - run: make check
 
