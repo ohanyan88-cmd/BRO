@@ -23,6 +23,7 @@ CANONICAL_TASK_COLUMNS={
 "accountable_identity":"accountable_identity TEXT NOT NULL DEFAULT 'BRO'","plan_ref":"plan_ref TEXT","plan_revision":"plan_revision INTEGER","active_step_ref":"active_step_ref TEXT","blocker_ref":"blocker_ref TEXT","context_manifest_ref":"context_manifest_ref TEXT","authority_state":"authority_state TEXT NOT NULL DEFAULT 'UNASSESSED'","approval_refs":"approval_refs TEXT NOT NULL DEFAULT '[]'","artifact_refs":"artifact_refs TEXT NOT NULL DEFAULT '[]'","excluded_scope":"excluded_scope TEXT NOT NULL DEFAULT '[]'","completion_manifest_ref":"completion_manifest_ref TEXT"}
 JSON_TASK_COLUMNS=("evidence_refs","artifact_refs","approval_refs","excluded_scope")
 AUTHORITY_STATES=frozenset({"UNASSESSED","ALLOWED","APPROVAL_REQUIRED","DENIED","EXPIRED","REVOKED"})
+_UNSET=object()
 
 class RuntimeErrorBase(Exception): pass
 class InvalidTransition(RuntimeErrorBase): pass
@@ -80,7 +81,7 @@ class TaskRuntime:
     def record_event(self,task_id,event_type,actor,reason,*,correlation_ref=None,causal_ref=None,payload=None):
         task=self.store.fetch_task(task_id); state=TaskState(task["state"])
         with self.store.connection:return self._append_event(task_id,event_type,actor,reason,None,state,correlation_ref or task_id,causal_ref,payload or {})
-    def transition(self,task_id,target,actor,reason,expected_revision,*,correlation_ref=None,causal_ref=None,resume_checkpoint_ref=None,completion=None,evidence_refs=(),payload=None,plan_ref=None,plan_revision=None,context_manifest_ref=None,authority_state=None,active_step_ref=None,blocker_ref=None,artifact_refs=(),approval_refs=(),excluded_scope=(),completion_manifest_ref=None):
+    def transition(self,task_id,target,actor,reason,expected_revision,*,correlation_ref=None,causal_ref=None,resume_checkpoint_ref=None,completion=None,evidence_refs=(),payload=None,plan_ref=None,plan_revision=None,context_manifest_ref=None,authority_state=None,active_step_ref=None,blocker_ref=_UNSET,artifact_refs=(),approval_refs=(),excluded_scope=(),completion_manifest_ref=None):
         task=self.store.fetch_task(task_id); source=TaskState(task["state"])
         if task["revision"]!=expected_revision:raise ConcurrencyConflict(f"expected revision {expected_revision}, found {task['revision']}")
         self._guard_transition(source,target,task,resume_checkpoint_ref)
@@ -98,8 +99,9 @@ class TaskRuntime:
         if target in {TaskState.BLOCKED,TaskState.PAUSED}:prior_active=source.value
         elif source in {TaskState.BLOCKED,TaskState.PAUSED}:prior_active=None
         termination=reason if target in TERMINAL_STATES else None
+        next_blocker=task["blocker_ref"] if blocker_ref is _UNSET else blocker_ref
         with self.store.connection:
-            cursor=self.store.connection.execute("""UPDATE tasks SET state=?,prior_active_state=?,resume_checkpoint_ref=?,evidence_refs=?,artifact_refs=?,approval_refs=?,excluded_scope=?,plan_ref=?,plan_revision=?,context_manifest_ref=?,authority_state=?,active_step_ref=?,blocker_ref=?,completion_manifest_ref=?,revision=revision+1,updated_at=?,termination_reason=? WHERE task_id=? AND revision=?""",(target,prior_active,resume_checkpoint_ref or task["resume_checkpoint_ref"],json.dumps(refs),json.dumps(artifacts),json.dumps(approvals),json.dumps(exclusions),plan_ref if plan_ref is not None else task["plan_ref"],plan_revision if plan_revision is not None else task["plan_revision"],context_manifest_ref if context_manifest_ref is not None else task["context_manifest_ref"],authority_state if authority_state is not None else task["authority_state"],active_step_ref if active_step_ref is not None else task["active_step_ref"],blocker_ref if blocker_ref is not None else task["blocker_ref"],manifest_ref,now,termination,task_id,expected_revision))
+            cursor=self.store.connection.execute("""UPDATE tasks SET state=?,prior_active_state=?,resume_checkpoint_ref=?,evidence_refs=?,artifact_refs=?,approval_refs=?,excluded_scope=?,plan_ref=?,plan_revision=?,context_manifest_ref=?,authority_state=?,active_step_ref=?,blocker_ref=?,completion_manifest_ref=?,revision=revision+1,updated_at=?,termination_reason=? WHERE task_id=? AND revision=?""",(target,prior_active,resume_checkpoint_ref or task["resume_checkpoint_ref"],json.dumps(refs),json.dumps(artifacts),json.dumps(approvals),json.dumps(exclusions),plan_ref if plan_ref is not None else task["plan_ref"],plan_revision if plan_revision is not None else task["plan_revision"],context_manifest_ref if context_manifest_ref is not None else task["context_manifest_ref"],authority_state if authority_state is not None else task["authority_state"],active_step_ref if active_step_ref is not None else task["active_step_ref"],next_blocker,manifest_ref,now,termination,task_id,expected_revision))
             if cursor.rowcount!=1:raise ConcurrencyConflict("task changed during transition")
             self._append_event(task_id,f"task.{target.value.lower()}",actor,reason,source,target,correlation_ref or task_id,causal_ref,payload)
         return self.store.fetch_task(task_id)
