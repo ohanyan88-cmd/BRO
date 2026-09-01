@@ -3,11 +3,11 @@
 Production execution resolves a concrete versioned provider adapter before
 HANDS dispatch. Callers choose provider identity/version, never an arbitrary
 callable. IMMUNE authority is still evaluated by TaskSupervisor/ActionRuntime.
-Retry safety is accepted only when the immutable provider contract declares the
-operation idempotent; the ActionRequest cannot grant itself that property.
+Retry safety is derived from the immutable provider contract; the caller's
+`idempotency_guaranteed` value is never trusted as a source of authority.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .action_runtime import ActionRequest
 from .provider_adapters import ProviderAdapterRegistry, ProviderAdapterRejected
@@ -43,13 +43,13 @@ class ProviderExecutionGateway:
             version=route.version,
             operation=request.operation,
         )
-        if request.idempotency_guaranteed and not adapter.guarantees_idempotency(request.operation):
-            raise ProviderAdapterRejected(
-                "action cannot claim idempotency unless the selected provider contract guarantees it"
-            )
+        guaranteed = adapter.guarantees_idempotency(request.operation)
+        if guaranteed and not request.idempotency_key.strip():
+            raise ProviderAdapterRejected("idempotent provider execution requires an idempotency key")
+        governed_request = replace(request, idempotency_guaranteed=guaranteed)
         return self.supervisor.execute(
             binding,
-            request,
+            governed_request,
             executor=executor,
             interface_version=adapter.version,
             adapter=adapter.invoke,
