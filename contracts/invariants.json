@@ -65,6 +65,15 @@
       ]
     },
     {
+      "id": "INV-SECRET-001",
+      "statement": "Arbitrary adapter/provider exception text is never persisted or surfaced across the canonical HANDS/provider boundary; error details are redacted while timeout remains an UNKNOWN-effect signal",
+      "enforcement": [
+        "tests/test_action_runtime.py",
+        "tests/test_provider_error_sanitization.py",
+        "tests/test_secret_mediation.py"
+      ]
+    },
+    {
       "id": "INV-STATE-001",
       "statement": "Verified terminal completion closes Task, Step, and FEET route consistently",
       "enforcement": [

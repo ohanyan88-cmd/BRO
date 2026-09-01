@@ -62,7 +62,7 @@ class ProviderExecutionGateway:
         def mediated_invoke(public_inputs: dict):
             # This closure is entered by ActionRuntime only after its current IMMUNE
             # verdict has authorized this exact request. Plaintext never enters the
-            # request, attempt inputs, or supervisor events.
+            # request, attempt inputs, supervisor events, or persisted error text.
             try:
                 runtime_inputs = dict(public_inputs)
                 runtime_inputs.update({name: self.secrets.resolve(ref, adapter.adapter_id, now=now).value
@@ -70,6 +70,10 @@ class ProviderExecutionGateway:
                 return adapter.invoke(runtime_inputs)
             except SecretRejected:
                 raise
+            except TimeoutError:
+                raise TimeoutError("registered provider timed out; details redacted") from None
+            except Exception:
+                raise ProviderAdapterRejected("registered provider invocation failed; details redacted") from None
         dispatch = getattr(self.supervisor, "_execute_registered_provider", None)
         if dispatch is None:
             raise ProviderAdapterRejected(

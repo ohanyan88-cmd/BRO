@@ -62,12 +62,25 @@ class ActionRuntimeTests(unittest.TestCase):
         self.assertEqual(called, [])
         self.assertEqual(other.get_request("action:1")["state"], ActionState.DENIED)
 
-    def test_timeout_is_unknown_not_none(self) -> None:
+    def test_timeout_is_unknown_and_raw_exception_text_is_redacted(self) -> None:
         self.authorize()
-        def timeout(_): raise TimeoutError("transport timeout")
+        secret = "TOP-SECRET-TOKEN"
+        def timeout(_): raise TimeoutError(f"transport timeout bearer={secret}")
         attempt = self.dispatch(timeout)
         self.assertEqual(attempt["status"], "TIMED_OUT")
         self.assertEqual(attempt["effect_state"], EffectState.UNKNOWN)
+        self.assertEqual(attempt["error"], "TimeoutError: adapter error details redacted")
+        self.assertNotIn(secret, attempt["error"])
+
+    def test_failed_adapter_error_is_possible_and_raw_exception_text_is_redacted(self) -> None:
+        self.authorize()
+        secret = "TOP-SECRET-TOKEN"
+        def fail(_): raise RuntimeError(f"SDK echoed credential {secret}")
+        attempt = self.dispatch(fail)
+        self.assertEqual(attempt["status"], "FAILED")
+        self.assertEqual(attempt["effect_state"], EffectState.POSSIBLE)
+        self.assertEqual(attempt["error"], "AdapterFailure: adapter error details redacted")
+        self.assertNotIn(secret, attempt["error"])
 
     def test_unknown_effect_blocks_non_idempotent_retry_until_reconciled(self) -> None:
         self.authorize()
