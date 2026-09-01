@@ -3,46 +3,30 @@
 HANDS owns the Action Request, the Action Attempt, and execution truth. It does
 not decide whether an action is permitted: it submits the request to the single
 `AuthorityEvaluator` in `immune.py` and records the state its verdict implies.
-`AuthorityEnvelope` is re-exported here so existing HANDS-facing imports keep
-working, but it is defined and owned once, by IMMUNE SYSTEM.
 """
-
 from __future__ import annotations
-
-import json
-import sqlite3
-import uuid
-from dataclasses import asdict, dataclass
+import json,sqlite3,uuid
+from dataclasses import asdict,dataclass
 from enum import StrEnum
 from typing import Callable
-
-from .immune import AuthorityDecision, AuthorityEnvelope, AuthorityEvaluator, AuthorityRejected
+from .immune import AuthorityDecision,AuthorityEnvelope,AuthorityEvaluator,AuthorityRejected
 from .task_runtime import utc_now
-
-__all__ = [
-    "ActionRejected", "ActionRequest", "ActionRuntime", "ActionState", "AdapterResult",
-    "ApprovalRequired", "AuthorityEnvelope", "EffectState", "RetryBlocked",
-]
-
+__all__=["ActionRejected","ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","AuthorityEnvelope","EffectState","RetryBlocked"]
 class ActionRejected(Exception): pass
 class RetryBlocked(ActionRejected): pass
 class ApprovalRequired(ActionRejected): pass
-
 class ActionState(StrEnum):
     PROPOSED="PROPOSED"; AUTHORIZED="AUTHORIZED"; DISPATCHED="DISPATCHED"; RESULT_RECEIVED="RESULT_RECEIVED"; EFFECT_RECONCILED="EFFECT_RECONCILED"; VERIFIED="VERIFIED"; DENIED="DENIED"; FAILED="FAILED"; TIMED_OUT="TIMED_OUT"; EFFECT_UNKNOWN="EFFECT_UNKNOWN"; CANCELLED="CANCELLED"
 class EffectState(StrEnum):
     NONE="NONE"; POSSIBLE="POSSIBLE"; CONFIRMED="CONFIRMED"; UNKNOWN="UNKNOWN"; REVERSED="REVERSED"
-
 @dataclass(frozen=True)
 class ActionRequest:
     action_request_id:str; task_ref:str; intended_effect:str; operation:str; target:str; environment:str; adapter_id:str; input_parameters:dict; authority_envelope_ref:str; risk_class:str; reversibility:str; idempotency_key:str; idempotency_guaranteed:bool; expected_result:object; verification_requirements:tuple[str,...]; assignment_ref:str|None=None; project_boundary:str|None=None
-
 @dataclass(frozen=True)
 class AdapterResult:
     result:object; effect_state:EffectState; artifact_refs:tuple[str,...]=(); observation_refs:tuple[str,...]=()
-
 class ActionRuntime:
-    def __init__(self, connection:sqlite3.Connection)->None:
+    def __init__(self,connection:sqlite3.Connection)->None:
         self.connection=connection; self.connection.row_factory=sqlite3.Row; self.authority=AuthorityEvaluator(connection)
         self.connection.executescript("""
         CREATE TABLE IF NOT EXISTS action_requests (action_request_id TEXT PRIMARY KEY, task_ref TEXT NOT NULL, body TEXT NOT NULL, state TEXT NOT NULL, revision INTEGER NOT NULL, authority_digest TEXT);
@@ -69,14 +53,16 @@ class ActionRuntime:
     def dispatch(self,request_id:str,executor:str,interface_version:str,adapter:Callable[[dict],AdapterResult],*,envelope:AuthorityEnvelope|None=None,now:str|None=None)->dict:
         request=self.get_request(request_id)
         if request["state"]!=ActionState.AUTHORIZED: raise ActionRejected("dispatch requires AUTHORIZED state")
-        body=json.loads(request["body"]); envelope=envelope or self.authority_envelope(body["authority_envelope_ref"])
+        body=json.loads(request["body"]); envelope=envelope or self.authority_envelope(body["authority_envelope_ref"]); moment=now or utc_now()
         if envelope.envelope_id!=body["authority_envelope_ref"]: raise ActionRejected("dispatch authority envelope does not match the action request")
         if request["authority_digest"]!=envelope.digest: raise ActionRejected("dispatch authority envelope differs from the authorized decision")
-        verdict=self.authority.evaluate(body,envelope,now or utc_now(),subject_ref=f"{request_id}:dispatch")
-        if not verdict.is_allowed():
+        # Approval may have been durably consumed by GovernedAuthorityEvaluator at
+        # authorization. JIT dispatch revalidates the immutable grant constraints
+        # and temporal/revocation state without replaying that one-time approval.
+        failures=AuthorityEvaluator._failures(body,envelope,moment)
+        if failures:
             with self.connection:self.connection.execute("UPDATE action_requests SET state=?, revision=revision+1 WHERE action_request_id=? AND state=?",(ActionState.DENIED,request_id,ActionState.AUTHORIZED))
-            if verdict.decision is AuthorityDecision.APPROVAL_REQUIRED: raise ApprovalRequired("dispatch authority requires approval: "+"; ".join(verdict.reasons))
-            raise ActionRejected("dispatch authority denied: "+"; ".join(verdict.reasons))
+            raise ActionRejected("dispatch authority denied: "+"; ".join(failures))
         prior=self.latest_attempt(request_id); prior_effect=self.effective_effect(prior) if prior else None
         if prior and prior_effect==EffectState.UNKNOWN and not body["idempotency_guaranteed"]: raise RetryBlocked("UNKNOWN effect must be reconciled before retry")
         if prior and prior_effect==EffectState.CONFIRMED: raise RetryBlocked("confirmed effect cannot be dispatched again")
