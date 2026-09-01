@@ -32,6 +32,7 @@ class ProviderAdapter:
     invoke: Callable[[dict], AdapterResult]
     health: ProviderHealth = ProviderHealth.HEALTHY
     idempotent_operations: tuple[str, ...] = ()
+    required_secrets: tuple[str, ...] = ()
 
     @property
     def ref(self) -> str:
@@ -55,6 +56,8 @@ class ProviderAdapterRegistry:
         unknown_idempotent = set(adapter.idempotent_operations) - set(adapter.operations)
         if unknown_idempotent:
             raise ProviderAdapterRejected("idempotent operations must be declared provider operations")
+        if len(set(adapter.required_secrets)) != len(adapter.required_secrets) or any(not name.strip() for name in adapter.required_secrets):
+            raise ProviderAdapterRejected("required secret names must be unique and non-empty")
         key = (adapter.provider, adapter.adapter_id, adapter.version)
         if key in self._adapters:
             raise ProviderAdapterRejected("provider adapter version is immutable")

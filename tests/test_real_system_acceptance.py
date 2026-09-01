@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 from urllib.request import Request, urlopen
 
@@ -16,6 +17,8 @@ T1 = "2026-09-01T00:01:00Z"
 REPO_API = "https://api.github.com/repos/ohanyan88-cmd/BRO"
 
 
+@unittest.skipUnless(os.environ.get("BRO_GITHUB_READ_ACCEPTANCE") == "1",
+                     "requires BRO_GITHUB_READ_ACCEPTANCE=1 and outbound GitHub access")
 class RealSystemAcceptanceTests(unittest.TestCase):
     def setUp(self):
         self.tasks = SQLiteTaskStore()

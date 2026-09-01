@@ -68,3 +68,16 @@ class SecretMediationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class SecretLifecycleTests(unittest.TestCase):
+    def test_expired_and_revoked_secrets_fail_closed_without_value_in_error(self):
+        mediator=SecretMediator()
+        mediator.register("secret:expired", "github", "DO-NOT-LEAK", expires_at="2026-01-01T00:00:00Z")
+        with self.assertRaisesRegex(SecretRejected, "expired") as expired:
+            mediator.resolve("secret:expired", "github", now="2026-09-01T00:00:00Z")
+        self.assertNotIn("DO-NOT-LEAK", str(expired.exception))
+        mediator.register("secret:revoked", "github", "ALSO-SECRET")
+        mediator.revoke("secret:revoked")
+        with self.assertRaisesRegex(SecretRejected, "revoked") as revoked:
+            mediator.resolve("secret:revoked", "github")
+        self.assertNotIn("ALSO-SECRET", str(revoked.exception))

@@ -12,6 +12,7 @@ from typing import Callable
 
 from .action_runtime import ActionRejected, ActionRuntime, AdapterResult, EffectState
 from .provider_adapters import ProviderAdapterRegistry, ProviderAdapterRejected
+from .secret_runtime import SecretMediator
 
 
 class LiveReadbackRejected(ActionRejected):
@@ -37,10 +38,12 @@ class LiveReadbackRuntime:
         providers: ProviderAdapterRegistry | None = None,
         *,
         allow_legacy_callable: bool = False,
+        secrets: SecretMediator | None = None,
     ) -> None:
         self.actions = actions
         self.providers = providers
         self.allow_legacy_callable = allow_legacy_callable
+        self.secrets = secrets
 
     def observe_from_provider(
         self,
@@ -51,6 +54,7 @@ class LiveReadbackRuntime:
         operation: str,
         resource_ref: str,
         inputs: dict,
+        secret_bindings: dict[str, str] | None = None,
     ) -> ExternalObservation:
         if self.providers is None:
             raise LiveReadbackRejected("registered provider read-back is not configured")
@@ -63,7 +67,15 @@ class LiveReadbackRuntime:
             )
         except ProviderAdapterRejected as exc:
             raise LiveReadbackRejected(str(exc)) from exc
-        result = adapter.invoke(dict(inputs))
+        bindings = secret_bindings or {}
+        if set(bindings) != set(adapter.required_secrets):
+            raise LiveReadbackRejected("provider read-back secret bindings must match declared requirements")
+        if bindings and self.secrets is None:
+            raise LiveReadbackRejected("provider read-back requires configured secret mediation")
+        runtime_inputs = dict(inputs)
+        if self.secrets:
+            runtime_inputs.update({name: self.secrets.resolve(ref, adapter.adapter_id).value for name, ref in bindings.items()})
+        result = adapter.invoke(runtime_inputs)
         if not isinstance(result, AdapterResult):
             raise LiveReadbackRejected("provider read-back must return AdapterResult")
         if result.effect_state is not EffectState.NONE:
@@ -90,6 +102,7 @@ class LiveReadbackRuntime:
         resource_ref: str,
         inputs: dict,
         expected: Callable[[object], bool],
+        secret_bindings: dict[str, str] | None = None,
     ) -> ExternalObservation:
         if self.actions.latest_attempt(request_id) is None:
             raise LiveReadbackRejected("live read-back requires an action attempt")
@@ -100,6 +113,7 @@ class LiveReadbackRuntime:
             operation=operation,
             resource_ref=resource_ref,
             inputs=inputs,
+            secret_bindings=secret_bindings,
         )
         effect = EffectState.CONFIRMED if expected(observation.observed_state) else EffectState.NONE
         self.actions.reconcile(request_id, effect, observation.evidence_ref)

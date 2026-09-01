@@ -23,6 +23,7 @@ from .orchestration import AssignmentState, SpecialistAssignment
 from .perception import PerceptionStore
 from .provider_adapters import ProviderAdapter, ProviderAdapterRegistry, ProviderHealth
 from .provider_execution import ProviderExecutionGateway, ProviderRoute
+from .secret_runtime import SecretMediator
 from .readiness import ReadinessReport, RuntimeReadiness
 from .skills import CapabilityRegistry
 from .supervision import BoundaryViolation, NextStep
@@ -82,7 +83,8 @@ class BROKernel:
         # Canonical production boundaries. Provider routing and evidence verification
         # are composed here so callers do not need to stitch helper modules together.
         self.providers = ProviderAdapterRegistry()
-        self.provider_gateway = ProviderExecutionGateway(self.supervisor, self.providers)
+        self.secrets = SecretMediator()
+        self.provider_gateway = ProviderExecutionGateway(self.supervisor, self.providers, self.secrets)
         self.evidence_verifiers = EvidenceVerificationRegistry()
         self._provider_health_for = provider_health_for or (lambda _provider_ref: ProviderHealth.HEALTHY)
 
