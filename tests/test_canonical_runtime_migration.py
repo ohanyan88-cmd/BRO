@@ -3,6 +3,7 @@ import unittest
 from bro_runtime.action_runtime import ActionRequest, AdapterResult, EffectState
 from bro_runtime.evidence_verification import (
     EvidenceObservation,
+    EvidenceVerificationRegistry,
     EvidenceVerifier,
     VerificationResult,
 )
@@ -18,6 +19,7 @@ from bro_runtime.orchestration import AssignmentState
 from bro_runtime.provider_adapters import ProviderAdapter, ProviderHealth
 from bro_runtime.provider_execution import ProviderRoute
 from bro_runtime.skills import Capability, CapabilityKind, CapabilityStatus
+from bro_runtime.supervision import BoundaryViolation
 from bro_runtime.task_runtime import SQLiteTaskStore
 
 T0 = "2026-09-01T00:00:00Z"
@@ -130,6 +132,31 @@ class CanonicalRuntimeMigrationTests(unittest.TestCase):
 
         self.assertEqual(prepared.capability_ref, "cap:z-healthy")
         self.assertEqual(prepared.assignment.allowed_tools, ("adapter:healthy",))
+
+    def test_kernel_supervisor_is_bound_to_the_exact_kernel_evidence_registry(self):
+        kernel = BROKernel(self.tasks, self.mind)
+        self.assertIs(kernel.supervisor.evidence_verifiers, kernel.evidence_verifiers)
+
+        observation = EvidenceObservation(
+            criterion="customer exists",
+            evidence_type="external-readback",
+            source="crm",
+            provenance={},
+            collection_method="readback",
+            result={"exists": True},
+            scope="project:BRO::task:foreign",
+        )
+        foreign = EvidenceVerificationRegistry()
+        foreign.register(
+            EvidenceVerifier(
+                "IMMUNE:foreign",
+                lambda _: VerificationResult(EvidenceValidity.VALID, EvidenceFreshness.CURRENT, {}),
+            )
+        )
+        foreign_evidence = foreign.verify("IMMUNE:foreign", observation)
+        self.assertFalse(kernel.evidence_verifiers.is_trusted(foreign_evidence))
+        with self.assertRaisesRegex(BoundaryViolation, "this kernel's registered evidence verifier"):
+            kernel.supervisor.evidence.record(foreign_evidence)
 
     def test_registered_provider_and_trusted_evidence_complete_canonical_flow(self):
         kernel = BROKernel(self.tasks, self.mind)

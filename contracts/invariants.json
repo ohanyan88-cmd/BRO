@@ -49,6 +49,14 @@
       ]
     },
     {
+      "id": "INV-TRUTH-002",
+      "statement": "Fresh canonical Evidence writes are trusted only when the exact Evidence object was minted by the EvidenceVerificationRegistry bound to that BROKernel supervisor; a foreign in-process registry cannot mint canonical trust",
+      "enforcement": [
+        "tests/test_governed_evidence_boundary.py",
+        "tests/test_canonical_runtime_migration.py"
+      ]
+    },
+    {
       "id": "INV-EXECUTION-001",
       "statement": "Registered provider execution fails closed unless it reaches the governed registered-provider dispatch boundary; no raw supervisor execute fallback is allowed",
       "enforcement": [
