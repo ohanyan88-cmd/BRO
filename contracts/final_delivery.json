@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "purpose": "Executable repository controls for the three remaining final-audit delivery blocks. This contract does not convert repository tests into production evidence.",
+  "blocks": [
+    {
+      "id": "FINAL-1-INTELLIGENT-EXECUTION",
+      "requires": [
+        "natural-language request interpretation through a declared non-test model boundary",
+        "explicit scope confirmation for material requests",
+        "specialist selection before execution",
+        "real provider effect reference",
+        "independent external-system readback and evidence"
+      ],
+      "forbids": ["repository-only assurance as real capability proof", "execution self-attestation as independent readback"]
+    },
+    {
+      "id": "FINAL-2-PRODUCTION-SERVICE",
+      "requires": [
+        "external workload identity binding",
+        "external vault/secret backend binding",
+        "external human approval channel binding",
+        "durable single-primary lease with monotonic fencing",
+        "expired-lease failover without stale-writer authority"
+      ],
+      "forbids": ["test/in-memory production backends", "concurrent live primaries"]
+    },
+    {
+      "id": "FINAL-3-DURABLE-TRUTH-DR-GRADUATION",
+      "requires": [
+        "remote external evidence custody",
+        "append-only chained custody receipts",
+        "remote backup plus restore evidence carrying production assurance",
+        "real production acceptance evidence",
+        "zero unresolved material contradictions before graduation"
+      ],
+      "forbids": ["local-only custody as production proof", "repository-only DR assurance", "graduation with unresolved contradictions"]
+    }
+  ],
+  "graduation_rule": "PRODUCTION_GRADUATED may be emitted only when all three blocks present externally attested evidence and the active service lease remains valid."
+}
