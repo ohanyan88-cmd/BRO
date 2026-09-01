@@ -2,6 +2,7 @@
 from .task_runtime import CompletionEvidence,ConcurrencyConflict,InvalidTransition,RecoveryAssessment,SQLiteTaskStore,TaskContractViolation,TaskRuntime,TaskState
 from .immune import AuthorityDecision,AuthorityEnvelope,AuthorityEvaluator,AuthorityRejected,AuthorityVerdict,CompletionManifest,CompletionNotVerified,CompletionVerdict,EffectRecord,Evidence,EvidenceFreshness,EvidenceLedger,EvidenceRejected,EvidenceValidity,evidence_scope,normalize_boundary_scope
 from .action_runtime import ActionRequest,ActionRuntime,ActionState,AdapterResult,ApprovalRequired,EffectState,RetryBlocked
+from .artifact_runtime import ArtifactRecord,ArtifactRejected,ArtifactState,ArtifactStore
 from .orchestration import AssignmentRejected,AssignmentState,LeaseGrant,SpecialistAssignment,StaleWorkerResult,Supervisor
 from .supervision import BoundaryViolation,FlowBinding,NextAction,NextStep,SupervisionRejected,TaskSupervisor
 from .mind import Decision,Goal,KnowledgeState,MindRejected,MindRuntime,Plan,SQLiteMindStore
@@ -25,7 +26,7 @@ from .replan import ReplanResult,open_replanned_step,replan_from_observation
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
 "AuthorityDecision","AuthorityEnvelope","AuthorityEvaluator","AuthorityRejected","AuthorityVerdict","CompletionManifest","CompletionNotVerified","CompletionVerdict","EffectRecord","Evidence","EvidenceFreshness","EvidenceLedger","EvidenceRejected","EvidenceValidity","evidence_scope","normalize_boundary_scope",
-"ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","EffectState","RetryBlocked","AssignmentRejected","AssignmentState","LeaseGrant","SpecialistAssignment","StaleWorkerResult","Supervisor","BoundaryViolation","FlowBinding","NextAction","NextStep","SupervisionRejected","TaskSupervisor",
+"ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","EffectState","RetryBlocked","ArtifactRecord","ArtifactRejected","ArtifactState","ArtifactStore","AssignmentRejected","AssignmentState","LeaseGrant","SpecialistAssignment","StaleWorkerResult","Supervisor","BoundaryViolation","FlowBinding","NextAction","NextStep","SupervisionRejected","TaskSupervisor",
 "Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","SQLiteMindStore","ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
 "Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState","ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor",
 "Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState","MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore",
