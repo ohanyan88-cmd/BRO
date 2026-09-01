@@ -58,7 +58,7 @@ class RuntimeOperations:
 
     def health(self) -> RuntimeHealth:
         task_counts = self._counts("tasks", "state")
-        queue_counts = self._counts("service_work_queue", "state")
+        queue_counts = self._counts("service_work", "state")
         provider_counts = self._counts("provider_lifecycle", "state")
         waiting_approvals = 0
         if self._table_exists("human_approval_interactions"):
@@ -81,8 +81,6 @@ class RuntimeOperations:
 
     def backup(self, path: str | Path) -> BackupReceipt:
         target = Path(path)
-        if not str(target):
-            raise OperationsRejected("backup path is required")
         target.parent.mkdir(parents=True, exist_ok=True)
         destination = sqlite3.connect(str(target))
         try:
