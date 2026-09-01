@@ -3,6 +3,7 @@
   "surface": "cli",
   "entrypoint": "scripts/bro_interact.py",
   "runtime": "bro_runtime.final_delivery.IntelligentInteractionRuntime",
+  "production_path": "FINAL-1",
   "requirements": {
     "natural_language_intake": true,
     "explicit_material_scope_confirmation": true,
