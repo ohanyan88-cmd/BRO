@@ -96,7 +96,7 @@ class GovernedTaskSupervisor(TaskSupervisor):
         authorizing = self.tasks.transition(
             task_id, TaskState.AUTHORIZING, actor, "fresh Approval resolved the authority gate",
             task["revision"], correlation_ref=task_id, authority_state="ALLOWED",
-            approval_refs=(approval_id,),
+            approval_refs=(approval_id,), blocker_ref=None,
         )
         lease = self.assignments.claim(assignment["assignment_id"], worker_id, moment, lease_seconds)
         executing = self.tasks.transition(

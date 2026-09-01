@@ -86,6 +86,7 @@ class GovernedApprovalFlowTests(unittest.TestCase):
             )
         blocked = self.store.fetch_task("task:1")
         self.assertEqual(blocked["state"], TaskState.BLOCKED)
+        self.assertEqual(blocked["blocker_ref"], "auth:1")
         self.assertEqual(self.supervisor.assignments.assignments_for_task("task:1")[0]["state"], "READY")
 
         self.supervisor.approvals.record(self.approval())
@@ -95,6 +96,7 @@ class GovernedApprovalFlowTests(unittest.TestCase):
         resumed = self.store.fetch_task("task:1")
         self.assertEqual(resumed["state"], TaskState.EXECUTING)
         self.assertEqual(resumed["approval_refs"], ["approval:1"])
+        self.assertIsNone(resumed["blocker_ref"])
         self.assertEqual(binding.task_id, "task:1")
         self.assertEqual(binding.assignment_id, "assignment:1")
 
@@ -128,7 +130,9 @@ class GovernedApprovalFlowTests(unittest.TestCase):
             self.supervisor.resume_with_approval(
                 "task:1", "approval:1", "worker:1", now=T1,
             )
-        self.assertEqual(self.store.fetch_task("task:1")["state"], TaskState.BLOCKED)
+        blocked = self.store.fetch_task("task:1")
+        self.assertEqual(blocked["state"], TaskState.BLOCKED)
+        self.assertEqual(blocked["blocker_ref"], "auth:1")
 
 
 if __name__ == "__main__":
