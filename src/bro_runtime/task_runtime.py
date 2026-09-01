@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import Iterable
 
 def utc_now() -> str: return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -19,8 +18,7 @@ class TaskState(StrEnum):
 TERMINAL_STATES=frozenset({TaskState.COMPLETED,TaskState.FAILED,TaskState.CANCELLED})
 PRIMARY_NEXT={TaskState.RECEIVED:{TaskState.INTERPRETING},TaskState.INTERPRETING:{TaskState.READY},TaskState.READY:{TaskState.PLANNING},TaskState.PLANNING:{TaskState.AUTHORIZING},TaskState.AUTHORIZING:{TaskState.EXECUTING},TaskState.EXECUTING:{TaskState.VERIFYING,TaskState.PLANNING},TaskState.VERIFYING:{TaskState.COMPLETED,TaskState.EXECUTING,TaskState.PLANNING}}
 CONTROL_FROM={TaskState.BLOCKED:{TaskState.INTERPRETING,TaskState.READY,TaskState.PLANNING,TaskState.AUTHORIZING,TaskState.EXECUTING,TaskState.VERIFYING,TaskState.FAILED,TaskState.CANCELLED},TaskState.PAUSED:{TaskState.INTERPRETING,TaskState.READY,TaskState.PLANNING,TaskState.AUTHORIZING,TaskState.EXECUTING,TaskState.VERIFYING,TaskState.CANCELLED},TaskState.RECOVERING:{TaskState.EXECUTING,TaskState.VERIFYING,TaskState.BLOCKED,TaskState.FAILED,TaskState.CANCELLED}}
-CANONICAL_TASK_COLUMNS={
-"accountable_identity":"accountable_identity TEXT NOT NULL DEFAULT 'BRO'","plan_ref":"plan_ref TEXT","plan_revision":"plan_revision INTEGER","active_step_ref":"active_step_ref TEXT","blocker_ref":"blocker_ref TEXT","context_manifest_ref":"context_manifest_ref TEXT","authority_state":"authority_state TEXT NOT NULL DEFAULT 'UNASSESSED'","approval_refs":"approval_refs TEXT NOT NULL DEFAULT '[]'","artifact_refs":"artifact_refs TEXT NOT NULL DEFAULT '[]'","excluded_scope":"excluded_scope TEXT NOT NULL DEFAULT '[]'","completion_manifest_ref":"completion_manifest_ref TEXT"}
+CANONICAL_TASK_COLUMNS={"accountable_identity":"accountable_identity TEXT NOT NULL DEFAULT 'BRO'","plan_ref":"plan_ref TEXT","plan_revision":"plan_revision INTEGER","active_step_ref":"active_step_ref TEXT","blocker_ref":"blocker_ref TEXT","context_manifest_ref":"context_manifest_ref TEXT","authority_state":"authority_state TEXT NOT NULL DEFAULT 'UNASSESSED'","approval_refs":"approval_refs TEXT NOT NULL DEFAULT '[]'","artifact_refs":"artifact_refs TEXT NOT NULL DEFAULT '[]'","excluded_scope":"excluded_scope TEXT NOT NULL DEFAULT '[]'","completion_manifest_ref":"completion_manifest_ref TEXT"}
 JSON_TASK_COLUMNS=("evidence_refs","artifact_refs","approval_refs","excluded_scope")
 AUTHORITY_STATES=frozenset({"UNASSESSED","ALLOWED","APPROVAL_REQUIRED","DENIED","EXPIRED","REVOKED"})
 _UNSET=object()
@@ -37,6 +35,7 @@ class CompletionEvidence:
     def failures(self):
         checks={"outcome does not exist":self.outcome_exists,"mandatory scope is not satisfied":self.mandatory_scope_satisfied,"effects are not reconciled":self.effects_reconciled,"artifacts are not usable":self.artifacts_usable,"completion criteria lack Evidence":bool(self.criteria_evidence_refs),"required checks did not pass":self.checks_passed,"an invalidating blocker remains":self.no_invalidating_blocker,"partial or excluded scope is not explicit":self.exclusions_explicit,"communication does not reflect actual state":self.communication_truthful}
         return [m for m,p in checks.items() if not p]
+
 @dataclass(frozen=True)
 class RecoveryAssessment:
     integrity_valid:bool; authority_valid:bool; external_state_inspected:bool; effect_state:str; context_current:bool; approval_current:bool; evidence_refs:tuple[str,...]=(); decision_ref:str|None=None
@@ -81,25 +80,30 @@ class TaskRuntime:
     def record_event(self,task_id,event_type,actor,reason,*,correlation_ref=None,causal_ref=None,payload=None):
         task=self.store.fetch_task(task_id); state=TaskState(task["state"])
         with self.store.connection:return self._append_event(task_id,event_type,actor,reason,None,state,correlation_ref or task_id,causal_ref,payload or {})
+    def _require_verified_completion_manifest(self,task_id,manifest_ref):
+        table=self.store.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='completion_manifests'").fetchone()
+        if table is None:raise InvalidTransition("COMPLETED requires a canonical IMMUNE completion manifest")
+        row=self.store.connection.execute("SELECT task_ref,verdict FROM completion_manifests WHERE manifest_id=?",(manifest_ref,)).fetchone()
+        if row is None:raise InvalidTransition("completion_manifest_ref does not resolve to canonical IMMUNE state")
+        if row["task_ref"]!=task_id or row["verdict"]!="VERIFIED":raise InvalidTransition("completion_manifest_ref is not this Task's VERIFIED manifest")
     def transition(self,task_id,target,actor,reason,expected_revision,*,correlation_ref=None,causal_ref=None,resume_checkpoint_ref=None,completion=None,evidence_refs=(),payload=None,plan_ref=None,plan_revision=None,context_manifest_ref=None,authority_state=None,active_step_ref=None,blocker_ref=_UNSET,artifact_refs=(),approval_refs=(),excluded_scope=(),completion_manifest_ref=None):
         task=self.store.fetch_task(task_id); source=TaskState(task["state"])
         if task["revision"]!=expected_revision:raise ConcurrencyConflict(f"expected revision {expected_revision}, found {task['revision']}")
         self._guard_transition(source,target,task,resume_checkpoint_ref)
         if authority_state is not None and authority_state not in AUTHORITY_STATES:raise InvalidTransition(f"unknown authority state {authority_state!r}")
         refs=tuple(dict.fromkeys((*task["evidence_refs"],*evidence_refs))); artifacts=tuple(dict.fromkeys((*task["artifact_refs"],*artifact_refs))); approvals=tuple(dict.fromkeys((*task["approval_refs"],*approval_refs))); exclusions=tuple(dict.fromkeys((*task["excluded_scope"],*excluded_scope)))
-        payload=payload or {}
-        manifest_ref=completion_manifest_ref or (payload.get("manifest_id") if target is TaskState.COMPLETED else None) or task["completion_manifest_ref"]
+        payload=payload or {}; manifest_ref=completion_manifest_ref or (payload.get("manifest_id") if target is TaskState.COMPLETED else None) or task["completion_manifest_ref"]
         if target is TaskState.COMPLETED:
             if completion is None:raise InvalidTransition("COMPLETED requires an explicit evidence assessment")
             failures=completion.failures()
             if failures:raise InvalidTransition("completion gate failed: "+"; ".join(failures))
             if not manifest_ref:raise InvalidTransition("COMPLETED requires completion_manifest_ref")
+            self._require_verified_completion_manifest(task_id,manifest_ref)
             refs=tuple(dict.fromkeys((*refs,*completion.criteria_evidence_refs)))
         now=utc_now(); prior_active=task["prior_active_state"]
         if target in {TaskState.BLOCKED,TaskState.PAUSED}:prior_active=source.value
         elif source in {TaskState.BLOCKED,TaskState.PAUSED}:prior_active=None
-        termination=reason if target in TERMINAL_STATES else None
-        next_blocker=task["blocker_ref"] if blocker_ref is _UNSET else blocker_ref
+        termination=reason if target in TERMINAL_STATES else None; next_blocker=task["blocker_ref"] if blocker_ref is _UNSET else blocker_ref
         with self.store.connection:
             cursor=self.store.connection.execute("""UPDATE tasks SET state=?,prior_active_state=?,resume_checkpoint_ref=?,evidence_refs=?,artifact_refs=?,approval_refs=?,excluded_scope=?,plan_ref=?,plan_revision=?,context_manifest_ref=?,authority_state=?,active_step_ref=?,blocker_ref=?,completion_manifest_ref=?,revision=revision+1,updated_at=?,termination_reason=? WHERE task_id=? AND revision=?""",(target,prior_active,resume_checkpoint_ref or task["resume_checkpoint_ref"],json.dumps(refs),json.dumps(artifacts),json.dumps(approvals),json.dumps(exclusions),plan_ref if plan_ref is not None else task["plan_ref"],plan_revision if plan_revision is not None else task["plan_revision"],context_manifest_ref if context_manifest_ref is not None else task["context_manifest_ref"],authority_state if authority_state is not None else task["authority_state"],active_step_ref if active_step_ref is not None else task["active_step_ref"],next_blocker,manifest_ref,now,termination,task_id,expected_revision))
             if cursor.rowcount!=1:raise ConcurrencyConflict("task changed during transition")
