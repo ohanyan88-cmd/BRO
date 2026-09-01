@@ -2,15 +2,33 @@
 
 Callers may submit observations, but they cannot assign canonical validity,
 freshness, or verifier identity. Only a registered verifier can mint Evidence
-that is eligible for completion.
+that is eligible for canonical reconciliation, settlement, or completion.
 """
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 import uuid
+import weakref
 
 from .immune import Evidence, EvidenceFreshness, EvidenceRejected, EvidenceValidity
 from .task_runtime import utc_now
+
+
+# Process-local attestation of Evidence objects minted by this boundary. The
+# canonical governed supervisor checks object identity, not caller-controlled
+# fields such as ``verifier``. Weak values avoid retaining Evidence solely for
+# attestation after the runtime no longer references it.
+_TRUSTED_EVIDENCE: weakref.WeakValueDictionary[int, Evidence] = weakref.WeakValueDictionary()
+
+
+def _attest(evidence: Evidence) -> Evidence:
+    _TRUSTED_EVIDENCE[id(evidence)] = evidence
+    return evidence
+
+
+def is_trusted_evidence(evidence: object) -> bool:
+    """Return whether this exact Evidence object was minted by a trusted verifier."""
+    return isinstance(evidence, Evidence) and _TRUSTED_EVIDENCE.get(id(evidence)) is evidence
 
 
 @dataclass(frozen=True)
@@ -63,7 +81,7 @@ class EvidenceVerificationRegistry:
             raise EvidenceRejected("trusted verifier must return VerificationResult")
         provenance = dict(observation.provenance)
         provenance.update(verdict.provenance)
-        return Evidence(
+        evidence = Evidence(
             evidence_id=evidence_id or f"evidence:{uuid.uuid4()}",
             criterion=observation.criterion,
             evidence_type=observation.evidence_type,
@@ -78,3 +96,4 @@ class EvidenceVerificationRegistry:
             freshness=verdict.freshness,
             verifier=verifier.verifier_id,
         )
+        return _attest(evidence)
