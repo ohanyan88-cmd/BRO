@@ -66,9 +66,6 @@ class SecretMediationTests(unittest.TestCase):
             runtime.dispatch("action:secret", "v1", {"api_key": "secret:crm"}, lambda _: None)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 class SecretLifecycleTests(unittest.TestCase):
     def test_expired_and_revoked_secrets_fail_closed_without_value_in_error(self):
         mediator=SecretMediator()
@@ -81,3 +78,7 @@ class SecretLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(SecretRejected, "revoked") as revoked:
             mediator.resolve("secret:revoked", "github")
         self.assertNotIn("ALSO-SECRET", str(revoked.exception))
+
+
+if __name__ == "__main__":
+    unittest.main()
