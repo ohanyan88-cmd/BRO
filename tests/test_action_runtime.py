@@ -29,6 +29,9 @@ class ActionRuntimeTests(unittest.TestCase):
     def authorize(self) -> None:
         self.runtime.authorize("action:1", self.auth, "2026-09-01T00:00:00Z")
 
+    def dispatch(self, adapter, *, now="2026-09-01T00:00:01Z"):
+        return self.runtime.dispatch("action:1", "github", "1", adapter, envelope=self.auth, now=now)
+
     def test_scope_intersection_authorizes_exact_request(self) -> None:
         self.authorize()
         self.assertEqual(self.runtime.get_request("action:1")["state"], ActionState.AUTHORIZED)
@@ -43,21 +46,33 @@ class ActionRuntimeTests(unittest.TestCase):
 
     def test_one_attempt_is_recorded_per_actual_try(self) -> None:
         self.authorize()
-        attempt = self.runtime.dispatch("action:1", "github", "1", lambda _: AdapterResult({"ok": True}, EffectState.CONFIRMED))
+        attempt = self.dispatch(lambda _: AdapterResult({"ok": True}, EffectState.CONFIRMED))
         self.assertEqual(attempt["effect_state"], EffectState.CONFIRMED)
         self.assertEqual(self.runtime.connection.execute("SELECT count(*) FROM action_attempts").fetchone()[0], 1)
+
+    def test_dispatch_rechecks_authority_and_blocks_expired_grant(self) -> None:
+        expiring = envelope(expires_at="2026-09-01T00:00:01Z")
+        other = ActionRuntime(sqlite3.connect(":memory:"))
+        other.register_authority(expiring)
+        other.propose(request())
+        other.authorize("action:1", expiring, "2026-09-01T00:00:00Z")
+        called = []
+        with self.assertRaisesRegex(ActionRejected, "expired"):
+            other.dispatch("action:1", "github", "1", lambda _: called.append(True), envelope=expiring, now="2026-09-01T00:00:02Z")
+        self.assertEqual(called, [])
+        self.assertEqual(other.get_request("action:1")["state"], ActionState.DENIED)
 
     def test_timeout_is_unknown_not_none(self) -> None:
         self.authorize()
         def timeout(_): raise TimeoutError("transport timeout")
-        attempt = self.runtime.dispatch("action:1", "github", "1", timeout)
+        attempt = self.dispatch(timeout)
         self.assertEqual(attempt["status"], "TIMED_OUT")
         self.assertEqual(attempt["effect_state"], EffectState.UNKNOWN)
 
     def test_unknown_effect_blocks_non_idempotent_retry_until_reconciled(self) -> None:
         self.authorize()
         def timeout(_): raise TimeoutError("timeout")
-        self.runtime.dispatch("action:1", "github", "1", timeout)
+        self.dispatch(timeout)
         with self.assertRaisesRegex(RetryBlocked, "reconciled"):
             self.runtime.prepare_retry("action:1")
         self.runtime.reconcile("action:1", EffectState.NONE, "observation:remote")
@@ -70,12 +85,12 @@ class ActionRuntimeTests(unittest.TestCase):
         other.propose(request(idempotency_guaranteed=True))
         other.authorize("action:1", self.auth, "2026-09-01T00:00:00Z")
         def timeout(_): raise TimeoutError("timeout")
-        other.dispatch("action:1", "github", "1", timeout)
+        other.dispatch("action:1", "github", "1", timeout, envelope=self.auth, now="2026-09-01T00:00:01Z")
         self.assertEqual(other.prepare_retry("action:1")["state"], ActionState.AUTHORIZED)
 
     def test_confirmed_effect_cannot_retry(self) -> None:
         self.authorize()
-        self.runtime.dispatch("action:1", "github", "1", lambda _: AdapterResult("done", EffectState.CONFIRMED))
+        self.dispatch(lambda _: AdapterResult("done", EffectState.CONFIRMED))
         with self.assertRaisesRegex(RetryBlocked, "confirmed"):
             self.runtime.prepare_retry("action:1")
 
