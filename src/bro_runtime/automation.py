@@ -7,7 +7,6 @@ BRO authority, HANDS, evidence, and completion path.
 """
 from __future__ import annotations
 
-import json
 import sqlite3
 import uuid
 from dataclasses import dataclass
@@ -114,7 +113,7 @@ class AutomationRuntime:
         try:
             with self.connection:
                 self.connection.execute(
-                    "INSERT INTO automations VALUES (?,?,?,?,?,'ACTIVE',1,?,?)",
+                    "INSERT INTO automations VALUES (?,?,?,?,?,?,'ACTIVE',1,?,?)",
                     (automation_id, project_boundary, desired_outcome, "INTERVAL", interval_seconds, first_due_at, now, now),
                 )
         except sqlite3.IntegrityError as exc:
@@ -162,10 +161,12 @@ class AutomationRuntime:
                         "INSERT INTO automation_occurrences VALUES (?,?,?,?,NULL,?)",
                         (occurrence_id, row["automation_id"], row["next_due_at"], OccurrenceState.CLAIMED, utc_now()),
                     )
-                    self.connection.execute(
+                    cursor = self.connection.execute(
                         "UPDATE automations SET next_due_at=?,revision=revision+1,updated_at=? WHERE automation_id=? AND next_due_at=? AND status='ACTIVE'",
                         (next_due_at, utc_now(), row["automation_id"], row["next_due_at"]),
                     )
+                    if cursor.rowcount != 1:
+                        raise AutomationRejected("automation changed while occurrence was being claimed")
             except sqlite3.IntegrityError:
                 continue
             claimed.append(AutomationOccurrence(occurrence_id, row["automation_id"], row["next_due_at"], OccurrenceState.CLAIMED, None))
