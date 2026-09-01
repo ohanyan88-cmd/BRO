@@ -77,6 +77,15 @@ class TaskRuntime:
         with self.store.connection:
             self.store.connection.execute("INSERT INTO tasks(task_id,goal_ref,state,revision,created_at,updated_at,accountable_identity,authority_state) VALUES (?,?,?,1,?,?,?,'UNASSESSED')",(task_id,goal_ref,TaskState.RECEIVED,now,now,accountable_identity)); self._append_event(task_id,"task.received",actor,reason,None,TaskState.RECEIVED,correlation,None,{})
         return self.store.fetch_task(task_id)
+    def adopt_received_task(self,task_id,goal_ref,actor,reason,*,correlation_ref=None):
+        """Adopt durable work created by a trusted ingress without minting a second Task."""
+        task=self.store.fetch_task(task_id)
+        if TaskState(task["state"]) is not TaskState.RECEIVED:raise TaskContractViolation("only RECEIVED Tasks may be adopted into a governed flow")
+        if task["goal_ref"]!=goal_ref:raise TaskContractViolation("existing Task goal_ref does not match the governed flow")
+        if task["authority_state"]!="UNASSESSED":raise TaskContractViolation("existing Task already carries authority state")
+        if any(task[field] for field in ("plan_ref","context_manifest_ref","active_step_ref","completion_manifest_ref","blocker_ref")):raise TaskContractViolation("existing Task is already bound to canonical execution state")
+        self.record_event(task_id,"task.adopted",actor,reason,correlation_ref=correlation_ref or task_id,payload={"reused_existing_task":True})
+        return self.store.fetch_task(task_id)
     def record_event(self,task_id,event_type,actor,reason,*,correlation_ref=None,causal_ref=None,payload=None):
         task=self.store.fetch_task(task_id); state=TaskState(task["state"])
         with self.store.connection:return self._append_event(task_id,event_type,actor,reason,None,state,correlation_ref or task_id,causal_ref,payload or {})
