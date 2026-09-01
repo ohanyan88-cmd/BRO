@@ -56,7 +56,6 @@ class ObservationReplanTests(unittest.TestCase):
         manifest=complete_multistep(self.kernel,revised,binding,outcome_statement="Lead handling followed current observed owner channel and was verified",required_criteria=("lead routed","owner notified","acceptance verified"),now=T1)
         self.assertTrue(manifest.is_verified())
         self.assertEqual(self.tasks.fetch_task(revised.task_ref)["state"],"COMPLETED")
-        self.assertEqual(self.mind.plan if False else self.mind, self.mind)
         self.assertEqual(self.kernel.mind_store.plan(revised.plan_ref).revision,2)
     def test_unverified_or_stale_observation_cannot_auto_replan(self):
         binding=open_multistep(self.kernel,self.prepared,self.envelope(self.prepared,"route","write","crm:lead-routing","adapter:crm"),worker_id="worker:route",now=T1)

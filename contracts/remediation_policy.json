@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "protected_prefixes": [
+    "src/bro_runtime/",
+    "contracts/",
+    "scripts/",
+    ".github/workflows/"
+  ],
+  "wave": {
+    "minimum_protected_files": 3,
+    "minimum_scope_areas": 2,
+    "required_fields": ["Remediation-Wave", "Root-Cause", "Scope", "Wave-Class"]
+  },
+  "allowed_wave_classes": ["SUBSYSTEM", "EMERGENCY"],
+  "emergency_required_field": "Emergency-Reason"
+}
