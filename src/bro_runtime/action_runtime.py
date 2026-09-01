@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Callable
 from .immune import AuthorityDecision,AuthorityEnvelope,AuthorityEvaluator,AuthorityRejected
 from .task_runtime import utc_now
-__all__=["ActionRejected","ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","AuthorityEnvelope","EffectState","RetryBlocked"]
+__all__=["ActionRejected","ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","EffectState","RetryBlocked"]
 class ActionRejected(Exception): pass
 class RetryBlocked(ActionRejected): pass
 class ApprovalRequired(ActionRejected): pass
@@ -25,6 +25,8 @@ class ActionRequest:
 @dataclass(frozen=True)
 class AdapterResult:
     result:object; effect_state:EffectState; artifact_refs:tuple[str,...]=(); observation_refs:tuple[str,...]=()
+def _sanitized_adapter_error(kind:str)->str:
+    return f"{kind}: adapter error details redacted"
 class ActionRuntime:
     def __init__(self,connection:sqlite3.Connection)->None:
         self.connection=connection; self.connection.row_factory=sqlite3.Row; self.authority=AuthorityEvaluator(connection)
@@ -72,8 +74,8 @@ class ActionRuntime:
             response=adapter(dict(body["input_parameters"]))
             if not isinstance(response,AdapterResult): raise ActionRejected("adapter must return AdapterResult")
             result=response.result; effect=response.effect_state; artifacts=response.artifact_refs; observations=response.observation_refs; status="SUCCEEDED"; state=ActionState.RESULT_RECEIVED
-        except TimeoutError as exc:error,effect,status,state=str(exc),EffectState.UNKNOWN,"TIMED_OUT",ActionState.EFFECT_UNKNOWN
-        except Exception as exc:error,effect,status,state=str(exc),EffectState.POSSIBLE,"FAILED",ActionState.FAILED
+        except TimeoutError:error,effect,status,state=_sanitized_adapter_error("TimeoutError"),EffectState.UNKNOWN,"TIMED_OUT",ActionState.EFFECT_UNKNOWN
+        except Exception:error,effect,status,state=_sanitized_adapter_error("AdapterFailure"),EffectState.POSSIBLE,"FAILED",ActionState.FAILED
         attempt_id=str(uuid.uuid4())
         with self.connection:
             self.connection.execute("INSERT INTO action_attempts(attempt_id,action_request_id,executor,interface_version,started_at,ended_at,sanitized_inputs,status,result,error,effect_state,retry_of_ref,artifact_refs,observation_refs) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(attempt_id,request_id,executor,interface_version,started,utc_now(),json.dumps(body["input_parameters"],sort_keys=True),status,json.dumps(result),error,effect,retry_ref,json.dumps(artifacts),json.dumps(observations)))
