@@ -12,6 +12,7 @@ from .mind import KnowledgeState,MindRuntime,SQLiteMindStore
 from .nervous_records import ContextEntry,NervousRecordStore,StepState
 from .orchestration import SpecialistAssignment
 from .perception import PerceptionStore
+from .readiness import ReadinessReport,RuntimeReadiness
 from .skills import CapabilityMatch,CapabilityRegistry
 from .supervision import BoundaryViolation,NextStep
 from .task_runtime import SQLiteTaskStore,TaskState,utc_now
@@ -28,7 +29,7 @@ class RecoveryView:
 class BROKernel:
     def __init__(self,task_store:SQLiteTaskStore,mind_store:SQLiteMindStore)->None:
         self.task_store=task_store; self.mind_store=mind_store; c=task_store.connection
-        self.perception=PerceptionStore(c); self.mind=MindRuntime(mind_store); self.nervous=NervousRecordStore(c); self.skills=CapabilityRegistry(c); self.memory=MemoryStore(c); self.continuity=ContinuityStore(c); self.feet=FeetStore(c); self.voice=VoiceRuntime(); self.supervisor=GovernedTaskSupervisor(task_store,mind_store=mind_store)
+        self.perception=PerceptionStore(c); self.mind=MindRuntime(mind_store); self.nervous=NervousRecordStore(c); self.skills=CapabilityRegistry(c); self.memory=MemoryStore(c); self.continuity=ContinuityStore(c); self.feet=FeetStore(c); self.voice=VoiceRuntime(); self.readiness=RuntimeReadiness(); self.supervisor=GovernedTaskSupervisor(task_store,mind_store=mind_store)
     def prepare(self,*,request:object,source:str,project_boundary:str,desired_outcome:str,interpreted_scope:tuple[str,...],success_conditions:tuple[str,...],operation:str,domain:str,authority_basis:str,materiality:str,risk_class:str,expected_output:str,verification_requirement:str,retry_policy:str="RECONCILE_BEFORE_RETRY",constraints:tuple[str,...]=(),assumptions:tuple[str,...]=(),relationship_scope:str|None=None)->PreparedFlow:
         matches=self.skills.discover(operations=(operation,),domains=(domain,))
         if not matches: raise KernelRejected(f"no active capability matches operation={operation!r}, domain={domain!r}")
@@ -62,7 +63,7 @@ class BROKernel:
     def resume_with_approval(self,prepared:PreparedFlow,approval_id:str,worker_id:str,*,now:str|None=None,actor:str="BRO"):
         binding=self.supervisor.resume_with_approval(prepared.assignment.task_ref,approval_id,worker_id,now=now,actor=actor); task=self.task_store.fetch_task(prepared.assignment.task_ref); prior=self.feet.latest(prepared.route_id)
         if prior.state is not RouteState.BLOCKED: raise KernelRejected("approval resume expected a BLOCKED FEET route")
-        route=self.feet.resume(prepared.route_id,blocker_resolved=lambda ref: ref==prior.authority_blocker_ref and task["authority_state"]=="ALLOWED")
+        self.feet.resume(prepared.route_id,blocker_resolved=lambda ref: ref==prior.authority_blocker_ref and task["authority_state"]=="ALLOWED")
         self.feet.move(prepared.route_id,current_step_ref=prepared.step_ref,current_location="EXECUTING",next_location="VERIFYING")
         self.nervous.transition_step(prepared.step_ref,StepState.ACTIVE); return binding
     def complete(self,prepared:PreparedFlow,binding,*,outcome_statement:str,required_criteria:tuple[str,...],artifact_refs:tuple[str,...]=(),actor:str="BRO",now:str|None=None)->CompletionManifest:
@@ -87,3 +88,9 @@ class BROKernel:
             attempt=self.supervisor.actions.latest_attempt(requests[-1]["action_request_id"])
             if attempt: effect=self.supervisor.actions.effective_effect(attempt).value
         return self.voice.project(VoiceInput(task_id,task["state"],task["authority_state"],evidence,effect,completion,uncertainty,task.get("blocker_ref")))
+    def project_readiness(self,prepared:PreparedFlow)->ReadinessReport:
+        task=self.task_store.fetch_task(prepared.assignment.task_ref)
+        step=self.nervous.step(prepared.step_ref)
+        route=self.feet.latest(prepared.route_id)
+        manifest=self.supervisor.evidence.latest_manifest(prepared.assignment.task_ref)
+        return self.readiness.measure_task(task=task,step=step,route=route,completion_manifest=manifest)
