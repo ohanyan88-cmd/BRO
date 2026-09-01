@@ -8,6 +8,7 @@
     {"id":"INV-STATE-001","statement":"Verified terminal completion closes Task, Step, and FEET route consistently","enforcement":["tests/test_kernel.py"]},
     {"id":"INV-VOICE-001","statement":"VOICE never upgrades tool/effect success into verified completion","enforcement":["tests/test_voice.py","tests/test_kernel.py"]},
     {"id":"INV-MEMORY-001","statement":"Retrieved memory never silently becomes current truth","enforcement":["tests/test_memory.py","tests/test_kernel.py"]},
-    {"id":"INV-RECOVERY-001","statement":"Recovery reconstructs next work without replaying external commands","enforcement":["tests/test_supervision.py","tests/test_kernel.py"]}
+    {"id":"INV-RECOVERY-001","statement":"Recovery reconstructs next work without replaying external commands","enforcement":["tests/test_supervision.py","tests/test_kernel.py"]},
+    {"id":"INV-READINESS-001","statement":"Runtime readiness percentages are derived from canonical evidence-bearing state and 100 percent requires consistent VERIFIED completion","enforcement":["tests/test_readiness.py","tests/test_kernel.py"]}
   ]
 }
