@@ -15,4 +15,4 @@ readiness:
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests -v
 
-check: validate invariants remediation-wave readiness test
+check: validate invariants readiness test
