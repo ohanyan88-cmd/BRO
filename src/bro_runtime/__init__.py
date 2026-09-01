@@ -14,6 +14,7 @@ from .memory import MemoryClass,MemoryFreshness,MemoryRecord,MemoryRejected,Memo
 from .continuity import ContinuityEnvelope,ContinuityRejected,ContinuityStatus,ContinuityStore,HeartRecord,SelfRecord
 from .skills import Capability,CapabilityKind,CapabilityMatch,CapabilityRegistry,CapabilityRejected,CapabilityStatus
 from .feet import FeetRejected,FeetStore,RouteCheckpoint,RouteState
+from .voice import VoiceInput,VoiceProjection,VoiceRejected,VoiceRuntime,VoiceState
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -27,4 +28,5 @@ __all__=[
 "MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore",
 "ContinuityEnvelope","ContinuityRejected","ContinuityStatus","ContinuityStore","HeartRecord","SelfRecord",
 "Capability","CapabilityKind","CapabilityMatch","CapabilityRegistry","CapabilityRejected","CapabilityStatus",
-"FeetRejected","FeetStore","RouteCheckpoint","RouteState"]
+"FeetRejected","FeetStore","RouteCheckpoint","RouteState",
+"VoiceInput","VoiceProjection","VoiceRejected","VoiceRuntime","VoiceState"]
