@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable
 
 from .action_runtime import ActionRequest, ApprovalRequired, EffectState
+from .automation import AutomationRuntime, InvocationState
 from .capability_selection import CapabilitySelectionRejected, select_capability
 from .continuity import ContinuityEnvelope, ContinuityStore
 from .evidence_verification import (
@@ -74,6 +75,7 @@ class BROKernel:
         self.perception = PerceptionStore(c)
         self.mind = MindRuntime(mind_store)
         self.nervous = NervousRecordStore(c)
+        self.automations = AutomationRuntime(c)
         self.skills = CapabilityRegistry(c)
         self.memory = MemoryStore(c)
         self.continuity = ContinuityStore(c)
@@ -88,8 +90,8 @@ class BROKernel:
         )
 
         # Canonical production boundaries. Provider routing, evidence verification,
-        # and restart reconciliation are composed here so callers do not stitch
-        # privileged helper paths together themselves.
+        # restart reconciliation, and automation-to-Task handoff are composed here
+        # so callers do not stitch privileged helper paths together themselves.
         self.providers = ProviderAdapterRegistry()
         self.secrets = SecretMediator()
         self.provider_gateway = ProviderExecutionGateway(self.supervisor, self.providers, self.secrets)
@@ -279,6 +281,42 @@ class BROKernel:
             tuple(memory_refs),
             assignment,
         )
+
+    def prepare_automation_invocation(self, invocation_id: str) -> PreparedFlow:
+        """Convert one durable trigger invocation into canonical planned work.
+
+        This step intentionally does not authorize or execute anything. The
+        resulting PreparedFlow must still pass `open()` with a current exact
+        IMMUNE AuthorityEnvelope before HANDS can dispatch an effect.
+        """
+        invocation = self.automations.invocation(invocation_id)
+        if invocation.state is not InvocationState.PENDING or invocation.task_ref is not None:
+            raise KernelRejected("automation invocation is already bound or unavailable")
+        definition = self.automations.definition(invocation.automation_id, invocation.automation_version)
+        prepared = self.prepare(
+            request={
+                "automation_id": invocation.automation_id,
+                "automation_version": invocation.automation_version,
+                "invocation_id": invocation.invocation_id,
+                "trigger_ref": invocation.trigger_ref,
+                "payload": invocation.payload,
+            },
+            source=f"automation:{invocation.automation_id}@{invocation.automation_version}",
+            project_boundary=definition.project_boundary,
+            desired_outcome=definition.desired_outcome,
+            interpreted_scope=("automation", invocation.automation_id, invocation.trigger_ref),
+            success_conditions=definition.success_conditions,
+            operation=definition.operation,
+            domain=definition.domain,
+            authority_basis=definition.authority_basis,
+            materiality=definition.materiality,
+            risk_class=definition.risk_class,
+            expected_output=definition.expected_output,
+            verification_requirement=definition.verification_requirement,
+            constraints=("automation trigger grants no execution authority",),
+        )
+        self.automations.bind_task(invocation_id, prepared.assignment.task_ref)
+        return prepared
 
     def open(self, prepared: PreparedFlow, envelope: AuthorityEnvelope, *, worker_id: str, now: str | None = None):
         if envelope.task_ref != prepared.assignment.task_ref:
