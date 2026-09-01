@@ -104,6 +104,13 @@
       ]
     },
     {
+      "id": "INV-RECOVERY-003",
+      "statement": "After process restart, a persisted POSSIBLE or UNKNOWN external effect must be independently observed and reconciled under a fresh fenced lease; recovery never steals a live lease or replays the external command",
+      "enforcement": [
+        "tests/test_durable_external_write_recovery.py"
+      ]
+    },
+    {
       "id": "INV-READINESS-001",
       "statement": "Runtime readiness percentages are derived from canonical evidence-bearing state and 100 percent requires consistent VERIFIED completion",
       "enforcement": [
