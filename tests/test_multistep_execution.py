@@ -1,11 +1,12 @@
 import unittest
+from dataclasses import replace
 
 from bro_runtime import (
     ActionRequest, AdapterResult, AssignmentState, AuthorityEnvelope, BROKernel,
-    Capability, CapabilityKind, CapabilityStatus, EffectState, EvidenceFreshness,
-    EvidenceValidity, RouteState, SQLiteMindStore, SQLiteTaskStore, StepRequest,
-    StepState, complete_multistep, continue_multistep, evidence_scope, open_multistep,
-    prepare_multistep, settle_multistep,
+    BoundaryViolation, Capability, CapabilityKind, CapabilityStatus, EffectState,
+    EvidenceFreshness, EvidenceValidity, RouteState, SQLiteMindStore, SQLiteTaskStore,
+    StepRequest, StepState, complete_multistep, continue_multistep, evidence_scope,
+    open_multistep, prepare_multistep, settle_multistep,
 )
 from bro_runtime.evidence_verification import EvidenceObservation, EvidenceVerifier, VerificationResult
 
@@ -36,10 +37,30 @@ class MultiStepExecutionTests(unittest.TestCase):
         attempt=self.kernel.supervisor._execute_registered_provider(binding,self.request(key,operation,target,adapter),executor=adapter,interface_version="1",adapter=lambda _:AdapterResult("ok",EffectState.CONFIRMED),now=T1)
         self.assertEqual(attempt["effect_state"],"CONFIRMED")
         settle_multistep(self.kernel,self.prepared,binding,key,result_state=AssignmentState.SUCCEEDED,output_ref=output,observations=(("IMMUNE:multistep-test",self.evidence(key,criterion)),),now=T1)
-    def test_three_step_outcome_executes_on_one_task_and_completes_verified(self):
+
+    def route_completed(self):
         route_auth=self.envelope("route","write","crm:lead-routing","adapter:crm")
         binding=open_multistep(self.kernel,self.prepared,route_auth,worker_id="worker:route",now=T1)
         self.execute_and_settle(binding,"route","write","crm:lead-routing","adapter:crm","lead routed","artifact:routing")
+        return binding
+
+    def test_expired_next_step_authority_blocks_before_assignment_claim(self):
+        binding=self.route_completed()
+        expired=replace(
+            self.envelope("notify","send","notification:sales-owner","adapter:notify"),
+            expires_at=T1,
+        )
+        with self.assertRaisesRegex(BoundaryViolation,"expired"):
+            continue_multistep(self.kernel,self.prepared,binding,"notify",expired,worker_id="worker:notify",now=T1)
+        notify=self.prepared.step("notify")
+        assignment=self.kernel.supervisor.assignments.get_assignment(notify.assignment.assignment_id)
+        self.assertEqual(assignment["state"],AssignmentState.READY)
+        self.assertEqual(self.tasks.fetch_task(self.prepared.task_ref)["state"],"BLOCKED")
+        self.assertEqual(self.kernel.nervous.step(notify.step_ref).state,StepState.BLOCKED)
+        self.assertEqual(self.kernel.feet.latest(self.prepared.route_id).state,RouteState.BLOCKED)
+
+    def test_three_step_outcome_executes_on_one_task_and_completes_verified(self):
+        binding=self.route_completed()
         self.assertEqual(self.kernel.nervous.step(self.prepared.step("route").step_ref).state,StepState.SUCCEEDED)
         notify_auth=self.envelope("notify","send","notification:sales-owner","adapter:notify")
         binding=continue_multistep(self.kernel,self.prepared,binding,"notify",notify_auth,worker_id="worker:notify",now=T1)

@@ -20,7 +20,7 @@ class ProviderIdempotencyContractTests(unittest.TestCase):
         )
 
         class Supervisor:
-            def execute(self, binding, governed_request, **kwargs):
+            def _execute_registered_provider(self, binding, governed_request, **kwargs):
                 self.request = governed_request
                 return {"ok": True}
 
@@ -39,7 +39,7 @@ class ProviderIdempotencyContractTests(unittest.TestCase):
         )
 
         class Supervisor:
-            def execute(self, binding, governed_request, **kwargs):
+            def _execute_registered_provider(self, binding, governed_request, **kwargs):
                 self.request = governed_request
                 return {"ok": True}
 

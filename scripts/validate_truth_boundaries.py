@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed when canonical truth-writing bypass patterns appear in production source."""
+"""Fail closed when canonical truth-writing or execution bypass patterns appear in production source."""
 from __future__ import annotations
 
 import sys
@@ -18,6 +18,7 @@ RULES = (
     (".evidence.evaluate_completion(", {"supervision.py"}, "direct completion evaluation"),
     ("._evaluate_bound_completion(", {"governed_supervision.py"}, "bound completion writer hook"),
     ("allow_legacy_callable=True", set(), "legacy callable live readback opt-in"),
+    ("dispatch = self.supervisor.execute", set(), "raw provider execution fallback"),
 )
 
 
@@ -40,7 +41,7 @@ def main() -> int:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print(f"PASS: {len(RULES)} canonical truth-writing boundaries are source-enforced")
+    print(f"PASS: {len(RULES)} canonical truth/execution boundaries are source-enforced")
     return 0
 
 
