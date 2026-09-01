@@ -5,7 +5,7 @@ import json
 
 from .action_runtime import ApprovalRequired
 from .approval import ApprovalRegistry
-from .evidence_verification import is_trusted_evidence
+from .evidence_verification import EvidenceVerificationRegistry
 from .governed_authority import GovernedAuthorityEvaluator
 from .immune import (
     AUTHORITY_DECISION_TO_TASK_STATE,
@@ -23,10 +23,14 @@ from .task_runtime import ConcurrencyConflict, TaskState, utc_now
 class TrustedEvidenceLedger(EvidenceLedger):
     """Canonical IMMUNE ledger that refuses caller-controlled truth writes."""
 
+    def __init__(self, connection, evidence_verifiers: EvidenceVerificationRegistry):
+        super().__init__(connection)
+        self.evidence_verifiers = evidence_verifiers
+
     def record(self, evidence):
-        if not is_trusted_evidence(evidence):
+        if not self.evidence_verifiers.is_trusted(evidence):
             raise BoundaryViolation(
-                "untrusted evidence cannot enter the canonical ledger; use a registered evidence verifier"
+                "untrusted evidence cannot enter the canonical ledger; use this kernel's registered evidence verifier"
             )
         return super().record(evidence)
 
@@ -45,13 +49,22 @@ class GovernedTaskSupervisor(TaskSupervisor):
 
     Production callers must not inject arbitrary execution callables, self-minted
     Evidence, or completion verdicts. External effects enter through
-    ProviderExecutionGateway; Evidence comes from registered trusted verifiers;
-    completion manifests are minted only from a currently bound governed flow.
+    ProviderExecutionGateway; Evidence comes from the verifier registry bound to
+    this supervisor; completion manifests are minted only from a currently bound
+    governed flow.
     """
 
-    def __init__(self, store, *, mind_store: SQLiteMindStore, verifier: str = "IMMUNE_SYSTEM") -> None:
+    def __init__(
+        self,
+        store,
+        *,
+        mind_store: SQLiteMindStore,
+        evidence_verifiers: EvidenceVerificationRegistry | None = None,
+        verifier: str = "IMMUNE_SYSTEM",
+    ) -> None:
         super().__init__(store, verifier=verifier)
-        self.evidence = TrustedEvidenceLedger(store.connection)
+        self.evidence_verifiers = evidence_verifiers or EvidenceVerificationRegistry()
+        self.evidence = TrustedEvidenceLedger(store.connection, self.evidence_verifiers)
         self.mind_store = mind_store
         self.nervous_records = NervousRecordStore(store.connection)
         self.approvals = ApprovalRegistry(store.connection)
@@ -79,19 +92,19 @@ class GovernedTaskSupervisor(TaskSupervisor):
         )
 
     def reconcile(self, binding, request_id, effect_state, evidence, *, now=None):
-        """Reject caller-minted Evidence on canonical effect reconciliation."""
-        if not is_trusted_evidence(evidence):
+        """Reject Evidence not minted by this supervisor's verifier registry."""
+        if not self.evidence_verifiers.is_trusted(evidence):
             raise BoundaryViolation(
-                "untrusted evidence is disabled on GovernedTaskSupervisor; use the registered evidence verifier"
+                "untrusted evidence is disabled on GovernedTaskSupervisor; use this kernel's registered evidence verifier"
             )
         return super().reconcile(binding, request_id, effect_state, evidence, now=now)
 
     def settle_assignment(self, binding, *, result_state, output_ref, evidence=(), limitations=(), now=None):
-        """Reject caller-minted Evidence on canonical assignment settlement."""
+        """Reject Evidence not minted by this supervisor's verifier registry."""
         items = tuple(evidence)
-        if any(not is_trusted_evidence(item) for item in items):
+        if any(not self.evidence_verifiers.is_trusted(item) for item in items):
             raise BoundaryViolation(
-                "untrusted evidence is disabled on GovernedTaskSupervisor; use the registered evidence verifier"
+                "untrusted evidence is disabled on GovernedTaskSupervisor; use this kernel's registered evidence verifier"
             )
         return super().settle_assignment(
             binding,
