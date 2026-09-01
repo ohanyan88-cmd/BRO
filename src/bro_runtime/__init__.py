@@ -7,6 +7,8 @@ from .supervision import BoundaryViolation,FlowBinding,NextAction,NextStep,Super
 from .mind import Decision,Goal,KnowledgeState,MindRejected,MindRuntime,Plan,SQLiteMindStore
 from .nervous_records import ContextEntry,ContextManifest,NervousRecordRejected,NervousRecordStore,Step,StepState
 from .approval import Approval,ApprovalDecision,ApprovalRegistry,ApprovalRejected,RevocationState
+from .reference_integrity import ReferenceIntegrity,ReferenceIntegrityError
+from .governed_supervision import GovernedTaskSupervisor
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -14,4 +16,5 @@ __all__=[
 "ActionRequest","ActionRuntime","ActionState","AdapterResult","ApprovalRequired","EffectState","RetryBlocked","AssignmentRejected","AssignmentState","LeaseGrant","SpecialistAssignment","StaleWorkerResult","Supervisor","BoundaryViolation","FlowBinding","NextAction","NextStep","SupervisionRejected","TaskSupervisor",
 "Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","SQLiteMindStore",
 "ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
-"Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState"]
+"Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState",
+"ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor"]
