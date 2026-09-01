@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "purpose": "Host-level production deployment contract for BRO. Host deployment and health readback do not by themselves satisfy final production graduation.",
+  "version": 2,
+  "purpose": "Host-level production deployment contract for BRO. Host deployment, health readback, or intelligent acceptance evidence do not by themselves satisfy final production graduation.",
   "platform": "Debian 13 + systemd",
   "states": {
     "HOST_DEPLOYED": [
@@ -15,6 +15,13 @@
       "repository contract gates green for the deployed revision",
       "real external-system acceptance evidence bound to the deployed revision"
     ],
+    "INTELLIGENT_ACCEPTED": [
+      "natural-language request interpreted through a declared non-test external model boundary",
+      "material interpreted scope shown to and explicitly confirmed by a human before execution",
+      "specialist selected before execution",
+      "real external provider effect reference",
+      "independent external-system readback evidence"
+    ],
     "PRODUCTION_GRADUATED": [
       "all contracts/final_delivery.json graduation requirements"
     ]
@@ -22,6 +29,8 @@
   "forbids": [
     "claiming host heartbeat as external-system evidence",
     "claiming systemd active state as final production graduation",
+    "claiming model test fixtures as intelligent production evidence",
+    "claiming intelligent acceptance alone as final production graduation",
     "deploying a revision that is not current origin/main",
     "embedding secrets in release artifacts or deployment evidence"
   ]
