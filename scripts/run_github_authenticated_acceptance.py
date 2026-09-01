@@ -47,6 +47,9 @@ def main() -> int:
     target = GitHubAcceptanceTarget(owner, repository, issue_number)
     provider = GitHubIssueCommentProvider(target)
     key = os.environ.get("BRO_GITHUB_IDEMPOTENCY_KEY", "bro-governed-live-write-v1")
+    marker = provider.marker_for(key)
+    if key in marker or not marker.startswith(provider.marker_prefix):
+        raise AssertionError("external reconciliation marker must be a one-way provider-owned digest")
     body = os.environ.get("BRO_GITHUB_COMMENT_BODY", "BRO governed authenticated external write acceptance v1")
     criterion = "authenticated GitHub issue comment exists and matches the governed request"
 
