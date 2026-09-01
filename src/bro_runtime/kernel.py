@@ -77,13 +77,21 @@ class BROKernel:
         self.feet = FeetStore(c)
         self.voice = VoiceRuntime()
         self.readiness = RuntimeReadiness()
-        self.supervisor = GovernedTaskSupervisor(task_store, mind_store=mind_store)
+
+        # IMMUNE verification is one canonical capability object shared by the
+        # composition root and the governed supervisor. Evidence minted by any
+        # other registry is not eligible for canonical writes.
+        self.evidence_verifiers = EvidenceVerificationRegistry()
+        self.supervisor = GovernedTaskSupervisor(
+            task_store,
+            mind_store=mind_store,
+            evidence_verifiers=self.evidence_verifiers,
+        )
 
         # Canonical production boundaries. Provider routing and evidence verification
         # are composed here so callers do not need to stitch helper modules together.
         self.providers = ProviderAdapterRegistry()
         self.provider_gateway = ProviderExecutionGateway(self.supervisor, self.providers)
-        self.evidence_verifiers = EvidenceVerificationRegistry()
         self._provider_health_for = provider_health_for or (lambda _provider_ref: ProviderHealth.HEALTHY)
 
     def register_provider(self, adapter: ProviderAdapter) -> ProviderAdapter:
