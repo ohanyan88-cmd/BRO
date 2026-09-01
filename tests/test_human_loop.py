@@ -36,9 +36,15 @@ class HumanApprovalLoopTests(unittest.TestCase):
         interaction, token = self.loop.request(self.approval, channel="email", recipient="owner@example.test", response_token="secret-response-token")
         self.assertEqual(interaction.task_ref, "task:1")
         self.assertEqual(interaction.state, InteractionState.WAITING)
-        claimed = self.loop.claim_notification("approval:1", owner="notifier:1", lease_until="2026-09-01T00:05:00Z")
+        claimed = self.loop.claim_notification(
+            "approval:1", owner="notifier:1", lease_until="2026-09-01T00:05:00Z", now="2026-09-01T00:00:00Z"
+        )
         self.assertEqual(claimed.notification_state, NotificationState.LEASED)
-        sent = self.loop.mark_sent("approval:1", owner="notifier:1")
+        with self.assertRaises(HumanLoopRejected):
+            self.loop.claim_notification(
+                "approval:1", owner="notifier:2", lease_until="2026-09-01T00:06:00Z", now="2026-09-01T00:01:00Z"
+            )
+        sent = self.loop.mark_sent("approval:1", owner="notifier:1", now="2026-09-01T00:01:00Z")
         self.assertEqual(sent.notification_state, NotificationState.SENT)
         recorded = self.loop.respond(
             "approval:1", responder="human:owner", response_token=token,
