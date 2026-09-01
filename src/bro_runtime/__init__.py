@@ -9,6 +9,7 @@ from .nervous_records import ContextEntry,ContextManifest,NervousRecordRejected,
 from .approval import Approval,ApprovalDecision,ApprovalRegistry,ApprovalRejected,RevocationState
 from .reference_integrity import ReferenceIntegrity,ReferenceIntegrityError
 from .governed_supervision import GovernedTaskSupervisor
+from .perception import Freshness,Intent,Observation,PerceptionRejected,PerceptionStore,TrustState
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -17,4 +18,5 @@ __all__=[
 "Decision","Goal","KnowledgeState","MindRejected","MindRuntime","Plan","SQLiteMindStore",
 "ContextEntry","ContextManifest","NervousRecordRejected","NervousRecordStore","Step","StepState",
 "Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState",
-"ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor"]
+"ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor",
+"Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState"]
