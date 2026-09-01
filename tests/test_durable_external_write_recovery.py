@@ -22,7 +22,6 @@ from bro_runtime import (
 )
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
 from bro_runtime.live_readback import LiveReadbackRuntime
-from bro_runtime.provider_execution import ProviderExecutionGateway, ProviderRoute
 from bro_runtime.restart_recovery import RestartRecoveryRejected, RestartRecoveryRuntime
 from bro_runtime.secret_runtime import SecretMediator
 
@@ -43,7 +42,7 @@ class FakeGitHub:
 
     def __call__(self, method: str, url: str, token: str, payload: dict | None):
         if token != "TOKEN":
-            raise AssertionError("unexpected mediated credential")
+            raise AssertionError("unexpected credential")
         if method == "GET":
             return [dict(item) for item in self.comments]
         self.posts += 1
@@ -149,6 +148,15 @@ def evidence(evidence_id: str, criterion: str, observation_ref: str, result: obj
     )
 
 
+def write_adapter(provider: GitHubIssueCommentProvider):
+    def invoke(public_inputs: dict):
+        runtime_inputs = dict(public_inputs)
+        runtime_inputs["token"] = "TOKEN"
+        return provider.invoke(runtime_inputs)
+
+    return invoke
+
+
 class DurableExternalWriteRecoveryTests(unittest.TestCase):
     def test_restart_reconciles_external_truth_without_blind_replay_and_completes(self) -> None:
         fake = FakeGitHub()
@@ -160,11 +168,6 @@ class DurableExternalWriteRecoveryTests(unittest.TestCase):
 
             store1 = SQLiteTaskStore(db)
             supervisor1 = TaskSupervisor(store1)
-            providers1 = ProviderAdapterRegistry()
-            providers1.register(provider.adapter())
-            secrets1 = SecretMediator()
-            secrets1.register("secret:github", provider.adapter_id, "TOKEN")
-            gateway1 = ProviderExecutionGateway(supervisor1, providers1, secrets1)
             binding1 = supervisor1.open_flow(
                 task_id=TASK,
                 goal_ref="goal:restart",
@@ -175,16 +178,12 @@ class DurableExternalWriteRecoveryTests(unittest.TestCase):
                 now=T0,
                 lease_seconds=1,
             )
-            attempt = gateway1.execute(
+            attempt = supervisor1.execute(
                 binding1,
                 request(target, provider),
-                route=ProviderRoute(
-                    "github",
-                    provider.adapter_id,
-                    provider.version,
-                    (("token", "secret:github"),),
-                ),
                 executor="worker:before-crash",
+                interface_version=provider.version,
+                adapter=write_adapter(provider),
                 now=T1,
             )
             self.assertEqual(attempt["effect_state"], EffectState.POSSIBLE)
@@ -282,10 +281,6 @@ class DurableExternalWriteRecoveryTests(unittest.TestCase):
             db = Path(td) / "runtime.sqlite3"
             store = SQLiteTaskStore(db)
             supervisor = TaskSupervisor(store)
-            providers = ProviderAdapterRegistry()
-            providers.register(provider.adapter())
-            secrets = SecretMediator()
-            secrets.register("secret:github", provider.adapter_id, "TOKEN")
             binding = supervisor.open_flow(
                 task_id=TASK,
                 goal_ref="goal:restart",
@@ -296,11 +291,12 @@ class DurableExternalWriteRecoveryTests(unittest.TestCase):
                 now=T0,
                 lease_seconds=300,
             )
-            ProviderExecutionGateway(supervisor, providers, secrets).execute(
+            supervisor.execute(
                 binding,
                 request(target, provider),
-                route=ProviderRoute("github", provider.adapter_id, provider.version, (("token", "secret:github"),)),
                 executor="worker:before-crash",
+                interface_version=provider.version,
+                adapter=write_adapter(provider),
                 now=T1,
             )
             observed = evidence("evidence:still-live", "external effect reconciled after restart", "readback:x", True)
