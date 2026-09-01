@@ -1,21 +1,29 @@
-"""Prepare a canonical governed flow around a durable pre-existing Task.
+"""Prepare canonical governed work around a durable pre-existing Task.
 
-This is the narrow ingress bridge for trusted runtimes such as Automation.  It
-reuses BROKernel's organ owners and produces the same PreparedFlow contract as
-BROKernel.prepare, but keeps a caller-supplied Task identity and Goal identity.
-It never grants authority; kernel.open remains the governed authority boundary.
+Trusted ingress runtimes (for example Automation) may reserve a Task before the
+normal planning path runs.  This bridge reuses BROKernel organ owners, preserves
+that Task identity, and makes preparation deterministic/restart-safe.  It never
+grants authority: ``kernel.open`` remains the canonical authority boundary.
 """
 from __future__ import annotations
 
 import uuid
 
 from .capability_selection import CapabilitySelectionRejected, select_capability
-from .continuity import ContinuityEnvelope
 from .kernel import BROKernel, KernelRejected, PreparedFlow
 from .mind import KnowledgeState
 from .nervous_records import ContextEntry, StepState
 from .orchestration import SpecialistAssignment
 from .task_runtime import TaskState
+
+
+def _stable_ref(prefix: str, task_id: str) -> str:
+    return f"{prefix}:{uuid.uuid5(uuid.NAMESPACE_URL, f'bro://existing-task/{task_id}/{prefix}')}"
+
+
+def _require_same(label: str, actual, expected) -> None:
+    if actual != expected:
+        raise KernelRejected(f"restart-safe preparation found conflicting {label}")
 
 
 def prepare_existing_task(
@@ -41,7 +49,7 @@ def prepare_existing_task(
     assumptions: tuple[str, ...] = (),
     relationship_scope: str | None = None,
 ) -> PreparedFlow:
-    """Prepare an unbound RECEIVED Task without creating or authorizing it."""
+    """Prepare one unbound RECEIVED Task; retries reuse the same canonical refs."""
     task = kernel.task_store.fetch_task(task_id)
     if TaskState(task["state"]) is not TaskState.RECEIVED:
         raise KernelRejected("existing Task preparation requires RECEIVED state")
@@ -63,9 +71,34 @@ def prepare_existing_task(
     if not cap.provider_ref:
         raise KernelRejected("selected executable capability has no provider/adapter binding")
 
-    continuity: ContinuityEnvelope | None = kernel.continuity.activate(relationship_scope) if relationship_scope else None
-    intent = kernel.perception.record_intent(content=request, source=source, scope=project_boundary)
+    continuity = kernel.continuity.activate(relationship_scope) if relationship_scope else None
+    intent_id = _stable_ref("intent", task_id)
+    decision_id = _stable_ref("decision", task_id)
+    plan_id = _stable_ref("plan", task_id)
+    step_id = _stable_ref("step", task_id)
+    context_id = _stable_ref("context", task_id)
+    assignment_id = _stable_ref("assignment", task_id)
+    route_id = _stable_ref("route", task_id)
+
     try:
+        intent = kernel.perception.intent(intent_id)
+        _require_same("Intent source", intent.source, source)
+        _require_same("Intent scope", intent.scope, project_boundary)
+        _require_same("Intent content", intent.content, request)
+    except Exception as exc:
+        if not exc.__class__.__name__ == "PerceptionRejected":
+            raise
+        intent = kernel.perception.record_intent(
+            intent_id=intent_id, content=request, source=source, scope=project_boundary
+        )
+
+    try:
+        goal = kernel.mind_store.goal(goal_id)
+        _require_same("Goal intent", goal.intent_ref, intent.intent_id)
+        _require_same("Goal outcome", goal.desired_outcome, desired_outcome)
+        _require_same("Goal scope", goal.interpreted_scope, tuple(dict.fromkeys(interpreted_scope)))
+        _require_same("Goal success conditions", goal.success_conditions, tuple(dict.fromkeys(x.strip() for x in success_conditions if x.strip())))
+    except KeyError:
         goal = kernel.mind.form_goal(
             goal_id=goal_id,
             intent_ref=intent.intent_id,
@@ -79,50 +112,65 @@ def prepare_existing_task(
             assumptions=assumptions,
             uncertainty=KnowledgeState.UNVERIFIED,
         )
-    except Exception as exc:
-        raise KernelRejected(f"existing Task Goal could not be formed: {exc}") from exc
-    decision = kernel.mind.decide(
-        goal_ref=goal.goal_id,
-        question="Which registered capability should execute this outcome?",
-        conclusion={"capability_ref": cap.capability_id, "version": cap.version, "provider_ref": cap.provider_ref},
-        rationale="Selected from the capability registry using provider-health-aware routing.",
-        authority_basis=authority_basis,
-        uncertainty=KnowledgeState.CONFIRMED,
-        reversibility="REVERSIBLE",
-    )
 
-    plan_id = f"plan:{uuid.uuid4()}"
-    step_id = f"step:{uuid.uuid4()}"
-    context_id = f"context:{uuid.uuid4()}"
-    assignment_id = f"assignment:{uuid.uuid4()}"
-    route_id = f"route:{uuid.uuid4()}"
+    conclusion = {"capability_ref": cap.capability_id, "version": cap.version, "provider_ref": cap.provider_ref}
+    try:
+        decision = kernel.mind_store.decision(decision_id)
+        _require_same("Decision Goal", decision.goal_ref, goal.goal_id)
+        _require_same("Decision capability", decision.conclusion, conclusion)
+    except KeyError:
+        decision = kernel.mind.decide(
+            decision_id=decision_id,
+            goal_ref=goal.goal_id,
+            question="Which registered capability should execute this outcome?",
+            conclusion=conclusion,
+            rationale="Selected from the capability registry using provider-health-aware routing.",
+            authority_basis=authority_basis,
+            uncertainty=KnowledgeState.CONFIRMED,
+            reversibility="REVERSIBLE",
+        )
 
-    step = kernel.nervous.create_step(
-        step_id=step_id,
-        task_ref=task_id,
-        plan_ref=plan_id,
-        plan_revision=1,
-        purpose=desired_outcome,
-        required_capabilities=(cap.capability_id,),
-        expected_output=expected_output,
-        authority_class=risk_class,
-        verification_requirement=verification_requirement,
-        retry_policy=retry_policy,
-        state=StepState.READY,
-    )
-    plan = kernel.mind.plan(
-        goal_ref=goal.goal_id,
-        decision_ref=decision.decision_id,
-        step_refs=(step.step_id,),
-        checkpoints=("authority", "effect-reconciliation", "completion"),
-        recovery_options=("reconcile", "replan", "block"),
-        completion_path=success_conditions,
-        reason="Execute the selected capability under canonical authority and evidence gates.",
-        plan_id=plan_id,
-    )
+    try:
+        step = kernel.nervous.step(step_id)
+        _require_same("Step Task", step.task_ref, task_id)
+        _require_same("Step Plan", (step.plan_ref, step.plan_revision), (plan_id, 1))
+        _require_same("Step capability", step.required_capabilities, (cap.capability_id,))
+    except KeyError:
+        step = kernel.nervous.create_step(
+            step_id=step_id,
+            task_ref=task_id,
+            plan_ref=plan_id,
+            plan_revision=1,
+            purpose=desired_outcome,
+            required_capabilities=(cap.capability_id,),
+            expected_output=expected_output,
+            authority_class=risk_class,
+            verification_requirement=verification_requirement,
+            retry_policy=retry_policy,
+            state=StepState.READY,
+        )
 
-    entries = [ContextEntry(intent.intent_id, project_boundary, authority_basis, "CURRENT", "CONFIRMED", intent.sensitivity,
-                            "The current request defines the outcome and scope.", project_boundary)]
+    try:
+        plan = kernel.mind_store.plan(plan_id, 1)
+        _require_same("Plan Goal", plan.goal_ref, goal.goal_id)
+        _require_same("Plan Decision", plan.decision_ref, decision.decision_id)
+        _require_same("Plan Steps", plan.step_refs, (step.step_id,))
+    except KeyError:
+        plan = kernel.mind.plan(
+            goal_ref=goal.goal_id,
+            decision_ref=decision.decision_id,
+            step_refs=(step.step_id,),
+            checkpoints=("authority", "effect-reconciliation", "completion"),
+            recovery_options=("reconcile", "replan", "block"),
+            completion_path=success_conditions,
+            reason="Execute the selected capability under canonical authority and evidence gates.",
+            plan_id=plan_id,
+        )
+
+    entries = [
+        ContextEntry(intent.intent_id, project_boundary, authority_basis, "CURRENT", "CONFIRMED", intent.sensitivity,
+                     "The current request defines the outcome and scope.", project_boundary)
+    ]
     memory_refs: list[str] = []
     for retrieval in kernel.memory.retrieve(scope=project_boundary):
         memory = retrieval.record
@@ -139,12 +187,18 @@ def prepare_existing_task(
                          "CURRENT", "CONFIRMED", "RELATIONSHIP_PRIVATE",
                          "Minimal HEART relationship stance for this scope.", project_boundary),
         ))
-    context = kernel.nervous.create_context_manifest(
-        manifest_id=context_id,
-        task_ref=task_id,
-        isolation_boundary=project_boundary,
-        entries=tuple(entries),
-    )
+    try:
+        context = kernel.nervous.context_manifest(context_id)
+        _require_same("Context Task", context.task_ref, task_id)
+        _require_same("Context boundary", context.isolation_boundary, project_boundary)
+    except KeyError:
+        context = kernel.nervous.create_context_manifest(
+            manifest_id=context_id,
+            task_ref=task_id,
+            isolation_boundary=project_boundary,
+            entries=tuple(entries),
+        )
+
     assignment = SpecialistAssignment(
         assignment_id, task_id, step.step_id, project_boundary, cap.capability_id, context.manifest_id,
         expected_output, "UNBOUND", (cap.provider_ref,), None, {}, success_conditions,
