@@ -11,6 +11,7 @@ from .reference_integrity import ReferenceIntegrity,ReferenceIntegrityError
 from .governed_supervision import GovernedTaskSupervisor
 from .perception import Freshness,Intent,Observation,PerceptionRejected,PerceptionStore,TrustState
 from .memory import MemoryClass,MemoryFreshness,MemoryRecord,MemoryRejected,MemoryRetrieval,MemoryStatus,MemoryStore
+from .continuity import ContinuityEnvelope,ContinuityRejected,ContinuityStatus,ContinuityStore,HeartRecord,SelfRecord
 
 __all__=[
 "CompletionEvidence","ConcurrencyConflict","InvalidTransition","RecoveryAssessment","SQLiteTaskStore","TaskContractViolation","TaskRuntime","TaskState",
@@ -21,4 +22,5 @@ __all__=[
 "Approval","ApprovalDecision","ApprovalRegistry","ApprovalRejected","RevocationState",
 "ReferenceIntegrity","ReferenceIntegrityError","GovernedTaskSupervisor",
 "Freshness","Intent","Observation","PerceptionRejected","PerceptionStore","TrustState",
-"MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore"]
+"MemoryClass","MemoryFreshness","MemoryRecord","MemoryRejected","MemoryRetrieval","MemoryStatus","MemoryStore",
+"ContinuityEnvelope","ContinuityRejected","ContinuityStatus","ContinuityStore","HeartRecord","SelfRecord"]
