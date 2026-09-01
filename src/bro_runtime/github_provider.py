@@ -1,8 +1,9 @@
 """Authenticated GitHub issue-comment provider for the first external WRITE slice.
 
-The provider is deliberately acceptance-target-bound.  Its stable marker is the
-provider-owned reconciliation identity: before every mutation it reads GitHub
-and either returns the already matching comment or fails on conflicting state.
+The provider is deliberately acceptance-target-bound. Its stable marker uses a
+one-way digest of the canonical idempotency key as provider-owned reconciliation
+identity: before every mutation it reads GitHub and either returns the already
+matching comment or fails on conflicting state.
 """
 from __future__ import annotations
 
@@ -38,7 +39,7 @@ class GitHubIssueCommentProvider:
 
     adapter_id = "github-issue-comment"
     version = "v1"
-    marker_prefix = "<!-- bro-external-write:"
+    marker_prefix = "<!-- bro-external-write:sha256:"
 
     def __init__(self, target: GitHubAcceptanceTarget, *, transport=None) -> None:
         if not target.owner or not target.repository or target.issue_number <= 0:
@@ -53,6 +54,11 @@ class GitHubIssueCommentProvider:
             idempotent_operations=("github.issue_comment.ensure",), required_secrets=("token",),
         )
 
+    @classmethod
+    def marker_for(cls, key: str) -> str:
+        digest = hashlib.sha256(key.encode()).hexdigest()
+        return f"{cls.marker_prefix}{digest} -->"
+
     def invoke(self, inputs: dict) -> AdapterResult:
         token = inputs.pop("token", None)
         if not token:
@@ -63,7 +69,7 @@ class GitHubIssueCommentProvider:
         desired = str(inputs.get("body", ""))
         if not key:
             raise GitHubProviderRejected("canonical idempotency key is required")
-        marker = f"{self.marker_prefix}{key} -->"
+        marker = self.marker_for(key)
         matches = [item for item in self._comments(token) if marker in str(item.get("body", ""))]
         if len(matches) > 1:
             raise GitHubProviderRejected("ambiguous external idempotency marker")
