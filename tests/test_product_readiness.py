@@ -23,7 +23,7 @@ class ProductReadinessTests(unittest.TestCase):
         self.assertNotIn("BUILD-ARTIFACT-RUNTIME",missing)
         self.assertNotIn("PROD-ARTIFACT-VERIFY",missing)
         self.assertNotIn("PROD-ADAPTER-REGISTRY",missing)
-        self.assertIn("PROD-REAL-SYSTEM",missing)
+        self.assertNotIn("PROD-REAL-SYSTEM",missing)
     def test_every_criterion_has_explicit_repository_evidence(self):
         report=module.evaluate()
         for item in report["results"]:
