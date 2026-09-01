@@ -6,7 +6,7 @@
   "x-bro-owner": "NERVOUS_SYSTEM",
   "type": "object",
   "additionalProperties": false,
-  "required": ["task_id", "goal_ref", "accountable_identity", "state", "plan_ref", "plan_revision", "context_manifest_ref", "authority_state", "evidence_refs", "artifact_refs", "created_at", "updated_at", "revision"],
+  "required": ["task_id", "goal_ref", "accountable_identity", "state", "plan_ref", "plan_revision", "context_manifest_ref", "authority_state", "approval_refs", "evidence_refs", "artifact_refs", "completion_manifest_ref", "created_at", "updated_at", "revision"],
   "properties": {
     "task_id": {"$ref": "common.schema.json#/$defs/identifier"},
     "goal_ref": {"$ref": "common.schema.json#/$defs/reference"},
@@ -21,10 +21,14 @@
     "approval_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
     "evidence_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
     "artifact_refs": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "completion_manifest_ref": {"type": ["string", "null"]},
     "created_at": {"$ref": "common.schema.json#/$defs/timestamp"},
     "updated_at": {"$ref": "common.schema.json#/$defs/timestamp"},
     "revision": {"type": "integer", "minimum": 1},
     "termination_reason": {"type": ["string", "null"]},
     "excluded_scope": {"$ref": "common.schema.json#/$defs/stringArray"}
-  }
+  },
+  "allOf": [
+    {"if": {"properties": {"state": {"const": "COMPLETED"}}}, "then": {"properties": {"completion_manifest_ref": {"type": "string", "minLength": 1}}, "required": ["completion_manifest_ref"]}}
+  ]
 }
