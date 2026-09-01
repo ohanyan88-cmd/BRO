@@ -17,11 +17,11 @@ from .mind import SQLiteMindStore
 from .nervous_records import NervousRecordStore
 from .reference_integrity import ReferenceIntegrity
 from .supervision import BoundaryViolation, FlowBinding, NextAction, NextStep, TaskSupervisor
-from .task_runtime import TaskState, utc_now
+from .task_runtime import ConcurrencyConflict, TaskState, utc_now
 
 
 class TrustedEvidenceLedger(EvidenceLedger):
-    """Canonical IMMUNE ledger that refuses caller-minted Evidence at the writer boundary."""
+    """Canonical IMMUNE ledger that refuses caller-controlled truth writes."""
 
     def record(self, evidence):
         if not is_trusted_evidence(evidence):
@@ -30,21 +30,27 @@ class TrustedEvidenceLedger(EvidenceLedger):
             )
         return super().record(evidence)
 
+    def evaluate_completion(self, *args, **kwargs):
+        raise BoundaryViolation(
+            "direct completion evaluation is disabled on the canonical ledger; use the governed supervisor"
+        )
+
+    def _evaluate_bound_completion(self, **kwargs):
+        """Internal writer used only after GovernedTaskSupervisor validates the bound flow."""
+        return super().evaluate_completion(**kwargs)
+
 
 class GovernedTaskSupervisor(TaskSupervisor):
     """Reference-closed supervisor with recoverable Approval and evidence gates.
 
-    Production callers must not inject arbitrary execution callables or self-minted
-    Evidence. External effects enter through ProviderExecutionGateway, while
-    reconciliation and successful settlement accept only Evidence minted by a
-    registered trusted verifier.
+    Production callers must not inject arbitrary execution callables, self-minted
+    Evidence, or completion verdicts. External effects enter through
+    ProviderExecutionGateway; Evidence comes from registered trusted verifiers;
+    completion manifests are minted only from a currently bound governed flow.
     """
 
     def __init__(self, store, *, mind_store: SQLiteMindStore, verifier: str = "IMMUNE_SYSTEM") -> None:
         super().__init__(store, verifier=verifier)
-        # Replace the lower-level ledger with the canonical trusted writer. This
-        # closes direct ``supervisor.evidence.record(...)`` bypasses in addition to
-        # guarding reconcile/settlement entrypoints below.
         self.evidence = TrustedEvidenceLedger(store.connection)
         self.mind_store = mind_store
         self.nervous_records = NervousRecordStore(store.connection)
@@ -95,6 +101,81 @@ class GovernedTaskSupervisor(TaskSupervisor):
             limitations=limitations,
             now=now,
         )
+
+    def complete(self, binding, *, outcome_statement, required_criteria, artifact_refs=(), actor="BRO", now=None):
+        """Mint completion only from the currently bound canonical Task/Assignment truth."""
+        moment = now or utc_now()
+        task = self.store.fetch_task(binding.task_id)
+        if task["revision"] != binding.task_revision:
+            raise ConcurrencyConflict(f"expected revision {binding.task_revision}, found {task['revision']}")
+        assignment = self.assignments.get_assignment(binding.assignment_id)
+        if assignment["task_ref"] != binding.task_id:
+            raise BoundaryViolation("completion assignment belongs to a different Task")
+        result = self.assignments.result(assignment["result_ref"]) if assignment["result_ref"] else None
+        exclusions = tuple(json.loads(result["limitations"])) if result else ()
+        produced = (result["output_ref"],) if result and result["output_ref"] else ()
+        artifacts = tuple(dict.fromkeys((*produced, *artifact_refs)))
+        manifest = self.evidence._evaluate_bound_completion(
+            task_ref=binding.task_id,
+            task_revision=binding.task_revision,
+            assignment_ref=binding.assignment_id,
+            scope=self._scope(binding),
+            required_criteria=required_criteria,
+            assignment_result_state=assignment["state"],
+            effects=self._effects(binding.task_id),
+            artifact_refs=artifacts,
+            outcome_exists=bool(result and result["output_ref"]),
+            outcome_statement=outcome_statement,
+            exclusions=exclusions,
+            verifier=self.verifier,
+            now=moment,
+        )
+        self.tasks.record_event(
+            binding.task_id,
+            "completion.evaluated",
+            self.verifier,
+            manifest.reason,
+            correlation_ref=binding.correlation_ref,
+            payload={
+                "manifest_id": manifest.manifest_id,
+                "verdict": str(manifest.verdict),
+                "criteria_unsatisfied": list(manifest.criteria_unsatisfied),
+            },
+        )
+        if not manifest.is_verified():
+            self.tasks.transition(
+                binding.task_id,
+                TaskState.BLOCKED,
+                self.verifier,
+                f"completion gate {manifest.verdict}: {manifest.reason}",
+                binding.task_revision,
+                correlation_ref=binding.correlation_ref,
+                blocker_ref=manifest.manifest_id,
+                excluded_scope=manifest.exclusions,
+                artifact_refs=manifest.artifact_refs,
+            )
+            return manifest
+        verifying = self.tasks.transition(
+            binding.task_id,
+            TaskState.VERIFYING,
+            actor,
+            "evaluating evidence against completion criteria",
+            binding.task_revision,
+            correlation_ref=binding.correlation_ref,
+        )
+        self.tasks.transition(
+            binding.task_id,
+            TaskState.COMPLETED,
+            self.verifier,
+            manifest.reason,
+            verifying["revision"],
+            correlation_ref=binding.correlation_ref,
+            completion=manifest.to_completion_evidence(),
+            evidence_refs=manifest.evidence_refs,
+            artifact_refs=manifest.artifact_refs,
+            payload={"manifest_id": manifest.manifest_id},
+        )
+        return manifest
 
     def open_flow(self, *, task_id, goal_ref, plan_ref, assignment, envelope, worker_id,
                   plan_revision=1, actor="BRO", now=None, lease_seconds=30):
