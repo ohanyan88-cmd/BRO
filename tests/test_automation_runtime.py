@@ -20,6 +20,9 @@ class AutomationRuntimeTests(unittest.TestCase):
             first_due_at="2026-09-01T10:00:00Z",
         )
         occurrence = automation.claim_due(now="2026-09-01T10:00:00Z")[0]
+        advanced = automation.fetch("automation:daily-ops")
+        self.assertEqual(advanced.next_due_at, "2026-09-01T11:00:00Z")
+        self.assertEqual(advanced.revision, 2)
         runtime = TaskRuntime(store)
 
         def factory(definition, claimed):
