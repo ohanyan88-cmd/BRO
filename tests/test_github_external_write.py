@@ -25,6 +25,8 @@ class GitHubExternalWriteProviderTests(unittest.TestCase):
         self.assertEqual(first.effect_state, EffectState.POSSIBLE)
         self.assertEqual(second.effect_state, EffectState.CONFIRMED)
         self.assertEqual(self.api.posts, 1)
+        self.assertNotIn(self.inputs["idempotency_key"], self.api.comments[0]["body"])
+        self.assertIn(self.provider.marker_for(self.inputs["idempotency_key"]), self.api.comments[0]["body"])
         read=dict(self.inputs, operation="github.issue_comment.read")
         observation=self.provider.invoke(read)
         self.assertEqual(observation.effect_state, EffectState.NONE)
