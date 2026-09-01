@@ -4,7 +4,8 @@
 The configured OpenAI Responses model interprets the natural-language request.
 The exact interpreted scope and digest are shown to the human operator, who must
 re-enter that digest before specialist selection or any external effect occurs.
-The effect is then independently read back from GitHub.
+The effect is then independently read back from GitHub. Credentials are consumed
+from process environment only and are never written into the acceptance record.
 """
 from __future__ import annotations
 
