@@ -25,6 +25,8 @@ jobs:
           BRO_GITHUB_IDEMPOTENCY_KEY: bro-governed-live-write-v1
           BRO_GITHUB_COMMENT_BODY: BRO governed authenticated external write acceptance v1
         run: PYTHONPATH=src python3 scripts/run_github_authenticated_acceptance.py
+      - name: Validate sanitized acceptance evidence
+        run: python3 scripts/validate_github_write_acceptance_record.py
       - name: Upload sanitized acceptance evidence
         uses: actions/upload-artifact@v4
         with:
