@@ -3,11 +3,12 @@ import unittest
 from bro_runtime import (
     ActionRequest, AdapterResult, AssignmentState, AuthorityEnvelope, BROKernel,
     Capability, CapabilityKind, CapabilityStatus, EffectState, EvidenceFreshness,
-    EvidenceObservation, EvidenceValidity, EvidenceVerifier, Freshness, SQLiteMindStore,
-    SQLiteTaskStore, StepRequest, StepState, TrustState, VerificationResult,
-    complete_multistep, continue_multistep, evidence_scope, open_multistep,
-    open_replanned_step, prepare_multistep, replan_from_observation, settle_multistep,
+    EvidenceValidity, Freshness, SQLiteMindStore, SQLiteTaskStore, StepRequest,
+    StepState, TrustState, complete_multistep, continue_multistep, evidence_scope,
+    open_multistep, open_replanned_step, prepare_multistep, replan_from_observation,
+    settle_multistep,
 )
+from bro_runtime.evidence_verification import EvidenceObservation, EvidenceVerifier, VerificationResult
 
 T0="2026-09-01T00:00:00Z"; T1="2026-09-01T00:00:01Z"
 
