@@ -4,6 +4,7 @@ import unittest
 from bro_runtime.action_runtime import ActionRequest, ActionRuntime, AdapterResult, EffectState
 from bro_runtime.immune import AuthorityEnvelope
 from bro_runtime.live_readback import ExternalObservation, LiveReadbackRejected, LiveReadbackRuntime
+from bro_runtime.provider_adapters import ProviderAdapter, ProviderAdapterRegistry, ProviderHealth
 
 
 class LiveReadbackTests(unittest.TestCase):
@@ -40,7 +41,13 @@ class LiveReadbackTests(unittest.TestCase):
         )
         self.actions.propose(request)
         self.actions.authorize(request_id, self.envelope, now="2026-09-01T00:00:00Z")
-        self.actions.dispatch(request_id, "crm", "v1", lambda _: AdapterResult({"accepted": True}, EffectState.POSSIBLE))
+        self.actions.dispatch(
+            request_id,
+            "crm",
+            "v1",
+            lambda _: AdapterResult({"accepted": True}, EffectState.POSSIBLE),
+            now="2026-09-01T00:00:00Z",
+        )
         return request_id
 
     def test_live_effect_is_reconciled_from_external_state(self):
@@ -48,7 +55,9 @@ class LiveReadbackTests(unittest.TestCase):
         runtime = LiveReadbackRuntime(self.actions)
         observation = runtime.reconcile_from_external_state(
             request_id,
-            read=lambda: ExternalObservation("acme:crm@v1", "customer:C-1", {"customer_exists": True}, "evidence:readback:C-1"),
+            read=lambda: ExternalObservation(
+                "acme:crm@v1", "customer:C-1", {"customer_exists": True}, "evidence:readback:C-1"
+            ),
             expected=lambda state: state.get("customer_exists") is True,
         )
         attempt = self.actions.latest_attempt(request_id)
@@ -60,8 +69,108 @@ class LiveReadbackTests(unittest.TestCase):
         request_id = self.request("action-no-read")
         runtime = LiveReadbackRuntime(self.actions)
         with self.assertRaisesRegex(LiveReadbackRejected, "ExternalObservation"):
-            runtime.reconcile_from_external_state(request_id, read=lambda: {"customer_exists": True}, expected=lambda _: True)
+            runtime.reconcile_from_external_state(
+                request_id,
+                read=lambda: {"customer_exists": True},
+                expected=lambda _: True,
+            )
         self.assertEqual(self.actions.effective_effect(self.actions.latest_attempt(request_id)), EffectState.POSSIBLE)
+
+    def test_registered_provider_read_reconciles_from_versioned_external_truth(self):
+        request_id = self.request("action-provider-read")
+        providers = ProviderAdapterRegistry()
+        calls = []
+        providers.register(
+            ProviderAdapter(
+                "crm-read",
+                "acme",
+                "v2",
+                ("customer.read",),
+                lambda inputs: calls.append(inputs)
+                or AdapterResult(
+                    {"customer_exists": True, "id": "C-1"},
+                    EffectState.NONE,
+                    observation_refs=("evidence:provider:C-1",),
+                ),
+            )
+        )
+        runtime = LiveReadbackRuntime(self.actions, providers)
+        observation = runtime.reconcile_from_provider_state(
+            request_id,
+            provider="acme",
+            adapter_id="crm-read",
+            version="v2",
+            operation="customer.read",
+            resource_ref="customer:C-1",
+            inputs={"id": "C-1"},
+            expected=lambda state: state["customer_exists"],
+        )
+        self.assertEqual(calls, [{"id": "C-1"}])
+        self.assertEqual(observation.provider_ref, "acme:crm-read@v2")
+        self.assertEqual(observation.evidence_ref, "evidence:provider:C-1")
+        self.assertEqual(
+            self.actions.effective_effect(self.actions.latest_attempt(request_id)),
+            EffectState.CONFIRMED,
+        )
+
+    def test_unavailable_registered_read_provider_fails_before_reconciliation(self):
+        request_id = self.request("action-provider-down")
+        providers = ProviderAdapterRegistry()
+        providers.register(
+            ProviderAdapter(
+                "crm-read",
+                "acme",
+                "v1",
+                ("customer.read",),
+                lambda _: AdapterResult({}, EffectState.NONE, observation_refs=("evidence:x",)),
+                ProviderHealth.UNAVAILABLE,
+            )
+        )
+        runtime = LiveReadbackRuntime(self.actions, providers)
+        with self.assertRaisesRegex(LiveReadbackRejected, "unavailable"):
+            runtime.reconcile_from_provider_state(
+                request_id,
+                provider="acme",
+                adapter_id="crm-read",
+                version="v1",
+                operation="customer.read",
+                resource_ref="customer:C-1",
+                inputs={"id":"C-1"},
+                expected=lambda _: True,
+            )
+        self.assertEqual(
+            self.actions.effective_effect(self.actions.latest_attempt(request_id)),
+            EffectState.POSSIBLE,
+        )
+
+    def test_provider_read_must_be_effect_free(self):
+        request_id = self.request("action-bad-read")
+        providers = ProviderAdapterRegistry()
+        providers.register(
+            ProviderAdapter(
+                "crm-read",
+                "acme",
+                "v1",
+                ("customer.read",),
+                lambda _: AdapterResult(
+                    {"customer_exists": True},
+                    EffectState.CONFIRMED,
+                    observation_refs=("evidence:x",),
+                ),
+            )
+        )
+        runtime = LiveReadbackRuntime(self.actions, providers)
+        with self.assertRaisesRegex(LiveReadbackRejected, "effect-free"):
+            runtime.reconcile_from_provider_state(
+                request_id,
+                provider="acme",
+                adapter_id="crm-read",
+                version="v1",
+                operation="customer.read",
+                resource_ref="customer:C-1",
+                inputs={},
+                expected=lambda _: True,
+            )
 
 
 if __name__ == "__main__":
