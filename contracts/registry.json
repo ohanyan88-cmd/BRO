@@ -15,6 +15,7 @@
     {"primitive": "Evidence", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/evidence.schema.json"},
     {"primitive": "RuntimeEvent", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/runtime-event.schema.json"},
     {"primitive": "ContextManifest", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/context-manifest.schema.json"},
+    {"primitive": "SpecialistAssignment", "owner": "NERVOUS_SYSTEM", "schema": "contracts/v0.1/specialist-assignment.schema.json"},
     {"primitive": "AuthorityEnvelope", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/authority-envelope.schema.json"},
     {"primitive": "Approval", "owner": "IMMUNE_SYSTEM", "schema": "contracts/v0.1/approval.schema.json"}
   ]

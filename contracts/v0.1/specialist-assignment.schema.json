@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bro.local/contracts/v0.1/specialist-assignment.schema.json",
+  "title": "BRO Specialist Assignment v0.1",
+  "x-bro-primitive": "SpecialistAssignment",
+  "x-bro-owner": "NERVOUS_SYSTEM",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assignment_id", "task_ref", "step_ref", "project_boundary", "required_capability", "context_manifest_ref", "expected_output_contract", "authority_envelope_ref", "allowed_tools", "deadline", "budget", "evidence_requirements", "state", "fencing_token", "revision"],
+  "properties": {
+    "assignment_id": {"$ref": "common.schema.json#/$defs/identifier"},
+    "task_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "step_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "project_boundary": {"$ref": "common.schema.json#/$defs/reference"},
+    "required_capability": {"$ref": "common.schema.json#/$defs/reference"},
+    "context_manifest_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "expected_output_contract": {"$ref": "common.schema.json#/$defs/reference"},
+    "authority_envelope_ref": {"$ref": "common.schema.json#/$defs/reference"},
+    "allowed_tools": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "deadline": {"type": ["string", "null"], "format": "date-time"},
+    "budget": {"$ref": "common.schema.json#/$defs/record"},
+    "evidence_requirements": {"$ref": "common.schema.json#/$defs/stringArray"},
+    "state": {"enum": ["READY", "LEASED", "RECOVERING", "SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED"]},
+    "fencing_token": {"type": "integer", "minimum": 0},
+    "revision": {"type": "integer", "minimum": 1}
+  }
+}

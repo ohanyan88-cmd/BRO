@@ -43,6 +43,8 @@ The first runtime slice now provides a durable SQLite/WAL Task state machine, op
 
 The HANDS execution slice adds canonical Action Requests, immutable Authority Envelope binding, exact scope/tool/risk enforcement, one immutable Action Attempt per try, idempotency-aware retry control, and explicit effect reconciliation. Timeouts become `UNKNOWN`, never assumed `NONE`.
 
+The orchestration slice adds durable Specialist Assignments, serialized claims, scoped worker leases, heartbeats, expiry-driven recovery, monotonic fencing tokens, stale-result rejection, evidence-backed settlement, and explicit partial-result preservation. Workers execute bounded assignments; they never become canonical owners or alternate BRO identities.
+
 ## Contract gate
 
 Run:

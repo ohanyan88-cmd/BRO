@@ -10,6 +10,7 @@ from .task_runtime import (
     TaskState,
 )
 from .action_runtime import ActionRequest, ActionRuntime, ActionState, AdapterResult, AuthorityEnvelope, EffectState, RetryBlocked
+from .orchestration import AssignmentRejected, AssignmentState, LeaseGrant, SpecialistAssignment, StaleWorkerResult, Supervisor
 
 __all__ = [
     "CompletionEvidence",
@@ -20,4 +21,5 @@ __all__ = [
     "TaskRuntime",
     "TaskState",
     "ActionRequest", "ActionRuntime", "ActionState", "AdapterResult", "AuthorityEnvelope", "EffectState", "RetryBlocked",
+    "AssignmentRejected", "AssignmentState", "LeaseGrant", "SpecialistAssignment", "StaleWorkerResult", "Supervisor",
 ]
