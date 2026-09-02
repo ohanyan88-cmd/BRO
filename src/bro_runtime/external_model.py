@@ -122,12 +122,38 @@ class ExternalModel:
         context = json.dumps(bounded, ensure_ascii=False)
         return self.json_object(
             instruction=(
-                "Route the user's latest message for BRO. Required key: mode, exactly one of TALK, THINK, ACT. "
+                "Route the user's latest message for BRO. Required key: mode, exactly one of TALK, THINK, STUDY, ACT. "
                 "TALK means ordinary conversation/discussion with no real-world effect. THINK means analysis/planning/read-only reasoning with no real-world effect. "
+                "STUDY means the user is asking BRO to study, research, read, review or learn about something so the knowledge is retained; it is read-and-learn only and causes no real-world effect. "
                 "ACT means the user is asking BRO to change an external system, send/write/create/delete/deploy/execute something, or otherwise cause a real-world effect. "
-                "When uncertain between TALK/THINK and ACT, choose TALK or THINK; never infer permission to act."
+                "When uncertain between TALK/THINK/STUDY and ACT, never choose ACT; never infer permission to act."
             ),
             request=f"Conversation history: {context}\nLatest user message: {request}",
+        )
+
+    def study_plan(self, mission: str, available_sources: Sequence[str]) -> dict[str, Any]:
+        """Choose an ordered curriculum from sources that already exist."""
+        return self.json_object(
+            instruction=(
+                "Plan a small BRO study curriculum. Required key: topics, an array of objects with keys "
+                "topic and source_ref. Every source_ref MUST be copied exactly from the supplied available "
+                "sources list; never invent a path. Order the topics so the most foundational source is first. "
+                "Return at most twelve topics and no commentary."
+            ),
+            request=f"Study mission: {mission.strip()}\nAvailable sources: {json.dumps(list(available_sources))}",
+        )
+
+    def study_extract(self, topic: str, source_text: str, *, max_chars: int = 24000) -> dict[str, Any]:
+        """Extract claims, each carrying the verbatim quote that would prove it."""
+        return self.json_object(
+            instruction=(
+                "Extract what can be learned about the topic from the supplied source text. Required key: "
+                "claims, an array of objects with keys claim, evidence_quote and inference. evidence_quote "
+                "MUST be copied verbatim from the source text and be long enough to locate; leave it empty "
+                "and set inference true when the claim is your reasoning rather than something the source "
+                "states. Never invent a quote. Return at most ten claims and no commentary."
+            ),
+            request=f"Topic: {topic.strip()}\nSource text:\n{source_text[:max_chars]}",
         )
 
     def conversational_response(

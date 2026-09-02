@@ -28,6 +28,50 @@ class LearningMemoryRejected(RuntimeError):
     pass
 
 
+class KnowledgeKind(StrEnum):
+    """What a retained study claim actually is. Never a matter of model assertion."""
+
+    VERIFIED_KNOWLEDGE = "VERIFIED_KNOWLEDGE"
+    INFERENCE = "INFERENCE"
+    UNVERIFIED_OBSERVATION = "UNVERIFIED_OBSERVATION"
+
+
+class VerificationState(StrEnum):
+    VERIFIED = "VERIFIED"
+    UNVERIFIED = "UNVERIFIED"
+    CONTRADICTED = "CONTRADICTED"
+    STALE = "STALE"
+
+
+class SourceType(StrEnum):
+    REPOSITORY_FILE = "REPOSITORY_FILE"
+    RUNTIME_READBACK = "RUNTIME_READBACK"
+    OPERATOR_DOCUMENT = "OPERATOR_DOCUMENT"
+    MODEL_INFERENCE = "MODEL_INFERENCE"
+
+
+class StudyStatus(StrEnum):
+    PLANNED = "PLANNED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETE = "COMPLETE"
+    BLOCKED = "BLOCKED"
+
+
+class CurriculumStatus(StrEnum):
+    PENDING = "PENDING"
+    STUDIED = "STUDIED"
+    BLOCKED = "BLOCKED"
+    SKIPPED = "SKIPPED"
+
+
+# Confidence follows what the runtime could verify, not what the model claimed.
+KIND_CONFIDENCE = {
+    KnowledgeKind.VERIFIED_KNOWLEDGE: 1.0,
+    KnowledgeKind.INFERENCE: 0.5,
+    KnowledgeKind.UNVERIFIED_OBSERVATION: 0.25,
+}
+
+
 class LessonStatus(StrEnum):
     ACTIVE = "ACTIVE"
     DISPUTED = "DISPUTED"
@@ -112,6 +156,59 @@ class Retrieval:
     lessons: tuple[LearnedLesson, ...] = ()
     withheld: tuple[LearnedLesson, ...] = ()
     contradictions: tuple[Contradiction, ...] = ()
+
+
+@dataclass(frozen=True)
+class StudyMissionRecord:
+    mission_id: str
+    mission: str
+    scope: tuple[str, ...]
+    status: StudyStatus
+    stop_reason: str
+    item_budget: int
+    provenance: Provenance = field(default_factory=Provenance)
+
+
+@dataclass(frozen=True)
+class CurriculumItemRecord:
+    item_id: str
+    mission_id: str
+    sequence: int
+    topic: str
+    source_ref: str
+    status: CurriculumStatus
+    detail: str = ""
+
+
+@dataclass(frozen=True)
+class KnowledgeItem:
+    knowledge_id: str
+    mission_id: str
+    item_id: str
+    topic: str
+    claim: str
+    kind: KnowledgeKind
+    source_ref: str
+    source_type: SourceType
+    source_digest: str
+    evidence_quote: str
+    verification_state: VerificationState
+    confidence: float
+    scope: tuple[str, ...] = ()
+    created_at: str = ""
+    provenance: Provenance = field(default_factory=Provenance)
+
+    @property
+    def is_usable(self) -> bool:
+        return self.verification_state is VerificationState.VERIFIED
+
+
+@dataclass(frozen=True)
+class KnowledgeRetrieval:
+    knowledge: tuple[KnowledgeItem, ...] = ()
+    withheld: tuple[KnowledgeItem, ...] = ()
+    contradictions: tuple[Contradiction, ...] = ()
+    stale: tuple[KnowledgeItem, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -249,6 +346,47 @@ class DurableLearningMemory:
               detail TEXT NOT NULL,
               created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS bro_study_missions(
+              mission_id TEXT PRIMARY KEY,
+              mission TEXT NOT NULL,
+              scope_json TEXT NOT NULL,
+              status TEXT NOT NULL,
+              stop_reason TEXT NOT NULL,
+              item_budget INTEGER NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              provenance_json TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS bro_study_curriculum(
+              item_id TEXT PRIMARY KEY,
+              mission_id TEXT NOT NULL,
+              sequence INTEGER NOT NULL,
+              topic TEXT NOT NULL,
+              source_ref TEXT NOT NULL,
+              status TEXT NOT NULL,
+              detail TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS bro_study_knowledge(
+              knowledge_id TEXT PRIMARY KEY,
+              mission_id TEXT NOT NULL,
+              item_id TEXT NOT NULL,
+              topic TEXT NOT NULL,
+              claim TEXT NOT NULL,
+              kind TEXT NOT NULL,
+              source_ref TEXT NOT NULL,
+              source_type TEXT NOT NULL,
+              source_digest TEXT NOT NULL,
+              evidence_quote TEXT NOT NULL,
+              verification_state TEXT NOT NULL,
+              confidence REAL NOT NULL,
+              scope_json TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              provenance_json TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS bro_study_knowledge_identity
+              ON bro_study_knowledge(mission_id, claim);
             CREATE TABLE IF NOT EXISTS bro_skill_candidate_transitions(
               sequence INTEGER PRIMARY KEY AUTOINCREMENT,
               candidate_id TEXT NOT NULL,
@@ -665,6 +803,197 @@ class DurableLearningMemory:
         if row["status"] not in self.VALID_CANDIDATE_STATES:
             raise LearningMemoryRejected("invalid skill candidate state")
         return row
+
+    # ------------------------------------------------------------ self-study
+    def open_study_mission(
+        self, mission: str, *, scope: Sequence[str] = (), item_budget: int = 8,
+        provenance: Provenance | None = None,
+    ) -> StudyMissionRecord:
+        mission_text = self._text(mission, "mission")
+        if item_budget < 1:
+            raise LearningMemoryRejected("study item_budget must be at least 1")
+        provenance = provenance or Provenance()
+        record = StudyMissionRecord(
+            f"study-mission:{uuid.uuid4()}", mission_text, self._sequence(scope),
+            StudyStatus.PLANNED, "", int(item_budget), provenance,
+        )
+        now = utc_now()
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO bro_study_missions VALUES (?,?,?,?,?,?,?,?,?)",
+                (record.mission_id, record.mission, json.dumps(record.scope, ensure_ascii=False),
+                 record.status.value, "", record.item_budget, now, now,
+                 json.dumps(provenance.as_dict(), ensure_ascii=False)),
+            )
+        return record
+
+    def set_study_status(self, mission_id: str, status: StudyStatus, *, stop_reason: str = "") -> StudyMissionRecord:
+        row = self._mission_row(mission_id)
+        with self.connection:
+            self.connection.execute(
+                "UPDATE bro_study_missions SET status=?,stop_reason=?,updated_at=? WHERE mission_id=?",
+                (StudyStatus(status).value, stop_reason.strip(), utc_now(), row["mission_id"]),
+            )
+        return self.study_mission(mission_id)
+
+    def add_curriculum_item(self, mission_id: str, *, topic: str, source_ref: str, sequence: int) -> CurriculumItemRecord:
+        row = self._mission_row(mission_id)
+        item = CurriculumItemRecord(
+            f"study-item:{uuid.uuid4()}", row["mission_id"], int(sequence),
+            self._text(topic, "topic"), source_ref.strip(), CurriculumStatus.PENDING,
+        )
+        now = utc_now()
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO bro_study_curriculum VALUES (?,?,?,?,?,?,?,?,?)",
+                (item.item_id, item.mission_id, item.sequence, item.topic, item.source_ref,
+                 item.status.value, "", now, now),
+            )
+        return item
+
+    def set_curriculum_status(self, item_id: str, status: CurriculumStatus, *, detail: str = "") -> CurriculumItemRecord:
+        row = self.connection.execute("SELECT * FROM bro_study_curriculum WHERE item_id=?", (item_id,)).fetchone()
+        if row is None:
+            raise LearningMemoryRejected("unknown curriculum item")
+        with self.connection:
+            self.connection.execute(
+                "UPDATE bro_study_curriculum SET status=?,detail=?,updated_at=? WHERE item_id=?",
+                (CurriculumStatus(status).value, detail.strip(), utc_now(), item_id),
+            )
+        return self._curriculum_item(
+            self.connection.execute("SELECT * FROM bro_study_curriculum WHERE item_id=?", (item_id,)).fetchone()
+        )
+
+    def record_knowledge(
+        self, *, mission_id: str, item_id: str, topic: str, claim: str, kind: KnowledgeKind,
+        source_ref: str, source_type: SourceType, source_digest: str, evidence_quote: str,
+        scope: Sequence[str] = (), provenance: Provenance | None = None,
+    ) -> KnowledgeItem | None:
+        """Retain one study claim. The runtime decides its kind, state and confidence."""
+        row = self._mission_row(mission_id)
+        kind = KnowledgeKind(kind)
+        claim = self._text(claim, "claim")
+        if kind is KnowledgeKind.VERIFIED_KNOWLEDGE and not evidence_quote.strip():
+            raise LearningMemoryRejected("verified study knowledge requires a source-backed evidence quote")
+        if kind is KnowledgeKind.VERIFIED_KNOWLEDGE and not source_digest.strip():
+            raise LearningMemoryRejected("verified study knowledge requires a source digest")
+        state = VerificationState.VERIFIED if kind is KnowledgeKind.VERIFIED_KNOWLEDGE else VerificationState.UNVERIFIED
+        item = KnowledgeItem(
+            f"study-knowledge:{uuid.uuid4()}", row["mission_id"], item_id.strip(),
+            self._text(topic, "topic"), claim, kind, source_ref.strip(), SourceType(source_type),
+            source_digest.strip(), evidence_quote.strip(), state, KIND_CONFIDENCE[kind],
+            self._sequence(scope), utc_now(), provenance or Provenance(),
+        )
+        try:
+            with self.connection:
+                self.connection.execute(
+                    "INSERT INTO bro_study_knowledge VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (item.knowledge_id, item.mission_id, item.item_id, item.topic, item.claim,
+                     item.kind.value, item.source_ref, item.source_type.value, item.source_digest,
+                     item.evidence_quote, item.verification_state.value, item.confidence,
+                     json.dumps(item.scope, ensure_ascii=False), item.created_at,
+                     json.dumps(item.provenance.as_dict(), ensure_ascii=False)),
+                )
+        except sqlite3.IntegrityError:
+            return None  # the same claim is already retained for this mission
+        return item
+
+    def study_mission(self, mission_id: str) -> StudyMissionRecord:
+        row = self._mission_row(mission_id)
+        return StudyMissionRecord(
+            row["mission_id"], row["mission"], self._json_tuple(row["scope_json"]),
+            StudyStatus(row["status"]), row["stop_reason"], int(row["item_budget"]),
+            Provenance.from_json(row["provenance_json"]),
+        )
+
+    def curriculum(self, mission_id: str) -> tuple[CurriculumItemRecord, ...]:
+        rows = self.connection.execute(
+            "SELECT * FROM bro_study_curriculum WHERE mission_id=? ORDER BY sequence", (mission_id,)
+        ).fetchall()
+        return tuple(self._curriculum_item(row) for row in rows)
+
+    def knowledge(self, mission_id: str) -> tuple[KnowledgeItem, ...]:
+        rows = self.connection.execute(
+            "SELECT * FROM bro_study_knowledge WHERE mission_id=? ORDER BY created_at", (mission_id,)
+        ).fetchall()
+        return tuple(self._knowledge(row) for row in rows)
+
+    def retrieve_knowledge(
+        self, topic: str, *, current_truth: Mapping[str, str] | None = None,
+        current_digests: Mapping[str, str] | None = None, limit: int = 5,
+    ) -> KnowledgeRetrieval:
+        """Rank retained study knowledge. Current truth outranks it; this never writes."""
+        terms = {term for term in self._text(topic, "topic").lower().split() if len(term) >= 3}
+        rows = self.connection.execute(
+            "SELECT * FROM bro_study_knowledge ORDER BY confidence DESC, created_at DESC LIMIT 500"
+        ).fetchall()
+        scored: list[tuple[float, sqlite3.Row]] = []
+        withheld: list[KnowledgeItem] = []
+        stale: list[KnowledgeItem] = []
+        contradictions: list[Contradiction] = []
+        for row in rows:
+            item = self._knowledge(row)
+            found = self._knowledge_contradictions(item, current_truth or {})
+            if found:
+                contradictions.extend(found)
+                withheld.append(item)
+                continue
+            expected = (current_digests or {}).get(item.source_ref)
+            if expected and item.source_digest and expected != item.source_digest:
+                stale.append(item)
+                continue
+            haystack = f"{row['topic']} {row['claim']} {row['source_ref']}".lower()
+            score = sum(1 for term in terms if term in haystack)
+            if score <= 0:
+                continue
+            scored.append((score + float(row["confidence"]), row))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return KnowledgeRetrieval(
+            knowledge=tuple(self._knowledge(row) for _, row in scored[:limit]),
+            withheld=tuple(withheld), contradictions=tuple(contradictions), stale=tuple(stale),
+        )
+
+    @staticmethod
+    def _knowledge_contradictions(item: KnowledgeItem, current_truth: Mapping[str, str]) -> tuple[Contradiction, ...]:
+        found: list[Contradiction] = []
+        for key, current in current_truth.items():
+            current = str(current).strip()
+            if not current:
+                continue
+            prefix = f"{BINDING_PREFIX}{key}="
+            for fact in item.scope:
+                if not fact.startswith(prefix):
+                    continue
+                learned = fact[len(prefix):].strip()
+                if learned and learned != current:
+                    found.append(Contradiction(item.knowledge_id, key, learned, current,
+                                               "retained study knowledge contradicts current runtime truth"))
+        return tuple(found)
+
+    def _mission_row(self, mission_id: str) -> sqlite3.Row:
+        row = self.connection.execute(
+            "SELECT * FROM bro_study_missions WHERE mission_id=?", (self._text(mission_id, "mission_id"),)
+        ).fetchone()
+        if row is None:
+            raise LearningMemoryRejected("unknown study mission")
+        return row
+
+    @classmethod
+    def _curriculum_item(cls, row: sqlite3.Row) -> CurriculumItemRecord:
+        return CurriculumItemRecord(
+            row["item_id"], row["mission_id"], int(row["sequence"]), row["topic"],
+            row["source_ref"], CurriculumStatus(row["status"]), row["detail"],
+        )
+
+    @classmethod
+    def _knowledge(cls, row: sqlite3.Row) -> KnowledgeItem:
+        return KnowledgeItem(
+            row["knowledge_id"], row["mission_id"], row["item_id"], row["topic"], row["claim"],
+            KnowledgeKind(row["kind"]), row["source_ref"], SourceType(row["source_type"]),
+            row["source_digest"], row["evidence_quote"], VerificationState(row["verification_state"]),
+            float(row["confidence"]), cls._json_tuple(row["scope_json"]), row["created_at"],
+            Provenance.from_json(row["provenance_json"]),
+        )
 
     # ----------------------------------------------------------------- mapping
     @staticmethod

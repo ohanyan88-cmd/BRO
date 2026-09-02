@@ -16,6 +16,7 @@ class InteractionMode(StrEnum):
     TALK = "TALK"
     THINK = "THINK"
     ACT = "ACT"
+    STUDY = "STUDY"
 
 
 @dataclass(frozen=True)
@@ -25,9 +26,11 @@ class ConversationMessage:
 
 
 class ConversationalInteractionSurface:
-    """Route natural language to TALK, THINK, or the existing governed ACT path.
+    """Route natural language to TALK, THINK, STUDY, or the existing governed ACT path.
 
-    TALK and THINK are non-effecting conversational modes. ACT delegates to the
+    TALK and THINK are non-effecting conversational modes. STUDY is read-and-learn:
+    it runs the governed study runtime, which has no executor and no provider, so a
+    study mission cannot become permission to change anything. ACT delegates to the
     already-governed InteractionSurface. Optional durable hooks can restore/persist
     conversation and record evidenced outcomes without creating a second action path.
     Learning-hook failure never changes the truth of an already completed action.
@@ -42,10 +45,12 @@ class ConversationalInteractionSurface:
         initial_history: Sequence[Mapping[str, str]] = (),
         message_recorder: Callable[[str, str, str], None] | None = None,
         outcome_recorder: Callable[[str, bool, Mapping[str, Any] | None, str], None] | None = None,
+        study_runner: Callable[[str], Mapping[str, Any]] | None = None,
     ) -> None:
         self.action_surface = action_surface
         self.router = router
         self.responder = responder
+        self.study_runner = study_runner
         self.message_recorder = message_recorder
         self.outcome_recorder = outcome_recorder
         self._history: list[ConversationMessage] = []
@@ -86,7 +91,15 @@ class ConversationalInteractionSurface:
         try:
             mode = InteractionMode(str(routed.get("mode", "")).strip().upper())
         except ValueError as exc:
-            raise ConversationRejected("router must return TALK, THINK, or ACT") from exc
+            raise ConversationRejected("router must return TALK, THINK, STUDY, or ACT") from exc
+
+        if mode is InteractionMode.STUDY:
+            if self.study_runner is None:
+                raise ConversationRejected("study mode is not configured on this surface")
+            report = dict(self.study_runner(request))
+            self._remember("user", request, mode.value)
+            self._remember("assistant", self._study_summary(report), mode.value)
+            return {"mode": mode.value, "study": report, "requires_confirmation": False}
 
         if mode is InteractionMode.ACT:
             preview = self.action_surface.submit(request)
@@ -100,6 +113,17 @@ class ConversationalInteractionSurface:
         self._remember("user", request, mode.value)
         self._remember("assistant", reply, mode.value)
         return {"mode": mode.value, "response": reply, "requires_confirmation": False}
+
+    @staticmethod
+    def _study_summary(report: Mapping[str, Any]) -> str:
+        curriculum = dict(report.get("curriculum", {}))
+        knowledge = dict(report.get("knowledge", {}))
+        return (
+            f"Studied {curriculum.get('studied', 0)} of {curriculum.get('planned', 0)} planned items; "
+            f"retained {knowledge.get('verified', 0)} verified, {knowledge.get('inference', 0)} inferred, "
+            f"{knowledge.get('unverified_observation', 0)} unverified. "
+            f"Stopped: {report.get('stop_reason', '')}. No external effect."
+        )
 
     def confirm_and_execute(self, request_id: str, *, confirmed_by: str, scope_digest: str) -> dict[str, Any]:
         request = self._pending_actions.get(request_id, "")

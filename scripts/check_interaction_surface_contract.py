@@ -24,6 +24,10 @@ ENTRYPOINT = "scripts/bro_interact.py"
 REQUIREMENT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
     "natural_language_intake": ((ENTRYPOINT, "argparse"), (FINAL_DELIVERY, "def interpret(")),
     "automatic_talk_think_act_routing": ((CONVERSATION, "routed = dict(self.router(request, self.history))"),),
+    "study_is_read_and_learn_only": (
+        (CONVERSATION, "if mode is InteractionMode.STUDY:"),
+        ("src/bro_runtime/study_runtime.py", "never produces permission"),
+    ),
     "conversation_history_in_session": ((CONVERSATION, "self._history.append(ConversationMessage(role, content))"),),
     "talk_think_never_execute_external_effects": ((CONVERSATION, "if mode is InteractionMode.ACT:"),),
     "action_credentials_required_only_for_act_execution": ((ENTRYPOINT, 'required("BRO_GITHUB_TOKEN")'),),
