@@ -12,10 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from bro_runtime.anthropic_messages import AnthropicMessagesRejected
 from bro_runtime.conversation import ConversationalInteractionSurface, InteractionMode
-from bro_runtime.anthropic_messages import AnthropicMessagesRejected
-from bro_runtime.external_model import ExternalModelRejected
+from bro_runtime.inference import InferenceRejected
 from bro_runtime.model_provider import build_model as build_configured_model
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import (
@@ -40,7 +38,7 @@ def build_model():
     """Provider selection lives in one place; this surface does not care which answered."""
     try:
         return build_configured_model(os.environ)
-    except ExternalModelRejected as exc:
+    except InferenceRejected as exc:
         raise SystemExit(str(exc)) from None
 
 
@@ -309,7 +307,7 @@ def read_request(read_line) -> str | None:
 # A model or provider that is unavailable is an operational fact, not a bug in the
 # conversation. It is reported in full and the session stays alive; it is never softened
 # into a pretend answer, and a governance refusal is deliberately not caught here.
-BOUNDARY_FAILURES = (ExternalModelRejected, AnthropicMessagesRejected, GitHubProviderRejected)
+BOUNDARY_FAILURES = (InferenceRejected, GitHubProviderRejected)
 
 
 def handle(surface: ConversationalInteractionSurface, request: str) -> int:

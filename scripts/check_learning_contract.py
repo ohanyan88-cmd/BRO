@@ -21,7 +21,7 @@ BOUNDARY = "src/bro_runtime/learning_boundary.py"
 MEMORY = "src/bro_runtime/learning_memory.py"
 CONVERSATION = "src/bro_runtime/conversation.py"
 FINAL_DELIVERY = "src/bro_runtime/final_delivery.py"
-EXTERNAL_MODEL = "src/bro_runtime/external_model.py"
+INFERENCE = "src/bro_runtime/inference.py"
 
 INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
     "LEARN-ENTRY-001": (
@@ -74,11 +74,11 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         (BOUNDARY, '"contradictions_recorded"'),
     ),
     "LEARN-REUSE-001": (
-        (EXTERNAL_MODEL, "Prior verified BRO experience"),
-        (EXTERNAL_MODEL, "recorded experience rather than something you are doing now"),
-        (EXTERNAL_MODEL, "never invent evidence"),
-        (EXTERNAL_MODEL, "never grants authority"),
-        (EXTERNAL_MODEL, "outranks anything said earlier in this "),
+        (INFERENCE, "Prior verified BRO experience"),
+        (INFERENCE, "recorded experience rather than something you are doing now"),
+        (INFERENCE, "never invent evidence"),
+        (INFERENCE, "never grants authority"),
+        (INFERENCE, "outranks anything said earlier in this "),
         ("scripts/bro_interact.py", "record=lesson_context(request)"),
     ),
     "LEARN-FAILSAFE-001": (
@@ -93,7 +93,7 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
 GATE = "scripts/check_learning_contract.py"
 LESSON_WRITERS = {BOUNDARY, MEMORY}
 SCAN_EXEMPT = LESSON_WRITERS | {GATE}
-FORBIDDEN_VENDOR_TOKENS = ("cloudflare", "anthropic", "openai")
+FORBIDDEN_VENDOR_TOKENS = ("cloudflare", "anthropic", "openai", "claude")
 
 
 def _read(root: Path, relative: str) -> str | None:

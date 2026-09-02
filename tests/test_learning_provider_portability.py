@@ -7,8 +7,8 @@ import unittest
 from bro_runtime.learning_boundary import ExperienceContext, GovernedLearningBoundary
 from bro_runtime.learning_memory import DurableLearningMemory, LessonStatus
 
-MODEL_A = "cloudflare:openai-compatible:@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-MODEL_B = "some-other-vendor:openai-compatible:another-model-v2"
+MODEL_A = "claude-code-cli:sonnet"
+MODEL_B = "some-future-backend:another-model-v2"
 
 RECEIPT = {
     "specialist_ref": "specialist:github-operations",
@@ -113,7 +113,7 @@ class ProviderPortabilityTests(unittest.TestCase):
         schema = "\n".join(
             str(row[0]) for row in connection.execute("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL")
         ).lower()
-        for vendor in ("cloudflare", "openai", "anthropic", "llama", "gpt", "gemini", "workers-ai"):
+        for vendor in ("cloudflare", "openai", "anthropic", "claude", "llama", "gpt", "gemini"):
             self.assertNotIn(vendor, schema, f"storage schema must not encode {vendor} semantics")
 
     def test_model_identity_is_stored_as_data_never_as_a_key(self):

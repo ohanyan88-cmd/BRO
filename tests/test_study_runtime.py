@@ -29,7 +29,7 @@ Independent external readback is required before an action counts as verified.
 """
 
 
-def context(model_ref="cloudflare:openai-compatible:model-a", root_ref="/study/root", environment="production"):
+def context(model_ref="claude-code-cli:sonnet", root_ref="/study/root", environment="production"):
     return StudyContext(
         environment=environment, source_revision="e" * 40, instance_id="dbsrv",
         model_ref=model_ref, root_ref=root_ref,

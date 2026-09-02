@@ -1,49 +1,51 @@
-# BRO Model Providers / BRO-ի model provider-ները
+# BRO's Inference Boundary / BRO-ի inference սահմանը
 
 ## English
 
-### A model is a backend, never the authority
+### One boundary, one owner, one active backend
 
-BRO owns its prompts, memory, evidence, governance and authority. A provider answers
-questions and nothing else. Switching provider changes one thing in the record — the
-provenance of who reasoned — and nothing else at all.
+Everything BRO is lives above the boundary: identity, TALK/THINK/STUDY/ACT routing, the
+prompts and behavioural instructions, conversation semantics, memory, durable learning,
+skills, governance, authority, approval, evidence, current-truth handling, contradiction
+and staleness handling, and execution semantics. A backend below it does exactly one
+thing — turn a conversation into text.
 
-    BRO → model_provider.build_model(env) → one of:
-        claude-code-cli   the locally authenticated Claude Code CLI
-        anthropic         the Anthropic Messages API
-        cloudflare / any  an OpenAI-compatible chat-completions endpoint
+    BRO
+      → bro_runtime.inference.BROInference        BRO's prompts and bounded retry
+        → model_provider.build_model(env)         one line of configuration
+          → ClaudeCodeCLIModel._complete          the only method a backend supplies
+            → claude --print (authenticated CLI session)
 
-Selection is configuration: `BRO_MODEL_PROVIDER`, `BRO_MODEL_NAME`, and whatever that
-provider needs. Adding a backend means adding a case to one factory. Both production
-entrypoints call that factory, so they cannot drift apart.
+A backend implements `_complete` and nothing else. It does not restate a prompt, define a
+mode, or decide what BRO refuses. `scripts/check_inference_boundary.py` enforces that:
+each of BRO's sentences may have exactly one owner in the runtime, a backend that
+redefines any behavioural method fails the gate, and a retired backend that reappears in
+the tree fails it too.
 
-### One set of prompts
+### Why the rule is a gate and not a convention
 
-Every provider inherits BRO's prompt layer rather than restating it. Routing, scope
-interpretation, specialist selection, the durable-record system message, study planning
-and study extraction are defined once. A provider overrides only the step that turns a
-conversation into text.
+It was broken once, silently. The Anthropic adapter carried its own copy of BRO's prompts
+and drifted a whole interaction mode behind the product: its router still offered only
+TALK, THINK and ACT with no STUDY, and its conversational path had no durable-record
+message. Nothing failed; it simply answered a slightly older question. That adapter has
+been removed, and the gate now makes the same drift impossible to reintroduce quietly.
 
-This matters because it has already gone wrong: the Anthropic adapter carries its own
-copy of those prompts and has fallen behind — its router still offers only TALK, THINK
-and ACT, with no STUDY, and its conversational path has no durable-record message. A
-provider that restates BRO's prompts is a provider that will eventually answer a
-different question. The Claude Code adapter does not restate them, and a test asserts
-that its shared methods are literally BRO's.
+### The active backend: Claude Code CLI
 
-### Claude Code CLI
+Configuration is `BRO_MODEL_PROVIDER=claude-code-cli` and `BRO_MODEL_NAME`, with optional
+`BRO_MODEL_CLI_PATH`, `BRO_MODEL_CLI_WORKDIR` and `BRO_MODEL_TIMEOUT_SECONDS`. There is
+no API key, because there is no API: the official CLI owns its own authenticated session.
 
-The official CLI is invoked non-interactively in the narrowest supported shape:
-`--print`, `--output-format json`, `--restricted` (no command- or code-running tools and
-no web fetch), `--strict-mcp-config`, an explicit `--disallowed-tools` deny list, and an
-explicit `--model`. The prompt travels on **stdin** and the argument vector is a list, so
-no user text is ever concatenated into a command line and no shell is involved.
+The invocation is the narrowest supported shape for model-response behaviour: `--print`,
+`--output-format json`, `--restricted` (no command- or code-running tools and no web
+fetch), `--strict-mcp-config`, an explicit `--disallowed-tools` deny list, and an explicit
+`--model`. The prompt travels on **stdin** and the argument vector is a list, so no user
+text ever reaches a command line and no shell is involved.
 
-**Authentication is the CLI's, and stays the CLI's.** BRO reads no credential, stores
-none, prints none, and derives none; there is no credential field in the adapter's
-configuration, and a Claude subscription is never converted into an API key. `--bare` is
-deliberately not used, because it would force API-key authentication instead of the
-session the CLI owns.
+**Authentication is the CLI's and stays the CLI's.** BRO reads no credential, stores none,
+prints none and derives none; the adapter's configuration has no credential field, and a
+subscription is never converted into an API key. `--bare` is deliberately unused, because
+it would force API-key authentication instead of the session the CLI owns.
 
 Claude Code is not BRO's hands, memory, approval authority or source of truth. Scope
 confirmation, authority evaluation, provider restriction, independent readback, durable
@@ -51,52 +53,58 @@ learning and the study boundary are untouched by which model answered.
 
 ### Failure is reported, not hidden
 
-Every provider shares the same bounded retry: throttling and gateway faults are worth one
-more try with backoff, and a configuration or authentication fact is not. When attempts
-are spent the error says how many were spent. A CLI that has no session says so by name
-instead of being retried into silence, and a truncated or failed turn is never treated as
-an answer.
+Throttling, gateway faults and timeouts are transient and share one bounded retry defined
+on the boundary: doubling backoff, `Retry-After` honoured within a cap, and an error that
+says how many attempts were spent. A CLI with no session says so by name rather than being
+retried into silence. A truncated or failed turn is never treated as an answer. Malformed
+output fails closed with the offending text truncated.
 
-### Not yet claimed
+### Replaceable, without a shelf of unused adapters
 
-An ordered provider chain with automatic fallback is **not** implemented. It is the next
-narrow step, and it is deliberately separate: falling back mid-request has ambiguous
-semantics for an ACT whose interpretation and specialist selection would then come from
-different models, and any such chain must preserve provenance, stay bounded, and never
-replay an external effect.
+Replaceability is the seam, not an inventory. A future backend implements `BROInference`
+and gains a case in the factory; nothing about BRO's memory, learning, governance or
+identity changes, because none of it lives below the boundary. Unused provider
+implementations are not kept for that day — Git history is the history.
+
+Automatic fallback between backends is **not** implemented. It remains the next narrow
+step, and it is deliberately separate: falling back mid-request has ambiguous semantics
+for an ACT whose interpretation and specialist selection would come from different models.
 
 ## Հայերեն
 
-### Model-ը backend է, ոչ երբեք authority
+### Մեկ սահման, մեկ սեփականատեր, մեկ ակտիվ backend
 
-BRO-ն տիրում է իր prompt-ներին, հիշողությանը, ապացույցներին, governance-ին ու
-authority-ին։ Provider-ը միայն պատասխանում է հարցերին։ Provider փոխելը գրառման մեջ փոխում
-է մեկ բան՝ ով է դատողություն արել, ու ուրիշ ոչինչ։
+Այն ամենը, ինչ BRO-ն է, ապրում է սահմանից վեր՝ ինքնություն, TALK/THINK/STUDY/ACT routing,
+prompt-ներ, խոսակցության իմաստաբանություն, հիշողություն, durable learning, skills,
+governance, authority, հաստատում, ապացույց, ընթացիկ ճշմարտություն, հակասություն ու
+հնացում, կատարման իմաստաբանություն։ Սահմանից ներքև գտնվողը անում է ուղիղ մեկ բան՝
+խոսակցությունը դարձնում է տեքստ։
 
-Ընտրությունը կոնֆիգուրացիա է՝ `BRO_MODEL_PROVIDER`, `BRO_MODEL_NAME`։ Նոր backend
-ավելացնելը նշանակում է մեկ factory-ում մեկ case ավելացնել։
+Backend-ը իրականացնում է `_complete` ու ուրիշ ոչինչ։ Gate-ը դա պարտադրում է․ BRO-ի ամեն
+նախադասություն կարող է ունենալ ուղիղ մեկ սեփականատեր runtime-ում։
 
-### Մեկ հավաքածու prompt
+### Ինչու սա gate է, ոչ պայմանավորվածություն
 
-Ամեն provider ժառանգում է BRO-ի prompt շերտը, ոչ թե վերաշարադրում։ Դա արդեն մեկ անգամ
-սխալ է գնացել․ Anthropic adapter-ը ունի իր սեփական պատճենը ու հետ է մնացել — իր router-ը
-դեռ առաջարկում է միայն TALK/THINK/ACT առանց STUDY-ի։ Prompt-ները վերաշարադրող provider-ը
-վաղ թե ուշ այլ հարցի է պատասխանելու։
+Այն մեկ անգամ արդեն լուռ խախտվել էր։ Anthropic adapter-ը կրում էր BRO-ի prompt-ների իր
+պատճենը ու հետ էր մնացել մի ամբողջ ռեժիմով՝ իր router-ը դեռ առաջարկում էր միայն
+TALK/THINK/ACT առանց STUDY-ի։ Ոչինչ չէր ձախողվում. պարզապես պատասխանում էր մի փոքր ավելի
+հին հարցի։ Այդ adapter-ը հանված է, ու gate-ը հիմա նույն շեղումը լուռ վերադառնալ թույլ չի
+տալիս։
 
-### Claude Code CLI
+### Ակտիվ backend-ը՝ Claude Code CLI
 
-Կանչվում է ոչ-ինտերակտիվ ու ամենանեղ ձևով՝ `--print`, `--output-format json`,
-`--restricted`, `--strict-mcp-config`, բացահայտ deny ցուցակ, բացահայտ `--model`։ Prompt-ը
-գնում է **stdin**-ով, argv-ն ցուցակ է, ուստի ոչ մի օգտատիրոջ տեքստ չի կպչում հրամանի
-տողին ու shell ընդհանրապես չկա։
+`BRO_MODEL_PROVIDER=claude-code-cli` ու `BRO_MODEL_NAME`։ API key չկա, որովհետև API չկա —
+պաշտոնական CLI-ն ինքն է տիրում իր աութենտիֆիկացված սեսիային։ Կանչը ամենանեղ ձևով է՝
+`--print --output-format json --restricted --strict-mcp-config`, բացահայտ deny ցուցակ,
+prompt-ը **stdin**-ով, argv-ն ցուցակ, shell ընդհանրապես չկա։
 
 **Աութենտիֆիկացիան CLI-ինն է ու մնում է CLI-ինը։** BRO-ն ոչ մի credential չի կարդում, չի
-պահում, չի տպում ու չի ածանցում, ու բաժանորդագրությունը երբեք API key չի դառնում։
+պահում, չի ածանցում։ Claude Code-ը BRO-ի HANDS-ը, հիշողությունը կամ authority-ն չէ։
 
-Claude Code-ը BRO-ի HANDS-ը, հիշողությունը, հաստատող authority-ն կամ ճշմարտության
-աղբյուրը չէ։
+### Փոխարինելի՝ առանց չօգտագործվող adapter-ների դարակի
 
-### Ինչ դեռ չի հայտարարվում
+Փոխարինելիությունը սահմանն է, ոչ թե պաշարը։ Ապագա backend-ը իրականացնում է `BROInference`
+ու ստանում մեկ case factory-ում։ Չօգտագործվող իրականացումները չեն պահվում «այդ օրվա
+համար» — պատմությունը Git-ում է։
 
-Ավտոմատ fallback-ով provider-ների շղթան **իրականացված չէ**։ Դա հաջորդ նեղ քայլն է ու
-դիտմամբ առանձին․ ACT-ի կեսին provider փոխելը երկիմաստ իմաստաբանություն է ստեղծում։
+Backend-ների միջև ավտոմատ fallback-ը **իրականացված չէ** ու մնում է հաջորդ նեղ քայլը։

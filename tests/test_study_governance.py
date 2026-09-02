@@ -51,7 +51,7 @@ class StudyGovernanceTests(unittest.TestCase):
     def context(self, environment="production"):
         return StudyContext(
             environment=environment, source_revision="f" * 40, instance_id="dbsrv",
-            model_ref="cloudflare:openai-compatible:model-a", root_ref=str(self.root),
+            model_ref="claude-code-cli:sonnet", root_ref=str(self.root),
         )
 
     def study_runtime(self, extractor=None):

@@ -43,8 +43,9 @@ REQUIREMENT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
     "boundary_failure_is_reported_not_fatal": (
         (ENTRYPOINT, "BOUNDARY_FAILURES"),
         (ENTRYPOINT, "Nothing was executed, and nothing was recorded as an outcome."),
-        ("src/bro_runtime/external_model.py", "class TransientExternalModelError"),
-        ("src/bro_runtime/external_model.py", "RETRYABLE_STATUSES"),
+        ("src/bro_runtime/inference.py", "class TransientInferenceError"),
+        ("src/bro_runtime/inference.py", "def _with_retries"),
+        ("src/bro_runtime/claude_code_cli.py", "RETRYABLE_API_STATUSES"),
     ),
     "multiline_request_is_one_request": (
         (ENTRYPOINT, "def read_request"),

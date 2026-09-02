@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "surface": "cli",
   "entrypoint": "scripts/bro_interact.py",
   "runtime": "bro_runtime.final_delivery.IntelligentInteractionRuntime",
@@ -32,8 +32,6 @@
   "initial_action_capability": "github.issue_comment.ensure",
   "assurance_floor_for_act": "external_system",
   "model_providers": [
-    "claude-code-cli",
-    "anthropic",
-    "cloudflare (openai-compatible)"
+    "claude-code-cli"
   ]
 }
