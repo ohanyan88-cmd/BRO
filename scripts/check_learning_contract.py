@@ -21,6 +21,7 @@ BOUNDARY = "src/bro_runtime/learning_boundary.py"
 MEMORY = "src/bro_runtime/learning_memory.py"
 CONVERSATION = "src/bro_runtime/conversation.py"
 FINAL_DELIVERY = "src/bro_runtime/final_delivery.py"
+EXTERNAL_MODEL = "src/bro_runtime/external_model.py"
 
 INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
     "LEARN-ENTRY-001": (
@@ -71,6 +72,12 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         (MEMORY, "This is a read. It never writes"),
         (MEMORY, "def record_contradictions"),
         (BOUNDARY, '"contradictions_recorded"'),
+    ),
+    "LEARN-REUSE-001": (
+        (EXTERNAL_MODEL, "Prior verified BRO experience"),
+        (EXTERNAL_MODEL, "recorded experience rather than something you are doing now"),
+        (EXTERNAL_MODEL, "never invent evidence"),
+        (EXTERNAL_MODEL, "never grants authority"),
     ),
     "LEARN-FAILSAFE-001": (
         (BOUNDARY, "learning must never rewrite an executed truth"),

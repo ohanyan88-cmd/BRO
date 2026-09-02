@@ -98,6 +98,13 @@
       "enforcement": [
         "tests/test_learning_boundary.py"
       ]
+    },
+    {
+      "id": "LEARN-REUSE-001",
+      "statement": "BRO may report prior verified experience from its own durable record as prior recorded experience, while never claiming to be acting now, never inventing evidence, and never treating that record as authority.",
+      "enforcement": [
+        "tests/test_learning_governance.py"
+      ]
     }
   ],
   "truth_boundary": {
