@@ -39,6 +39,19 @@ release, so an unset variable means BRO studies its own code — not the library
   that merely *names* one is accepted, because security documentation is full of those and
   rejecting it would empty the shelf it exists to fill.
 
+### Pacing
+
+Acquisition leaves 1.5 seconds between requests to the same host and retries a transient
+refusal — `429`, `403`, `408` or a `5xx` — up to three attempts, honouring the server's own
+`Retry-After` and capping any wait at a minute. Fifty documents come from a handful of
+hosts, and fetching them back to back is how a polite reader starts to look like a scraper:
+the first production acquisition had two OWASP pages answer `429` and `403`, and both served
+normally a minute later. A permanent refusal such as `404` is not retried.
+
+**Կշռույթը։** Նույն host-ին ուղղված հարցումների միջև 1.5 վայրկյան, ու ժամանակավոր մերժումը
+(`429`, `403`, `408`, `5xx`) կրկնվում է մինչև երեք փորձ՝ հարգելով սերվերի `Retry-After`-ը ու
+սահմանափակելով սպասումը մեկ րոպեով։ Մշտական մերժումը (`404`) չի կրկնվում։
+
 ### Re-acquiring
 
 Running `acquire` again re-fetches. Unchanged documents are reported `unchanged` and nothing

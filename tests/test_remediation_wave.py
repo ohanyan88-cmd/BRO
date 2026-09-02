@@ -40,6 +40,38 @@ class RemediationWavePolicyTests(unittest.TestCase):
         self.assertEqual(validate_declaration(body, ["src/bro_runtime/action_runtime.py"], POLICY), [])
 
 
+class NarrowWaveTests(unittest.TestCase):
+    """A small fix should not have to pad itself or call itself an emergency."""
+
+    BODY = ("Remediation-Wave: acquisition pacing\n"
+            "Root-Cause: every page of a shelf was fetched back to back\n"
+            "Scope: knowledge-acquisition\n"
+            "Wave-Class: NARROW\n"
+            "Narrow-Justification: one file, one behaviour, five mutations\n")
+
+    def test_a_declared_narrow_fix_passes_on_one_protected_file(self):
+        self.assertEqual(
+            validate_declaration(self.BODY, ["scripts/bro_acquire_knowledge.py",
+                                             "tests/test_acquisition_pacing.py"], POLICY), [])
+
+    def test_a_narrow_fix_still_has_to_justify_itself(self):
+        body = self.BODY.replace("Narrow-Justification: one file, one behaviour, five mutations\n", "")
+        errors = validate_declaration(body, ["scripts/bro_acquire_knowledge.py"], POLICY)
+        self.assertTrue(any("Narrow-Justification" in error for error in errors))
+
+    def test_a_subsystem_change_cannot_hide_in_the_narrow_lane(self):
+        errors = validate_declaration(self.BODY, [
+            "src/bro_runtime/kernel.py", "src/bro_runtime/immune.py",
+            "scripts/validate_contracts.py", "contracts/invariants.json",
+        ], POLICY)
+        self.assertTrue(any("at most 2 protected files" in error for error in errors))
+
+    def test_an_unknown_wave_class_is_still_refused(self):
+        body = self.BODY.replace("Wave-Class: NARROW", "Wave-Class: TINY")
+        errors = validate_declaration(body, ["scripts/bro_acquire_knowledge.py"], POLICY)
+        self.assertTrue(any("unsupported Wave-Class" in error for error in errors))
+
+
 class WavePolicyTriggerTests(unittest.TestCase):
     """The gate reads the PR body; the workflow must re-run when the body is edited."""
 

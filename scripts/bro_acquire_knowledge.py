@@ -17,6 +17,7 @@ import json
 import re
 import sqlite3
 import sys
+import time
 import urllib.error
 import urllib.request
 from html.parser import HTMLParser
@@ -40,6 +41,14 @@ DEFAULT_STAGING = "/var/lib/bro/knowledge-staging"
 USER_AGENT = "BRO-knowledge-acquisition/1 (+governed study corpus; contact menqstudio@gmail.com)"
 MAX_DOCUMENT_BYTES = 2_000_000
 TIMEOUT_SECONDS = 60
+# A shelf is many documents from one host. Fetching them back to back is how a polite
+# reader becomes indistinguishable from a scraper, and it is what made two OWASP pages
+# answer 429 and 403 on the first production acquisition -- both served fine a minute later.
+HOST_INTERVAL_SECONDS = 1.5
+RETRY_STATUSES = frozenset({403, 408, 429, 500, 502, 503, 504})
+MAX_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = 5.0
+MAX_RETRY_WAIT_SECONDS = 60.0
 # Acquisition speaks to public documentation over TLS only.
 ALLOWED_SCHEMES = ("https",)
 DROPPED_ELEMENTS = {"script", "style", "noscript", "svg", "head", "nav", "footer", "form"}
@@ -108,22 +117,55 @@ class _TextExtractor(HTMLParser):
         return re.sub(r"\n{3,}", "\n\n", joined).strip()
 
 
-def fetch(url: str) -> tuple[bytes, str]:
+_LAST_REQUEST: dict[str, float] = {}
+
+
+def _pace(host: str, *, now=time.monotonic, wait=time.sleep) -> None:
+    """Leave a gap between requests to the same host. Courtesy, and it is also what works."""
+    previous = _LAST_REQUEST.get(host)
+    moment = now()
+    if previous is not None:
+        remaining = HOST_INTERVAL_SECONDS - (moment - previous)
+        if remaining > 0:
+            wait(remaining)
+            moment = now()
+    _LAST_REQUEST[host] = moment
+
+
+def _retry_after(exc: urllib.error.HTTPError, attempt: int) -> float:
+    """Honour the server's own answer when it gives one, and back off when it does not."""
+    header = (exc.headers or {}).get("Retry-After", "") if exc.headers else ""
+    try:
+        requested = float(str(header).strip())
+    except (TypeError, ValueError):
+        requested = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+    return max(0.0, min(requested, MAX_RETRY_WAIT_SECONDS))
+
+
+def fetch(url: str, *, wait=time.sleep) -> tuple[bytes, str]:
+    """One document, fetched politely, with a bounded retry on a transient refusal."""
     if urlparse(url).scheme not in ALLOWED_SCHEMES:
         raise AcquisitionRejected(f"refusing a non-https source: {url}")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT,
                                                    "Accept": "text/html,text/plain,text/markdown,*/*"})
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            payload = response.read(MAX_DOCUMENT_BYTES + 1)
-            content_type = response.headers.get_content_type()
-    except urllib.error.HTTPError as exc:
-        raise AcquisitionRejected(f"HTTP {exc.code} for {url}") from None
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise AcquisitionRejected(f"cannot reach {url}: {exc}") from None
-    if len(payload) > MAX_DOCUMENT_BYTES:
-        raise AcquisitionRejected(f"{url} exceeds the {MAX_DOCUMENT_BYTES}-byte document ceiling")
-    return payload, content_type
+    host = urlparse(url).netloc
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        _pace(host, wait=wait)
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+                payload = response.read(MAX_DOCUMENT_BYTES + 1)
+                content_type = response.headers.get_content_type()
+        except urllib.error.HTTPError as exc:
+            if exc.code in RETRY_STATUSES and attempt < MAX_ATTEMPTS:
+                wait(_retry_after(exc, attempt))
+                continue
+            raise AcquisitionRejected(f"HTTP {exc.code} for {url}") from None
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise AcquisitionRejected(f"cannot reach {url}: {exc}") from None
+        if len(payload) > MAX_DOCUMENT_BYTES:
+            raise AcquisitionRejected(f"{url} exceeds the {MAX_DOCUMENT_BYTES}-byte document ceiling")
+        return payload, content_type
+    raise AcquisitionRejected(f"giving up on {url} after {MAX_ATTEMPTS} attempts")
 
 
 def to_text(payload: bytes, content_type: str, url: str) -> tuple[str, str, list[tuple[str, str]]]:
