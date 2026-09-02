@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Fail closed when protected architecture changes are delivered as undeclared micro-fixes."""
+"""Fail closed when protected architecture changes are delivered as undeclared micro-fixes.
+
+Three lanes, because a change can be big, urgent, or genuinely small, and only the first
+two used to have a name. A one-file fix had to either pad itself into a SUBSYSTEM or call
+itself an EMERGENCY it was not, and both are ways of writing something untrue in a record
+that exists to be true. NARROW is the third: still declared, still justified, and capped so
+it cannot become a way to deliver a subsystem change one file at a time.
+"""
 from __future__ import annotations
 
 import json
@@ -46,6 +53,17 @@ def validate_declaration(body: str, changed_files: list[str], policy: dict) -> l
         emergency_field = policy["emergency_required_field"]
         if not fields.get(emergency_field):
             errors.append(f"EMERGENCY wave requires PR field: {emergency_field}")
+        return errors
+
+    if wave_class == "NARROW":
+        narrow = policy["narrow"]
+        if not fields.get(narrow["required_field"]):
+            errors.append(f"NARROW wave requires PR field: {narrow['required_field']}")
+        allowed = int(narrow["maximum_protected_files"])
+        if len(protected) > allowed:
+            errors.append(
+                f"NARROW wave allows at most {allowed} protected files; found {len(protected)}"
+            )
         return errors
 
     if wave_class == "SUBSYSTEM":

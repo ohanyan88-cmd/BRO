@@ -9,8 +9,22 @@
   "wave": {
     "minimum_protected_files": 3,
     "minimum_scope_areas": 2,
-    "required_fields": ["Remediation-Wave", "Root-Cause", "Scope", "Wave-Class"]
+    "required_fields": [
+      "Remediation-Wave",
+      "Root-Cause",
+      "Scope",
+      "Wave-Class"
+    ]
   },
-  "allowed_wave_classes": ["SUBSYSTEM", "EMERGENCY"],
-  "emergency_required_field": "Emergency-Reason"
+  "allowed_wave_classes": [
+    "SUBSYSTEM",
+    "NARROW",
+    "EMERGENCY"
+  ],
+  "emergency_required_field": "Emergency-Reason",
+  "narrow": {
+    "maximum_protected_files": 2,
+    "required_field": "Narrow-Justification",
+    "intent": "A declared, non-urgent fix small enough that spreading it would be dishonest. The declaration is still mandatory; the cap is what stops the lane being used to deliver a subsystem change one file at a time."
+  }
 }
