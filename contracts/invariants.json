@@ -220,6 +220,29 @@
         "tests/test_governed_evidence_boundary.py",
         "tests/test_supervision.py"
       ]
+    },
+    {
+      "id": "INV-MATERIALITY-001",
+      "statement": "Model output may raise a governance requirement but never lower it: the interpreting model cannot remove the explicit scope confirmation in front of a real external effect",
+      "enforcement": [
+        "tests/test_final_delivery.py",
+        "tests/test_interaction_surface_contract.py"
+      ]
+    },
+    {
+      "id": "INV-CONTRACT-ENFORCEMENT-001",
+      "statement": "Every declared interaction-surface requirement names an executable enforcement marker; an unmapped requirement fails the gate",
+      "enforcement": [
+        "tests/test_interaction_surface_contract.py"
+      ]
+    },
+    {
+      "id": "INV-ACCEPTANCE-BINDING-001",
+      "statement": "Production acceptance evidence is owned by the exact deployed source revision and is refused when it names another revision, lacks external assurance, or self-attests",
+      "enforcement": [
+        "tests/test_production_acceptance_binding.py",
+        "tests/test_production_control.py"
+      ]
     }
   ]
 }

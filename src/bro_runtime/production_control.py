@@ -47,4 +47,7 @@ class ProductionControlPlane:
     def active(self, environment:str)->ProductionRelease:
         row=self.connection.execute("SELECT * FROM production_releases WHERE environment=? AND state='ACTIVE' ORDER BY created_at DESC LIMIT 1",(environment,)).fetchone()
         if row is None: raise ProductionControlRejected('no active production release')
-        return ProductionRelease(**dict(row))
+        # SQLite returns the state as text; rebuild the enum so a ledger readback is the
+        # same type as the record activate() returned and identity comparison stays true.
+        fields=dict(row); fields['state']=ProductionState(fields['state'])
+        return ProductionRelease(**fields)

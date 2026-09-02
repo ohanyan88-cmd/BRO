@@ -25,7 +25,7 @@ A healthy systemd service plus a fresh durable heartbeat proves **HOST_DEPLOYED*
 3. Run `sudo bash scripts/install_debian_production.sh <exact-sha>`.
 4. Verify `systemctl is-active bro.service`.
 5. Read back the exact runtime revision with `sudo -u bro ... scripts/production_status.py` under the same environment files used by systemd.
-6. Bind external-system acceptance evidence to the same exact SHA before claiming `PRODUCTION_ACCEPTED`.
+6. Run the governed acceptance path (`scripts/run_production_intelligent_acceptance.py`, which requires `BRO_SOURCE_REVISION` and writes it into the record), then bind that evidence to the same exact SHA with `scripts/bind_production_acceptance.py` and read the ledger back with `--verify` before claiming `PRODUCTION_ACCEPTED`. See `docs/operations/PRODUCTION_ACCEPTANCE_BINDING.md`.
 7. Satisfy the stronger external identity/vault/approval, remote custody and DR controls before any `PRODUCTION_GRADUATED` claim.
 
 ### Upgrade
@@ -63,7 +63,7 @@ Healthy systemd service-ը և durable state-ից fresh heartbeat-ը ապացու
 3. Աշխատացնել `sudo bash scripts/install_debian_production.sh <exact-sha>`։
 4. Ստուգել `systemctl is-active bro.service`։
 5. systemd-ի նույն environment file-երով durable runtime-ից read back անել exact source revision-ը `scripts/production_status.py`-ով։
-6. Մինչև `PRODUCTION_ACCEPTED` հայտարարելը նույն exact SHA-ին կապել real external-system acceptance evidence։
+6. Աշխատացնել governed acceptance ուղին (`scripts/run_production_intelligent_acceptance.py`, որը պահանջում է `BRO_SOURCE_REVISION` և գրում է այն record-ի մեջ), հետո `scripts/bind_production_acceptance.py`-ով կապել evidence-ը նույն exact SHA-ին և `--verify`-ով ledger-ը կարդալ հետ՝ մինչև `PRODUCTION_ACCEPTED` հայտարարելը։ Տես `docs/operations/PRODUCTION_ACCEPTANCE_BINDING.md`։
 7. `PRODUCTION_GRADUATED` հայտարարելուց առաջ բավարարել ավելի ուժեղ external identity/vault/approval, remote custody և DR control-ները։
 
 ### Upgrade

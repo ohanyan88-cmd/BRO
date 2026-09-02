@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "surface": "cli",
   "entrypoint": "scripts/bro_interact.py",
   "runtime": "bro_runtime.final_delivery.IntelligentInteractionRuntime",
@@ -17,6 +17,7 @@
     "talk_think_never_execute_external_effects": true,
     "action_credentials_required_only_for_act_execution": true,
     "explicit_material_scope_confirmation": true,
+    "materiality_owned_by_runtime_not_model": true,
     "specialist_selection": true,
     "real_provider_execution": true,
     "independent_external_readback": true,

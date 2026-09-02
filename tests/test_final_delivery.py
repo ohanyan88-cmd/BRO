@@ -39,7 +39,36 @@ class FinalDeliveryTests(unittest.TestCase):
             readback=lambda intent,e:{'provider_ref':'provider:x','readback_ref':'effect:x','evidence_ref':'e:x','assurance':'repository'},
             model_ref='model:production-router-v1')
         intent=runtime.interpret('do x')
-        with self.assertRaises(FinalDeliveryRejected): runtime.execute(intent.request_id)
+        runtime.confirm_scope(intent.request_id,confirmed_by='user:gev',scope_digest=runtime.scope_digest(intent.request_id))
+        with self.assertRaisesRegex(FinalDeliveryRejected,'self-attest|external-system readback'):
+            runtime.execute(intent.request_id)
+
+    def test_model_cannot_lower_materiality_below_the_runtime_floor(self):
+        executed=[]
+        runtime=IntelligentInteractionRuntime(
+            interpreter=lambda text:{'scope':('write an external comment',),'success_conditions':('readback matches',),'material':False},
+            planner=lambda intent:'specialist:github',
+            executor=lambda intent,specialist:(executed.append(intent.request_id) or {'provider_ref':'provider:github-write','effect_ref':'effect:1'}),
+            readback=lambda intent,effect:{'provider_ref':'provider:github-readback','readback_ref':'readback:1','evidence_ref':'evidence:1','assurance':'external_system'},
+            model_ref='model:production-router-v1')
+        intent=runtime.interpret('post a comment on the issue')
+        self.assertTrue(intent.material)
+        with self.assertRaisesRegex(FinalDeliveryRejected,'explicit confirmation'):
+            runtime.execute(intent.request_id)
+        self.assertEqual(executed,[])
+        runtime.confirm_scope(intent.request_id,confirmed_by='user:gev',scope_digest=runtime.scope_digest(intent.request_id))
+        self.assertEqual(runtime.execute(intent.request_id).effect_ref,'effect:1')
+
+    def test_material_floor_is_lowered_only_by_explicit_caller_composition(self):
+        runtime=IntelligentInteractionRuntime(
+            interpreter=lambda text:{'scope':('read only',),'success_conditions':('nothing changes',),'material':False},
+            planner=lambda intent:'specialist:x',
+            executor=lambda intent,specialist:{'provider_ref':'provider:x','effect_ref':'effect:x'},
+            readback=lambda intent,effect:{'provider_ref':'provider:y','readback_ref':'readback:x','evidence_ref':'evidence:x','assurance':'external_system'},
+            model_ref='model:production-router-v1',material_floor=False)
+        intent=runtime.interpret('do x')
+        self.assertFalse(intent.material)
+        self.assertEqual(runtime.execute(intent.request_id).effect_ref,'effect:x')
 
     def test_production_identity_vault_human_channel_and_fencing_are_required(self):
         c=sqlite3.connect(':memory:'); control=ProductionServiceControl(c)
