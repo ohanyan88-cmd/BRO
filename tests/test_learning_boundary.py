@@ -219,6 +219,52 @@ class LearningBoundaryTests(unittest.TestCase):
         self.assertEqual(len(advisory["lessons"]), 1)
         self.assertEqual(advisory["lessons"][0]["provenance"]["source_revision"], "a" * 40)
 
+    def test_retrieval_is_a_pure_read_and_survives_a_readonly_store(self):
+        import os
+        import tempfile
+
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = os.path.join(directory.name, "runtime.sqlite3")
+        writable = sqlite3.connect(path)
+        try:
+            boundary = GovernedLearningBoundary(
+                DurableLearningMemory(writable, candidate_threshold=2), extractor=self.extractor
+            )
+            boundary.submit_success(self.context(), receipt())
+        finally:
+            writable.close()
+
+        readonly = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        self.addCleanup(readonly.close)
+        memory = DurableLearningMemory(readonly, candidate_threshold=2)
+        retrieval = memory.retrieve(
+            "post the governed acceptance comment",
+            current_truth={"target_ref": "github:someone-else/OTHER:issue:9"},
+        )
+        self.assertTrue(retrieval.contradictions, "a read must still surface the contradiction")
+        self.assertTrue(retrieval.withheld)
+
+        advisory = GovernedLearningBoundary(memory).advisory_context(
+            "post the governed acceptance comment",
+            current_truth={"target_ref": "github:someone-else/OTHER:issue:9"},
+        )
+        self.assertEqual(advisory["lessons"], [])
+        self.assertTrue(advisory["withheld_for_contradiction"], "the finding is reported even when it cannot be filed")
+        self.assertFalse(advisory["contradictions_recorded"])
+        self.assertIn("readonly", advisory["contradiction_record_error"].lower())
+
+    def test_recording_a_contradiction_is_explicit_and_idempotent(self):
+        self.boundary.submit_success(self.context(), receipt())
+        retrieval = self.memory.retrieve(
+            "post the governed acceptance comment",
+            current_truth={"target_ref": "github:someone-else/OTHER:issue:9"},
+        )
+        self.assertEqual(self.memory.contradictions(), (), "retrieval must not have written anything")
+        self.assertEqual(self.memory.record_contradictions(retrieval.contradictions), 1)
+        self.assertEqual(self.memory.record_contradictions(retrieval.contradictions), 0)
+        self.assertEqual(len(self.memory.contradictions()), 1)
+
     # ------------------------------------------------------------ candidate
     def test_candidate_carries_structured_reusable_knowledge(self):
         self.boundary.submit_success(self.context(), receipt())

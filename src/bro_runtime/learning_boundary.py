@@ -229,12 +229,30 @@ class GovernedLearningBoundary:
         return proposed
 
     # ---------------------------------------------------------------- retrieval
-    def advisory_context(self, request: str, *, current_truth: Mapping[str, str], limit: int = 5) -> dict[str, Any]:
-        """Prior verified experience, offered as context and never as permission."""
+    def advisory_context(
+        self, request: str, *, current_truth: Mapping[str, str], limit: int = 5,
+        record_contradictions: bool = True,
+    ) -> dict[str, Any]:
+        """Prior verified experience, offered as context and never as permission.
+
+        Retrieval itself is a pure read. Filing a contradiction is a separate write and
+        is allowed to fail: a contradiction is always surfaced in the returned payload,
+        so a store that cannot be written loses the record but never hides the finding
+        and never breaks the turn.
+        """
         retrieval = self.memory.retrieve(request, current_truth=current_truth, limit=limit)
+        recorded, record_error = False, ""
+        if record_contradictions and retrieval.contradictions:
+            try:
+                self.memory.record_contradictions(retrieval.contradictions)
+                recorded = True
+            except Exception as exc:
+                record_error = f"{type(exc).__name__}:{exc}"
         return {
             "advisory": True,
             "grants_authority": False,
+            "contradictions_recorded": recorded,
+            "contradiction_record_error": record_error,
             "lessons": [
                 {
                     "pattern_key": lesson.pattern_key,

@@ -67,6 +67,11 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         (BOUNDARY, '"grants_authority": False'),
         (FINAL_DELIVERY, "material=self.material_floor or"),
     ),
+    "LEARN-READ-001": (
+        (MEMORY, "This is a read. It never writes"),
+        (MEMORY, "def record_contradictions"),
+        (BOUNDARY, '"contradictions_recorded"'),
+    ),
     "LEARN-FAILSAFE-001": (
         (BOUNDARY, "learning must never rewrite an executed truth"),
         (CONVERSATION, "self._learning_errors.append"),
