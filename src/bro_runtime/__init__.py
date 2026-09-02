@@ -41,5 +41,7 @@ from .replan import ReplanResult,open_replanned_step,replan_from_observation
 from .learning_memory import Contradiction,CurriculumItemRecord,CurriculumStatus,DurableLearningMemory,KnowledgeItem,KnowledgeKind,KnowledgeRetrieval,LearnedLesson,LearningMemoryRejected,LessonStatus,Provenance,Retrieval,SkillCandidate,SourceType,StudyMissionRecord,StudyStatus,VerificationState
 from .learning_boundary import ExperienceContext,GovernedLearningBoundary,LearningEligibility,LearningSubmission
 from .study_runtime import GovernedStudyRuntime,SourceDocument,StudyContext,StudyRejected,StudyReport,StudySourceReader,StudyStop
+from .claude_code_cli import ClaudeCodeCLIConfig,ClaudeCodeCLIModel
+from .model_provider import KNOWN_PROVIDERS,build_model
 
 __all__=[name for name in globals() if not name.startswith('_')]

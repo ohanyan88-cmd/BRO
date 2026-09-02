@@ -309,6 +309,20 @@
       "enforcement": [
         "tests/test_provider_resilience.py"
       ]
+    },
+    {
+      "id": "INV-PROVIDER-001",
+      "statement": "A model backend is selected by configuration through one factory; switching provider changes provenance only and never BRO's prompts, memory, governance or authority",
+      "enforcement": [
+        "tests/test_claude_code_cli_provider.py"
+      ]
+    },
+    {
+      "id": "INV-PROVIDER-002",
+      "statement": "The Claude Code CLI backend holds no credential, reads none, derives none, and is invoked non-interactively with tools and MCP removed and the prompt on stdin rather than a command line",
+      "enforcement": [
+        "tests/test_claude_code_cli_provider.py"
+      ]
     }
   ]
 }

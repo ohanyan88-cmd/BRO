@@ -12,10 +12,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from bro_runtime.anthropic_messages import AnthropicMessagesConfig, AnthropicMessagesModel
+from bro_runtime.anthropic_messages import AnthropicMessagesRejected
 from bro_runtime.conversation import ConversationalInteractionSurface, InteractionMode
 from bro_runtime.anthropic_messages import AnthropicMessagesRejected
-from bro_runtime.external_model import ExternalModel, ExternalModelConfig, ExternalModelRejected
+from bro_runtime.external_model import ExternalModelRejected
+from bro_runtime.model_provider import build_model as build_configured_model
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import (
     GitHubAcceptanceTarget,
@@ -36,23 +37,11 @@ def required(name: str) -> str:
 
 
 def build_model():
-    provider = required("BRO_MODEL_PROVIDER").lower()
-    if provider == "anthropic":
-        return AnthropicMessagesModel(
-            AnthropicMessagesConfig(
-                api_key=required("BRO_MODEL_API_KEY"),
-                model=required("BRO_MODEL_NAME"),
-                api_url=os.environ.get("BRO_MODEL_API_URL", "https://api.anthropic.com/v1/messages").strip(),
-            )
-        )
-    return ExternalModel(
-        ExternalModelConfig(
-            provider=provider,
-            api_key=required("BRO_MODEL_API_KEY"),
-            model=required("BRO_MODEL_NAME"),
-            api_url=required("BRO_MODEL_API_URL"),
-        )
-    )
+    """Provider selection lives in one place; this surface does not care which answered."""
+    try:
+        return build_configured_model(os.environ)
+    except ExternalModelRejected as exc:
+        raise SystemExit(str(exc)) from None
 
 
 def memory_database_path() -> str:

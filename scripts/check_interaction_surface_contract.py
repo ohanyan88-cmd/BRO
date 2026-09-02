@@ -29,6 +29,17 @@ REQUIREMENT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         ("src/bro_runtime/study_runtime.py", "never produces permission"),
     ),
     "conversation_history_in_session": ((CONVERSATION, "self._history.append(ConversationMessage(role, content))"),),
+    "model_provider_is_configuration_not_architecture": (
+        ("src/bro_runtime/model_provider.py", "def build_model"),
+        ("src/bro_runtime/model_provider.py", "KNOWN_PROVIDERS"),
+        (ENTRYPOINT, "build_configured_model"),
+    ),
+    "model_backend_never_holds_credentials": (
+        ("src/bro_runtime/claude_code_cli.py", "Deliberately no credential field of any kind"),
+        ("src/bro_runtime/claude_code_cli.py", "--restricted"),
+        ("src/bro_runtime/claude_code_cli.py", "--strict-mcp-config"),
+        ("src/bro_runtime/claude_code_cli.py", "DENIED_TOOLS"),
+    ),
     "boundary_failure_is_reported_not_fatal": (
         (ENTRYPOINT, "BOUNDARY_FAILURES"),
         (ENTRYPOINT, "Nothing was executed, and nothing was recorded as an outcome."),

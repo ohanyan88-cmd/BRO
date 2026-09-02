@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "surface": "cli",
   "entrypoint": "scripts/bro_interact.py",
   "runtime": "bro_runtime.final_delivery.IntelligentInteractionRuntime",
@@ -18,6 +18,8 @@
     "conversation_history_in_session": true,
     "multiline_request_is_one_request": true,
     "boundary_failure_is_reported_not_fatal": true,
+    "model_provider_is_configuration_not_architecture": true,
+    "model_backend_never_holds_credentials": true,
     "talk_think_never_execute_external_effects": true,
     "action_credentials_required_only_for_act_execution": true,
     "explicit_material_scope_confirmation": true,
@@ -28,5 +30,10 @@
     "parallel_demo_path_forbidden": true
   },
   "initial_action_capability": "github.issue_comment.ensure",
-  "assurance_floor_for_act": "external_system"
+  "assurance_floor_for_act": "external_system",
+  "model_providers": [
+    "claude-code-cli",
+    "anthropic",
+    "cloudflare (openai-compatible)"
+  ]
 }
