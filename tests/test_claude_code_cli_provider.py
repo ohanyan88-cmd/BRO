@@ -9,10 +9,10 @@ from bro_runtime.claude_code_cli import (
     ClaudeCodeCLIConfig,
     ClaudeCodeCLIModel,
 )
-from bro_runtime.external_model import (
-    ExternalModel,
-    ExternalModelRejected,
-    TransientExternalModelError,
+from bro_runtime.inference import (
+    BROInference,
+    InferenceRejected,
+    TransientInferenceError,
 )
 from bro_runtime.model_provider import KNOWN_PROVIDERS, build_model
 
@@ -107,24 +107,24 @@ class ClaudeCodeCLIAdapterTests(unittest.TestCase):
 
     def test_malformed_cli_output_fails_safely(self):
         model = self.model([completed("not json at all")])
-        with self.assertRaisesRegex(ExternalModelRejected, "did not return valid JSON"):
+        with self.assertRaisesRegex(InferenceRejected, "did not return valid JSON"):
             model.json_object(instruction="i", request="r")
 
     def test_a_non_zero_exit_is_reported_with_its_status(self):
         model = self.model([completed(stderr="boom", returncode=2)])
-        with self.assertRaisesRegex(ExternalModelRejected, "exited with status 2"):
+        with self.assertRaisesRegex(InferenceRejected, "exited with status 2"):
             model.json_object(instruction="i", request="r")
 
     def test_an_unauthenticated_cli_says_so_and_is_not_retried(self):
         model = self.model([completed(stderr="Not logged in. Please run /login", returncode=1)])
-        with self.assertRaisesRegex(ExternalModelRejected, "no usable session"):
+        with self.assertRaisesRegex(InferenceRejected, "no usable session"):
             model.json_object(instruction="i", request="r")
         self.assertEqual(len(self.invocations), 1, "an authentication fact must not be retried")
 
     def test_an_upstream_rate_limit_is_transient_and_bounded(self):
         model = self.model([completed(envelope(api_error_status="429", is_error=True))],
                            max_attempts=3)
-        with self.assertRaisesRegex(ExternalModelRejected, "gave up after 3 attempts"):
+        with self.assertRaisesRegex(InferenceRejected, "gave up after 3 attempts"):
             model.json_object(instruction="i", request="r")
         self.assertEqual(len(self.invocations), 3)
         self.assertEqual(self.slept, [1.0, 2.0])
@@ -142,30 +142,30 @@ class ClaudeCodeCLIAdapterTests(unittest.TestCase):
 
     def test_a_truncated_turn_is_reported_as_truncated(self):
         model = self.model([completed(envelope(stop_reason="max_tokens"))])
-        with self.assertRaisesRegex(ExternalModelRejected, "truncated"):
+        with self.assertRaisesRegex(InferenceRejected, "truncated"):
             model.json_object(instruction="i", request="r")
 
     def test_a_failed_turn_is_reported_not_treated_as_an_answer(self):
         model = self.model([completed(envelope(subtype="error_during_execution", result="nope"))])
-        with self.assertRaisesRegex(ExternalModelRejected, "failed turn"):
+        with self.assertRaisesRegex(InferenceRejected, "failed turn"):
             model.json_object(instruction="i", request="r")
 
     def test_an_empty_result_is_refused(self):
         model = self.model([completed(envelope(result="   "))])
-        with self.assertRaisesRegex(ExternalModelRejected, "did not contain output text"):
+        with self.assertRaisesRegex(InferenceRejected, "did not contain output text"):
             model.json_object(instruction="i", request="r")
 
     def test_a_missing_executable_is_reported_clearly(self):
         model = ClaudeCodeCLIModel(ClaudeCodeCLIConfig(model="sonnet", executable="claude-not-here"))
-        with self.assertRaisesRegex(ExternalModelRejected, "not available"):
+        with self.assertRaisesRegex(InferenceRejected, "not available"):
             model.json_object(instruction="i", request="r")
 
     # ------------------------------------------------------------- shared semantics
     def test_the_adapter_reuses_bro_prompts_rather_than_restating_them(self):
-        self.assertTrue(issubclass(ClaudeCodeCLIModel, ExternalModel))
+        self.assertTrue(issubclass(ClaudeCodeCLIModel, BROInference))
         for shared in ("interpret", "select_specialist", "route_interaction",
                        "conversational_response", "json_object", "study_plan", "study_extract"):
-            self.assertIs(getattr(ClaudeCodeCLIModel, shared), getattr(ExternalModel, shared),
+            self.assertIs(getattr(ClaudeCodeCLIModel, shared), getattr(BROInference, shared),
                           f"{shared} must be the one BRO definition, not a provider copy")
 
     def test_a_fenced_answer_is_unwrapped_exactly_as_on_the_other_provider(self):
@@ -177,7 +177,7 @@ class ClaudeCodeCLIAdapterTests(unittest.TestCase):
         self.assertNotIn("cloudflare", ClaudeCodeCLIConfig(model="opus").model_ref)
 
     def test_a_test_model_is_refused(self):
-        with self.assertRaises(ExternalModelRejected):
+        with self.assertRaises(InferenceRejected):
             ClaudeCodeCLIConfig(model="test:fake")
 
 
@@ -186,29 +186,28 @@ class ProviderSelectionTests(unittest.TestCase):
         model = build_model({"BRO_MODEL_PROVIDER": "claude-code-cli", "BRO_MODEL_NAME": "sonnet"})
         self.assertEqual(model.config.model_ref, "claude-code-cli:sonnet")
 
-    def test_the_openai_compatible_path_still_works(self):
-        model = build_model({"BRO_MODEL_PROVIDER": "cloudflare", "BRO_MODEL_NAME": "m",
+    def test_there_is_exactly_one_active_backend(self):
+        self.assertEqual(KNOWN_PROVIDERS, ("claude-code-cli",))
+
+    def test_a_retired_provider_is_refused_by_name_not_silently_accepted(self):
+        for retired in ("cloudflare", "openai", "anthropic", "groq"):
+            with self.assertRaisesRegex(InferenceRejected, "unsupported BRO_MODEL_PROVIDER"):
+                build_model({"BRO_MODEL_PROVIDER": retired, "BRO_MODEL_NAME": "m",
                              "BRO_MODEL_API_KEY": "k", "BRO_MODEL_API_URL": "https://x/v1"})
-        self.assertEqual(model.config.model_ref, "cloudflare:openai-compatible:m")
 
     def test_a_missing_setting_says_which_one(self):
-        with self.assertRaisesRegex(ExternalModelRejected, "BRO_MODEL_API_KEY"):
-            build_model({"BRO_MODEL_PROVIDER": "cloudflare", "BRO_MODEL_NAME": "m",
-                         "BRO_MODEL_API_URL": "https://x/v1"})
-        with self.assertRaisesRegex(ExternalModelRejected, "BRO_MODEL_NAME"):
+        with self.assertRaisesRegex(InferenceRejected, "BRO_MODEL_NAME"):
             build_model({"BRO_MODEL_PROVIDER": "claude-code-cli"})
+        with self.assertRaisesRegex(InferenceRejected, "BRO_MODEL_PROVIDER"):
+            build_model({"BRO_MODEL_NAME": "sonnet"})
 
-    def test_switching_provider_changes_only_provenance_not_bro_semantics(self):
-        cli = build_model({"BRO_MODEL_PROVIDER": "claude-code-cli", "BRO_MODEL_NAME": "sonnet"})
-        http = build_model({"BRO_MODEL_PROVIDER": "cloudflare", "BRO_MODEL_NAME": "m",
-                            "BRO_MODEL_API_KEY": "k", "BRO_MODEL_API_URL": "https://x/v1"})
-        self.assertNotEqual(cli.config.model_ref, http.config.model_ref)
-        for shared in ("interpret", "route_interaction", "study_plan", "json_object"):
-            self.assertEqual(getattr(type(cli), shared), getattr(type(http), shared))
-
-    def test_the_known_providers_are_named(self):
-        self.assertIn("claude-code-cli", KNOWN_PROVIDERS)
-        self.assertIn("cloudflare", KNOWN_PROVIDERS)
+    def test_the_seam_survives_the_cleanup(self):
+        # Replaceability is the class hierarchy, not a shelf of unused adapters: any
+        # future backend implements _complete and nothing else changes.
+        self.assertIs(ClaudeCodeCLIModel.__bases__[0], BROInference)
+        self.assertIn("_complete", ClaudeCodeCLIModel.__dict__)
+        self.assertNotIn("_complete", {k: v for k, v in BROInference.__dict__.items()
+                                       if getattr(v, "__isabstractmethod__", False)})
 
 
 if __name__ == "__main__":

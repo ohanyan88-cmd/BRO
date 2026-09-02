@@ -43,5 +43,6 @@ from .learning_boundary import ExperienceContext,GovernedLearningBoundary,Learni
 from .study_runtime import GovernedStudyRuntime,SourceDocument,StudyContext,StudyRejected,StudyReport,StudySourceReader,StudyStop
 from .claude_code_cli import ClaudeCodeCLIConfig,ClaudeCodeCLIModel
 from .model_provider import KNOWN_PROVIDERS,build_model
+from .inference import BROInference,InferenceRejected,TransientInferenceError
 
 __all__=[name for name in globals() if not name.startswith('_')]

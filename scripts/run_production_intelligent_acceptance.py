@@ -3,7 +3,7 @@
 from __future__ import annotations
 import json, os, re, sqlite3, sys
 from pathlib import Path
-from bro_runtime.external_model import ExternalModelRejected
+from bro_runtime.inference import InferenceRejected
 from bro_runtime.model_provider import build_model as build_configured_model
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
@@ -24,7 +24,7 @@ def _revision() -> str:
 def _model():
     try:
         return build_configured_model(os.environ)
-    except ExternalModelRejected as exc:
+    except InferenceRejected as exc:
         raise SystemExit(str(exc)) from None
 
 def _submit_learning(model, target, intent, result: dict) -> str:

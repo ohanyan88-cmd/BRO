@@ -47,7 +47,7 @@ class LearningGovernanceTests(unittest.TestCase):
             request="post the governed acceptance comment", mode="ACT",
             interpreted_scope=("github", "production"), source_revision="d" * 40,
             environment="production", instance_id="dbsrv",
-            model_ref="cloudflare:openai-compatible:model-a", target_ref=target_ref,
+            model_ref="claude-code-cli:sonnet", target_ref=target_ref,
         )
 
     def runtime(self):
@@ -145,18 +145,18 @@ class ConversationalReusePromptTests(unittest.TestCase):
     """BRO may report its own durable record; it may still never claim to be acting now."""
 
     def model(self):
-        from bro_runtime.external_model import ExternalModel, ExternalModelConfig
+        """A backend that records what BRO asked. The prompts are BRO's, not the backend's."""
+        from bro_runtime.inference import BROInference
 
         self.sent = []
+        outer = self
 
-        def transport(method, url, headers, data, timeout):
-            self.sent.append(json.loads(data))
-            return {"choices": [{"message": {"content": "recorded reply"}}]}
+        class Recording(BROInference):
+            def _complete(self, messages):
+                outer.sent.append({"messages": messages})
+                return "recorded reply"
 
-        return ExternalModel(
-            ExternalModelConfig(provider="stub", api_key="k", model="m", api_url="https://example.invalid/v1"),
-            transport=transport,
-        )
+        return Recording()
 
     def system_prompt(self):
         model = self.model()

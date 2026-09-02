@@ -323,6 +323,13 @@
       "enforcement": [
         "tests/test_claude_code_cli_provider.py"
       ]
+    },
+    {
+      "id": "INV-PROVIDER-003",
+      "statement": "BRO's prompts, routing and refusals have exactly one owner above the inference boundary; a backend implements only how a conversation becomes text, and a retired backend is deleted rather than disabled",
+      "enforcement": [
+        "tests/test_inference_boundary.py"
+      ]
     }
   ]
 }

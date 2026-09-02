@@ -55,7 +55,7 @@ class LearningBoundaryTests(unittest.TestCase):
         payload = {
             "request": request, "mode": "ACT", "interpreted_scope": ("github", "production"),
             "source_revision": "a" * 40, "environment": "production", "instance_id": "dbsrv",
-            "model_ref": "cloudflare:openai-compatible:model-a",
+            "model_ref": "claude-code-cli:sonnet",
             "target_ref": "github:ohanyan88-cmd/BRO:issue:45",
         }
         payload.update(overrides)
@@ -109,7 +109,7 @@ class LearningBoundaryTests(unittest.TestCase):
         self.assertEqual(row["source_revision"], "a" * 40)
         self.assertEqual(row["environment"], "production")
         self.assertEqual(row["instance_id"], "dbsrv")
-        self.assertEqual(row["model_ref"], "cloudflare:openai-compatible:model-a")
+        self.assertEqual(row["model_ref"], "claude-code-cli:sonnet")
         self.assertTrue(row["pattern_key"])
         self.assertEqual(row["mode"], "ACT")
 
@@ -282,7 +282,7 @@ class LearningBoundaryTests(unittest.TestCase):
         self.assertEqual(candidate.failure_modes, tuple(LESSON["failure_modes"]))
         self.assertEqual(candidate.supporting_executions, 2)
         self.assertTrue(candidate.verification)
-        self.assertEqual(candidate.provenance.model_ref, "cloudflare:openai-compatible:model-a")
+        self.assertEqual(candidate.provenance.model_ref, "claude-code-cli:sonnet")
 
     def test_candidate_cannot_self_approve_or_self_promote_and_transitions_are_audited(self):
         self.boundary.submit_success(self.context(), receipt())

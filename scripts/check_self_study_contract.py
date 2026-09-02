@@ -19,7 +19,7 @@ CONTRACT = "contracts/self_study.json"
 STUDY = "src/bro_runtime/study_runtime.py"
 MEMORY = "src/bro_runtime/learning_memory.py"
 CONVERSATION = "src/bro_runtime/conversation.py"
-EXTERNAL_MODEL = "src/bro_runtime/external_model.py"
+INFERENCE = "src/bro_runtime/inference.py"
 SURFACE = "scripts/bro_interact.py"
 
 INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
@@ -74,7 +74,7 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
     "STUDY-ROUTING-001": (
         (CONVERSATION, "if mode is InteractionMode.STUDY:"),
         (CONVERSATION, "study mode is not configured on this surface"),
-        (EXTERNAL_MODEL, "STUDY means the user is asking BRO to study"),
+        (INFERENCE, "STUDY means the user is asking BRO to study"),
         (SURFACE, "study_runner=run_study"),
     ),
 }

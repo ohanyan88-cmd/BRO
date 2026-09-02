@@ -24,7 +24,7 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Sequence
 
-from .external_model import ExternalModel, ExternalModelRejected, TransientExternalModelError
+from .inference import BROInference, InferenceRejected, TransientInferenceError
 
 # Removed from the session on top of --restricted. Belt and braces: BRO's HANDS are
 # BRO's, and a model backend must not be able to reach for them.
@@ -54,23 +54,28 @@ class ClaudeCodeCLIConfig:
 
     def __post_init__(self) -> None:
         if not self.model.strip() or self.model.startswith("test:"):
-            raise ExternalModelRejected("a non-test Claude Code model is required")
+            raise InferenceRejected("a non-test Claude Code model is required")
         if not self.executable.strip():
-            raise ExternalModelRejected("the Claude Code executable is required")
+            raise InferenceRejected("the Claude Code executable is required")
         if self.timeout_seconds <= 0:
-            raise ExternalModelRejected("timeout_seconds must be positive")
+            raise InferenceRejected("timeout_seconds must be positive")
         if self.max_attempts < 1:
-            raise ExternalModelRejected("max_attempts must be at least 1")
+            raise InferenceRejected("max_attempts must be at least 1")
         if self.retry_backoff_seconds < 0 or self.max_retry_wait_seconds < 0:
-            raise ExternalModelRejected("retry waits must not be negative")
+            raise InferenceRejected("retry waits must not be negative")
 
     @property
     def model_ref(self) -> str:
         return f"claude-code-cli:{self.model}"
 
 
-class ClaudeCodeCLIModel(ExternalModel):
-    """The same BRO prompts, answered through the locally authenticated Claude Code CLI."""
+class ClaudeCodeCLIModel(BROInference):
+    """BRO's prompts, answered through the locally authenticated Claude Code CLI.
+
+    The only method here that BRO's behaviour depends on is _complete. Everything the
+    product says and refuses comes from BROInference, so replacing this backend cannot
+    change a mode, a prompt, or a boundary.
+    """
 
     def __init__(
         self,
@@ -124,7 +129,7 @@ class ClaudeCodeCLIModel(ExternalModel):
                 timeout=timeout, cwd=self.config.working_directory, check=False,
             )
         except FileNotFoundError:
-            raise ExternalModelRejected(
+            raise InferenceRejected(
                 f"Claude Code CLI is not available as {self.config.executable!r}"
             ) from None
 
@@ -140,11 +145,11 @@ class ClaudeCodeCLIModel(ExternalModel):
         detail = cls._sanitised(completed.stderr or completed.stdout)
         lowered = detail.lower()
         if any(marker in lowered for marker in UNAUTHENTICATED_MARKERS):
-            raise ExternalModelRejected(
+            raise InferenceRejected(
                 f"Claude Code CLI has no usable session; authenticate it with the official "
                 f"login for this identity (exit {completed.returncode}): {detail}"
             ) from None
-        raise ExternalModelRejected(
+        raise InferenceRejected(
             f"Claude Code CLI exited with status {completed.returncode}: {detail}"
         ) from None
 
@@ -154,28 +159,28 @@ class ClaudeCodeCLIModel(ExternalModel):
         try:
             envelope = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
-            raise ExternalModelRejected(
+            raise InferenceRejected(
                 f"Claude Code CLI did not return valid JSON: {self._sanitised(completed.stdout)}"
             ) from exc
         if not isinstance(envelope, dict):
-            raise ExternalModelRejected("Claude Code CLI output must be a JSON object")
+            raise InferenceRejected("Claude Code CLI output must be a JSON object")
 
         usage = envelope.get("modelUsage")
         self.last_model_usage = dict(usage) if isinstance(usage, dict) else {}
 
         status = envelope.get("api_error_status")
         if status is not None and str(status) in RETRYABLE_API_STATUSES:
-            raise TransientExternalModelError(f"Claude Code CLI reported upstream status {status}")
+            raise TransientInferenceError(f"Claude Code CLI reported upstream status {status}")
         if envelope.get("is_error") or str(envelope.get("subtype", "success")) != "success":
-            raise ExternalModelRejected(
+            raise InferenceRejected(
                 f"Claude Code CLI reported a failed turn: "
                 f"{self._sanitised(envelope.get('result') or envelope.get('subtype'))}"
             )
         if str(envelope.get("stop_reason", "")) == "max_tokens":
-            raise ExternalModelRejected("Claude Code CLI response was truncated before it finished")
+            raise InferenceRejected("Claude Code CLI response was truncated before it finished")
         text = envelope.get("result")
         if not isinstance(text, str) or not text.strip():
-            raise ExternalModelRejected("Claude Code CLI response did not contain output text")
+            raise InferenceRejected("Claude Code CLI response did not contain output text")
         return text.strip()
 
     # ------------------------------------------------------------------ completion
@@ -185,7 +190,7 @@ class ClaudeCodeCLIModel(ExternalModel):
         try:
             completed = self.runner(argv, prompt, self.config.timeout_seconds)
         except subprocess.TimeoutExpired:
-            raise TransientExternalModelError(
+            raise TransientInferenceError(
                 f"Claude Code CLI did not answer within {self.config.timeout_seconds:g}s"
             ) from None
         return self._decode(completed)
@@ -197,7 +202,7 @@ class ClaudeCodeCLIModel(ExternalModel):
             argv += ["--append-system-prompt", system]
         prompt = dialogue or system
         if not prompt.strip():
-            raise ExternalModelRejected("a Claude Code request must carry a prompt")
+            raise InferenceRejected("a Claude Code request must carry a prompt")
         return self._with_retries(lambda: self._attempt(argv, prompt))
 
     def observed_models(self) -> tuple[str, ...]:
