@@ -35,7 +35,7 @@ revision that follows it.
 
 The requirement to accept this candidate is closed by that decision, not by evidence.
 
-### `918c80d4…` — DEPLOYED, NOT YET ACCEPTED
+### Night School v1 — DEPLOYED, NOT YET ACCEPTED
 
 Night School v1: the governed knowledge library, the fifty-document corpus and
 cross-language recall. **Deployed and verified as `HOST_DEPLOYED`** — active service, exact
@@ -49,8 +49,14 @@ its evidence is until a real external governed ACT is performed on this revision
 back independently. That needs an authorised external write, which this work package did
 not carry.
 
-Read plainly: production runs `918c80d4…`, production's last *accepted* revision is
-`d9522ea2…`, and those are two different sentences.
+This entry deliberately does not name the deployed revision. Writing this file *is* a
+commit, so deploying it moves the deployed SHA and makes any sentence naming that SHA false
+on arrival — which is exactly what happened to the first draft. The live answer is
+`/etc/bro/bro.release.env` and the ledger's own `matches_configured_revision`.
+
+What does not move: **the last accepted revision is `d9522ea2…`, and the revision production
+is running is not it.** That stays true through any number of further commits, and stops
+being true only when a real external governed ACT is accepted on a later revision.
 
 ## Հայերեն
 
@@ -81,7 +87,7 @@ revision-ին։
 
 Այս թեկնածուն ընդունելու պահանջը փակվում է որոշմամբ, ոչ թե ապացույցով։
 
-### `918c80d4…` — DEPLOYED, ԴԵՌ ՉԸՆԴՈՒՆՎԱԾ
+### Night School v1 — DEPLOYED, ԴԵՌ ՉԸՆԴՈՒՆՎԱԾ
 
 Night School v1՝ կառավարվող գիտելիքի գրադարանը, հիսուն փաստաթղթանոց corpus-ը ու
 խաչ-լեզվային recall-ը։ **Deploy արված ու ստուգված որպես `HOST_DEPLOYED`** — active
@@ -96,5 +102,13 @@ SHA-կապված է ու երբեք չի փոխանցվում revision-ից revi
 governed ACT ու անկախ readback։ Դրա համար պետք է թույլատրված արտաքին գրառում, որը այս
 աշխատանքային փաթեթը չի կրել։
 
-Ուղիղ՝ production-ը վազում է `918c80d4…`, production-ի վերջին **ընդունված** revision-ը
-`d9522ea2…` է, ու սրանք երկու տարբեր նախադասություն են։
+Այս գրառումը միտումնավոր չի անվանում deployed revision-ը։ Այս ֆայլը գրելը **ինքը
+commit է**, ուրեմն դրա deploy-ը շարժում է deployed SHA-ն ու ցանկացած այդ SHA-ն անվանող
+նախադասություն կեղծ է դարձնում հենց ժամանելուն պես — հենց դա էլ պատահեց առաջին
+տարբերակի հետ։ Կենդանի պատասխանը `/etc/bro/bro.release.env`-ն է ու ledger-ի սեփական
+`matches_configured_revision`-ը։
+
+Ինչը չի շարժվում՝ **վերջին ընդունված revision-ը `d9522ea2…` է, ու production-ի վազեցրածը
+դա չէ։** Սա ճշմարիտ է մնում ցանկացած թվով հետագա commit-ից հետո ու դադարում է ճշմարիտ
+լինելուց միայն այն ժամանակ, երբ ավելի ուշ revision-ի վրա ընդունվի իրական արտաքին
+governed ACT։
