@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from bro_runtime.external_model import ExternalModel, ExternalModelConfig
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
 from bro_runtime.interaction_surface import InteractionSurface
+from bro_runtime.learning_memory import DurableLearningMemory
 
 
 def required(name: str) -> str:
@@ -46,8 +48,14 @@ def build_model():
     )
 
 
+def memory_database_path() -> str:
+    return os.environ.get("BRO_MEMORY_DB_PATH", "/var/lib/bro/runtime.sqlite3").strip()
+
+
 def build_surface() -> ConversationalInteractionSurface:
     model = build_model()
+    memory_connection = sqlite3.connect(memory_database_path(), timeout=10)
+    memory = DurableLearningMemory(memory_connection)
 
     def github_binding():
         target = GitHubAcceptanceTarget(
@@ -57,11 +65,30 @@ def build_surface() -> ConversationalInteractionSurface:
         )
         return target, GitHubIssueCommentProvider(target)
 
+    def lesson_context(request: str) -> str:
+        lessons = memory.relevant_lessons(request)
+        if not lessons:
+            return ""
+        payload = [
+            {
+                "pattern_key": lesson.pattern_key,
+                "lesson": lesson.lesson,
+                "skill_name": lesson.skill_name,
+                "trigger": lesson.trigger,
+                "procedure": list(lesson.procedure),
+                "evidenced_successes": lesson.successes,
+                "failures": lesson.failures,
+            }
+            for lesson in lessons
+        ]
+        return "\nDurable lessons from prior evidenced outcomes: " + json.dumps(payload, ensure_ascii=False)
+
     def interpreter(request: str):
         return model.interpret(request)
 
     def planner(intent):
-        return model.select_specialist(intent.raw_request, intent.interpreted_scope)
+        enriched = intent.raw_request + lesson_context(intent.raw_request)
+        return model.select_specialist(enriched, intent.interpreted_scope)
 
     def executor(_intent, _specialist):
         target, provider = github_binding()
@@ -121,12 +148,47 @@ def build_surface() -> ConversationalInteractionSurface:
         return model.route_interaction(request, history_payload(history))
 
     def responder(mode: InteractionMode, request: str, history):
-        return model.conversational_response(mode.value, request, history_payload(history))
+        enriched_history = history_payload(history)
+        context = lesson_context(request)
+        if context:
+            enriched_history.append({"role": "assistant", "content": context.strip()})
+        return model.conversational_response(mode.value, request, enriched_history)
+
+    def record_message(role: str, content: str, mode: str) -> None:
+        memory.append_message(role, content, mode=mode)
+
+    def record_outcome(request: str, success: bool, receipt, error_ref: str) -> None:
+        if not success:
+            memory.record_outcome(request=request, success=False, error_ref=error_ref)
+            return
+        if not isinstance(receipt, dict):
+            return
+        learning = model.json_object(
+            instruction=(
+                "Extract one reusable operational lesson from a successfully verified BRO action. "
+                "Required keys: pattern_key, lesson, skill_name, trigger, procedure. "
+                "procedure must be a non-empty array of concrete steps. Generalize only what the evidence supports. "
+                "Do not invent permissions, credentials, systems, or success beyond the supplied receipt."
+            ),
+            request=json.dumps({"request": request, "receipt": receipt}, ensure_ascii=False, sort_keys=True),
+        )
+        candidate = memory.record_outcome(
+            request=request,
+            success=True,
+            specialist_ref=str(receipt.get("specialist_ref", "")),
+            evidence_ref=str(receipt.get("evidence_ref", "")),
+            learning=learning,
+        )
+        if candidate is not None:
+            print(f"BRO learning > reusable skill candidate ready for approval: {candidate.skill_name} ({candidate.candidate_id})")
 
     return ConversationalInteractionSurface(
         action_surface=action_surface,
         router=router,
         responder=responder,
+        initial_history=memory.recent_messages(limit=12),
+        message_recorder=record_message,
+        outcome_recorder=record_outcome,
     )
 
 
@@ -155,10 +217,12 @@ def handle(surface: ConversationalInteractionSurface, request: str) -> None:
     )
     print("BRO execution receipt:")
     print(json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2))
+    if surface.learning_errors:
+        print(f"BRO learning warning > {surface.learning_errors[-1]}", file=sys.stderr)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Talk, think, or act with BRO through the production path")
+    parser = argparse.ArgumentParser(description="Talk, think, act, remember, and learn with BRO through the production path")
     parser.add_argument("request", nargs="*", help="Natural-language request; omit for an interactive conversation")
     args = parser.parse_args()
     surface = build_surface()
