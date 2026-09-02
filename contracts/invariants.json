@@ -265,6 +265,29 @@
       "enforcement": [
         "tests/test_learning_provider_portability.py"
       ]
+    },
+    {
+      "id": "INV-STUDY-001",
+      "statement": "Self-study is read-and-learn: the study runtime has no executor, provider or network client, causes no external effect, and cannot approve or promote a skill",
+      "enforcement": [
+        "tests/test_study_governance.py",
+        "tests/test_self_study_contract.py"
+      ]
+    },
+    {
+      "id": "INV-STUDY-002",
+      "statement": "A studied claim becomes verified knowledge only when its quote is present in the source it names; inference and unverified observation are stored apart with runtime-owned confidence",
+      "enforcement": [
+        "tests/test_study_runtime.py"
+      ]
+    },
+    {
+      "id": "INV-STUDY-003",
+      "statement": "Every study mission is bounded by an item budget and ends with a named stop reason, and current truth outranks retained study knowledge",
+      "enforcement": [
+        "tests/test_study_runtime.py",
+        "tests/test_study_governance.py"
+      ]
     }
   ]
 }

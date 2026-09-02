@@ -1,0 +1,86 @@
+{
+  "contract": "bro.governed-self-study.v1",
+  "status": "implemented-repository-boundary",
+  "study_entry": {
+    "runtime": "bro_runtime.study_runtime.GovernedStudyRuntime",
+    "reader": "bro_runtime.study_runtime.StudySourceReader",
+    "store": "bro_runtime.learning_memory.DurableLearningMemory",
+    "surface": "scripts/bro_interact.py",
+    "mode": "STUDY"
+  },
+  "cycle": [
+    "study mission",
+    "scope and curriculum",
+    "source discovery",
+    "read",
+    "synthesis",
+    "verification against source",
+    "contradiction and staleness check",
+    "retained knowledge item",
+    "durable provenance",
+    "next study item or a named stop"
+  ],
+  "invariants": [
+    {
+      "id": "STUDY-READONLY-001",
+      "statement": "Self-study reads, thinks and learns: the study runtime has no executor, no provider, no network client, and writes nothing outside the durable learning store.",
+      "enforcement": ["tests/test_study_governance.py"]
+    },
+    {
+      "id": "STUDY-VERIFY-001",
+      "statement": "A claim becomes verified knowledge only when the quote supporting it is actually present in the source it names; model assertion alone never verifies anything.",
+      "enforcement": ["tests/test_study_runtime.py"]
+    },
+    {
+      "id": "STUDY-KINDS-001",
+      "statement": "Verified knowledge, inference and unverified observation are stored apart, and confidence follows the kind the runtime determined rather than any model-supplied number.",
+      "enforcement": ["tests/test_study_runtime.py"]
+    },
+    {
+      "id": "STUDY-PROVENANCE-001",
+      "statement": "Every retained study item carries its source reference, source type, source digest, timestamp, scope, verification state and model provenance.",
+      "enforcement": ["tests/test_study_runtime.py"]
+    },
+    {
+      "id": "STUDY-BOUNDED-001",
+      "statement": "The curriculum is bounded by an item budget and every mission terminates with a named stop reason; there is no open-ended research loop.",
+      "enforcement": ["tests/test_study_runtime.py"]
+    },
+    {
+      "id": "STUDY-TRUTH-001",
+      "statement": "Current authoritative truth outranks retained study knowledge: contradicted items are withheld from reuse and items whose source changed are surfaced as stale.",
+      "enforcement": ["tests/test_study_runtime.py", "tests/test_study_governance.py"]
+    },
+    {
+      "id": "STUDY-AUTHORITY-001",
+      "statement": "Study cannot approve or promote a skill, widen authority, modify governance, deploy, merge, or cause any external effect, and studied content never removes scope confirmation.",
+      "enforcement": ["tests/test_study_governance.py"]
+    },
+    {
+      "id": "STUDY-STORE-001",
+      "statement": "Study reuses the one durable learning store; it creates no parallel knowledge authority and no second execution path.",
+      "enforcement": ["tests/test_study_runtime.py", "tests/test_study_governance.py"]
+    },
+    {
+      "id": "STUDY-PORTABLE-001",
+      "statement": "Retained study knowledge belongs to BRO and survives a model or provider change; model identity is recorded as provenance only.",
+      "enforcement": ["tests/test_study_runtime.py"]
+    },
+    {
+      "id": "STUDY-ROUTING-001",
+      "statement": "A plain 'study X' request is routed to STUDY automatically without the operator choosing a mode; STUDY requires no confirmation and reaches no executor.",
+      "enforcement": ["tests/test_study_governance.py"]
+    }
+  ],
+  "truth_boundary": {
+    "repository_claim": "Bounded curriculum planning, root-bounded read-only source access, source-quote verification, kind separation, provenance, contradiction and staleness handling, named stop conditions and automatic STUDY routing are implemented and testable.",
+    "not_claimed": [
+      "Autonomous model-weight training or fine-tuning of any kind",
+      "Arbitrary self-modifying code or automatic installation of generated code",
+      "Correctness or completeness of every model-proposed claim",
+      "Any authority, approval or promotion arising from studied content",
+      "Network research beyond the declared local study root",
+      "Production study evidence before host rollout, readback and a live study mission"
+    ]
+  }
+}

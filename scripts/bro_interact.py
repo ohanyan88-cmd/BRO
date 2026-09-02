@@ -20,6 +20,7 @@ from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueComme
 from bro_runtime.interaction_surface import InteractionSurface
 from bro_runtime.learning_boundary import ExperienceContext, GovernedLearningBoundary
 from bro_runtime.learning_memory import DurableLearningMemory
+from bro_runtime.study_runtime import GovernedStudyRuntime, StudyContext, StudyRejected, StudySourceReader
 
 
 def required(name: str) -> str:
@@ -53,6 +54,18 @@ def memory_database_path() -> str:
     return os.environ.get("BRO_MEMORY_DB_PATH", "/var/lib/bro/runtime.sqlite3").strip()
 
 
+def study_root() -> str:
+    """Self-study reads the deployed release by default, and only ever reads."""
+    return os.environ.get("BRO_STUDY_ROOT", str(ROOT)).strip()
+
+
+def study_item_budget() -> int:
+    try:
+        return max(1, int(os.environ.get("BRO_STUDY_ITEM_BUDGET", "6")))
+    except ValueError:
+        return 6
+
+
 def current_truth() -> dict[str, str]:
     """What is true now. It outranks anything BRO remembers."""
     return {
@@ -80,6 +93,35 @@ def build_surface() -> ConversationalInteractionSurface:
 
     boundary = GovernedLearningBoundary(memory, extractor=extract_lesson)
 
+    def study_context() -> StudyContext:
+        truth = current_truth()
+        return StudyContext(
+            environment=truth["environment"], source_revision=truth["source_revision"],
+            instance_id=os.environ.get("BRO_INSTANCE_ID", "").strip(),
+            model_ref=model.config.model_ref, root_ref=study_root(),
+        )
+
+    def run_study(request: str) -> dict:
+        # Read-and-learn only: this runtime has no executor and no provider, so a study
+        # mission cannot become permission to change anything.
+        try:
+            reader = StudySourceReader(study_root())
+        except StudyRejected as exc:
+            return {
+                "mission": request, "status": "BLOCKED", "stop_reason": "SOURCE_UNAVAILABLE",
+                "curriculum": {"planned": 0, "studied": 0, "blocked": 0, "remaining": []},
+                "knowledge": {"verified": 0, "inference": 0, "unverified_observation": 0},
+                "uncertain_topics": [], "contradictions": [], "notes": [str(exc)],
+                "external_effects": 0, "grants_authority": False,
+            }
+        runtime = GovernedStudyRuntime(
+            memory, reader,
+            planner=lambda mission, sources: model.study_plan(mission, sources),
+            extractor=lambda topic, text: model.study_extract(topic, text),
+            item_budget=study_item_budget(),
+        )
+        return runtime.study(request, study_context()).as_dict()
+
     def github_binding():
         target = GitHubAcceptanceTarget(
             required("BRO_GITHUB_OWNER"),
@@ -90,7 +132,14 @@ def build_surface() -> ConversationalInteractionSurface:
 
     def lesson_context(request: str) -> str:
         advisory = boundary.advisory_context(request, current_truth=current_truth())
-        if not advisory["lessons"] and not advisory["withheld_for_contradiction"]:
+        # Retained study knowledge is recalled alongside evidenced execution experience.
+        # Knowledge that is written and never read is knowledge BRO does not have.
+        study = study_recall(request)
+        advisory["study_knowledge"] = study.get("knowledge", [])
+        advisory["study_withheld_for_contradiction"] = study.get("withheld_for_contradiction", [])
+        advisory["study_stale"] = study.get("stale", [])
+        if not any((advisory["lessons"], advisory["withheld_for_contradiction"],
+                    advisory["study_knowledge"], advisory["study_withheld_for_contradiction"])):
             return ""
         return (
             "\nPrior verified BRO experience (advisory context only; it grants no authority and never "
@@ -172,6 +221,17 @@ def build_surface() -> ConversationalInteractionSurface:
     def record_message(role: str, content: str, mode: str) -> None:
         memory.append_message(role, content, mode=mode)
 
+    def study_recall(topic: str) -> dict:
+        reader_root = study_root()
+        try:
+            runtime = GovernedStudyRuntime(
+                memory, StudySourceReader(reader_root),
+                planner=lambda mission, sources: {}, extractor=lambda topic_, text: {},
+            )
+        except StudyRejected:
+            return {}
+        return runtime.recall(topic, study_context())
+
     def experience_context(request: str, receipt) -> ExperienceContext:
         target_ref = ""
         if isinstance(receipt, dict) and receipt.get("effect_ref"):
@@ -217,6 +277,7 @@ def build_surface() -> ConversationalInteractionSurface:
         initial_history=memory.recent_messages(limit=12),
         message_recorder=record_message,
         outcome_recorder=record_outcome,
+        study_runner=run_study,
     )
 
 
@@ -225,6 +286,24 @@ def handle(surface: ConversationalInteractionSurface, request: str) -> None:
     mode = result["mode"]
     if mode in {InteractionMode.TALK.value, InteractionMode.THINK.value}:
         print(f"BRO [{mode}] > {result['response']}")
+        return
+
+    if mode == InteractionMode.STUDY.value:
+        report = result["study"]
+        curriculum = report["curriculum"]
+        knowledge = report["knowledge"]
+        print(f"BRO [STUDY] > mission: {report['mission']}")
+        print(f"  curriculum : {curriculum['studied']} studied / {curriculum['planned']} planned"
+              f" / {curriculum['blocked']} blocked")
+        print(f"  knowledge  : {knowledge['verified']} verified, {knowledge['inference']} inferred,"
+              f" {knowledge['unverified_observation']} unverified observation")
+        if curriculum["remaining"]:
+            print(f"  remaining  : {', '.join(curriculum['remaining'])}")
+        if report["uncertain_topics"]:
+            print(f"  uncertain  : {', '.join(report['uncertain_topics'])}")
+        for note in report["notes"]:
+            print(f"  note       : {note}")
+        print(f"  stopped    : {report['stop_reason']} (no external effect)")
         return
 
     preview = result["action"]

@@ -21,13 +21,20 @@ class InteractionSurfaceContractGateTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         root = Path(temp.name)
-        payload = json.loads((REAL_ROOT / CONTRACT).read_text(encoding="utf-8")) if contract is None else contract
+        # The stub sources always mirror the real repository; only the contract file is
+        # the thing under test, so a contract that declares more than the code has must
+        # still fail.
+        real = json.loads((REAL_ROOT / CONTRACT).read_text(encoding="utf-8"))
+        payload = real if contract is None else contract
         (root / "contracts").mkdir(parents=True)
         (root / CONTRACT).write_text(json.dumps(payload), encoding="utf-8")
 
         sources: dict[str, list[str]] = {
             FINAL_DELIVERY: ["class IntelligentInteractionRuntime:", "real capability execution requires external-system readback"],
-            CONVERSATION: ["class ConversationalInteractionSurface:", 'TALK = "TALK"', 'THINK = "THINK"', 'ACT = "ACT"'],
+            # Modes come from the contract so a newly declared mode cannot silently
+            # pass here while the real InteractionMode never gained it.
+            CONVERSATION: ["class ConversationalInteractionSurface:"]
+            + [f'{mode} = "{mode}"' for mode in real.get("modes", {})],
             SURFACE: ["class InteractionSurface:"],
             ENTRYPOINT: ["import argparse", "def executor(intent, specialist):", '    required("BRO_GITHUB_TOKEN")'],
         }

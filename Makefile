@@ -1,4 +1,4 @@
-.PHONY: validate invariants truth-boundaries remediation-wave readiness production-deployment final-delivery-contract interaction-surface-contract learning-contract test check
+.PHONY: validate invariants truth-boundaries remediation-wave readiness production-deployment final-delivery-contract interaction-surface-contract learning-contract self-study-contract test check
 
 validate:
 	python3 scripts/validate_contracts.py
@@ -27,7 +27,10 @@ interaction-surface-contract:
 learning-contract:
 	python3 scripts/check_learning_contract.py
 
+self-study-contract:
+	python3 scripts/check_self_study_contract.py
+
 test:
 	PYTHONPATH=src python3 -m unittest discover -s tests -v
 
-check: validate invariants truth-boundaries readiness production-deployment final-delivery-contract interaction-surface-contract learning-contract test
+check: validate invariants truth-boundaries readiness production-deployment final-delivery-contract interaction-surface-contract learning-contract self-study-contract test
