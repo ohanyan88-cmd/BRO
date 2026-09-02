@@ -29,8 +29,8 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from bro_runtime.knowledge_library import (  # noqa: E402
-    AuthorityClass, GovernedKnowledgeLibrary, KnowledgeLibraryRejected, LanguageVariant,
-    SourceStatus,
+    AuthorityClass, GovernedKnowledgeLibrary, KnowledgeLibraryRejected,
+    LanguageVariant, SourceStatus,
 )
 from bro_runtime.learning_memory import DurableLearningMemory  # noqa: E402
 
@@ -38,6 +38,14 @@ DEFAULT_MANIFEST = ROOT / "contracts" / "knowledge_shelves.json"
 DEFAULT_DB = "/var/lib/bro/runtime.sqlite3"
 DEFAULT_CORPUS = "/var/lib/bro/knowledge"
 DEFAULT_STAGING = "/var/lib/bro/knowledge-staging"
+# What APPROVED_FOR_STUDY rests on. It is a statement about gates that were run, not
+# about a person having read fifty documents -- that claim lives in its own field.
+APPROVAL_BASIS = (
+    "Gev-approved Night School v1 source policy (contracts/knowledge_shelves.json); "
+    "verified official provenance; corpus safety checks: path containment, credential "
+    "screening, declared-language verification, study eligibility, digest match. "
+    "No human content review is asserted by this approval."
+)
 USER_AGENT = "BRO-knowledge-acquisition/1 (+governed study corpus; contact menqstudio@gmail.com)"
 MAX_DOCUMENT_BYTES = 2_000_000
 TIMEOUT_SECONDS = 60
@@ -277,13 +285,46 @@ def acquire(manifest: dict, library: GovernedKnowledgeLibrary, *, only: str,
                 report.append({"path": local_path, "result": "failed", "reason": str(exc)})
 
 
-def review(library: GovernedKnowledgeLibrary, *, actor: str, only: str) -> list[dict]:
-    done = []
-    for source in library.sources(status=SourceStatus.STAGED):
-        if only and not source.local_path.startswith(tuple(f"{s}/" for s in only.split(","))):
+def source_policy(manifest: dict) -> dict[str, dict[str, str]]:
+    """The authorized source policy, keyed by the address a document may be fetched from."""
+    policy: dict[str, dict[str, str]] = {}
+    for shelf in manifest["shelves"]:
+        for document in shelf["documents"]:
+            policy[document["url"]] = {
+                "shelf": shelf["shelf"],
+                "publisher": shelf["publisher"],
+                "authority_class": shelf["authority_class"],
+                "source_scope": shelf["source_scope"],
+            }
+    return policy
+
+
+def _selected(library: GovernedKnowledgeLibrary, status: SourceStatus, only: str):
+    prefixes = tuple(f"{name}/" for name in only.split(",") if name.strip())
+    for source in library.sources(status=status):
+        if prefixes and not source.local_path.startswith(prefixes):
             continue
-        library.review(source.source_id, reviewed_by=actor, reason="operator read the staged text")
-        done.append({"path": source.local_path, "result": "reviewed"})
+        yield source
+
+
+def screen(library: GovernedKnowledgeLibrary, *, actor: str, only: str, manifest: dict,
+           policy_ref: str, again: bool = False) -> list[dict]:
+    """Run the screening gates. Nothing here asserts that anyone read a document."""
+    policy = source_policy(manifest)
+    status = SourceStatus.APPROVED_FOR_STUDY if again else SourceStatus.STAGED
+    done: list[dict] = []
+    for source in list(_selected(library, status, only)):
+        try:
+            if again:
+                library.rescreen(source.source_id, screened_by=actor, policy=policy,
+                                 policy_ref=policy_ref,
+                                 reason="re-screened under the corrected approval semantics")
+            else:
+                library.screen(source.source_id, screened_by=actor, policy=policy,
+                               policy_ref=policy_ref)
+            done.append({"path": source.local_path, "result": "screened"})
+        except KnowledgeLibraryRejected as exc:
+            done.append({"path": source.local_path, "result": "refused", "reason": str(exc)})
     return done
 
 
@@ -293,9 +334,7 @@ def publish(library: GovernedKnowledgeLibrary, *, actor: str, corpus_root: str,
     root = Path(corpus_root)
     root.mkdir(parents=True, exist_ok=True)
     done = []
-    for source in library.sources(status=SourceStatus.REVIEWED):
-        if only and not source.local_path.startswith(tuple(f"{s}/" for s in only.split(","))):
-            continue
+    for source in list(_selected(library, SourceStatus.SCREENED, only)):
         staged_file = Path(staging_root) / source.local_path
         if not staged_file.is_file():
             done.append({"path": source.local_path, "result": "skipped",
@@ -303,7 +342,7 @@ def publish(library: GovernedKnowledgeLibrary, *, actor: str, corpus_root: str,
             continue
         staged = staged_file.read_bytes()
         library.approve(source.source_id, approved_by=actor, content=staged,
-                        reason="operator approved for study")
+                        approval_basis=APPROVAL_BASIS)
         target = root / source.local_path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(staged)
@@ -324,7 +363,8 @@ def _prune(library: GovernedKnowledgeLibrary, root: Path, done: list[dict]) -> N
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Acquire external sources into BRO's knowledge library")
-    parser.add_argument("command", choices=("acquire", "review", "publish", "status", "verify", "probe"))
+    parser.add_argument("command", choices=("acquire", "screen", "rescreen", "publish",
+                                           "content-review", "status", "verify", "probe"))
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
     parser.add_argument("--db", default=DEFAULT_DB)
     parser.add_argument("--corpus", default=DEFAULT_CORPUS)
@@ -333,6 +373,9 @@ def main() -> int:
     parser.add_argument("--shelf", default="", help="comma-separated shelf ids")
     parser.add_argument("--actor", default="", help="the person reviewing or approving")
     parser.add_argument("--url", default="", help="probe only: a single url to inspect")
+    parser.add_argument("--path", default="", help="content-review only: the corpus path read")
+    parser.add_argument("--evidence", default="",
+                        help="content-review only: what the reader produced")
     args = parser.parse_args()
 
     if args.command == "probe":
@@ -351,10 +394,27 @@ def main() -> int:
             acquire(manifest, library, only=args.shelf, report=report,
                     staging_root=args.staging)
             payload = {"acquired": report}
-        elif args.command == "review":
+        elif args.command in ("screen", "rescreen"):
             if not args.actor:
-                raise AcquisitionRejected("review requires --actor: a person, named")
-            payload = {"reviewed": review(library, actor=args.actor, only=args.shelf)}
+                raise AcquisitionRejected(f"{args.command} requires --actor: who ran the gates")
+            manifest = load_manifest(args.manifest)
+            payload = {args.command + "ed": screen(
+                library, actor=args.actor, only=args.shelf, manifest=manifest,
+                policy_ref=str(Path(args.manifest).name), again=args.command == "rescreen")}
+        elif args.command == "content-review":
+            if not args.actor or not args.path or not args.evidence:
+                raise AcquisitionRejected(
+                    "content-review requires --actor, --path and --evidence: who read which "
+                    "document, and what they produced")
+            source = library.provenance_for(args.path)
+            if source is None:
+                raise AcquisitionRejected(f"no source at {args.path!r}")
+            reviewed = library.record_content_review(
+                source.source_id, reviewed_by=args.actor, evidence=args.evidence)
+            payload = {"content_review": {
+                "path": reviewed.local_path, "state": reviewed.content_review_state.value,
+                "reviewed_by": reviewed.content_reviewed_by,
+                "evidence": reviewed.content_review_evidence}}
         elif args.command == "publish":
             if not args.actor:
                 raise AcquisitionRejected("publish requires --actor: a person, named")
@@ -362,14 +422,22 @@ def main() -> int:
                                             staging_root=args.staging, only=args.shelf)}
         elif args.command == "verify":
             problems = library.verify_corpus(args.corpus)
+            approved = library.approved()
             payload = {"corpus_root": args.corpus, "problems": problems,
                        "verdict": "PASS" if not problems else "FAIL",
+                       "approval_basis_recorded": sum(1 for item in approved if item.approval_basis),
+                       "human_content_reviewed": sum(
+                           1 for item in approved if item.human_content_reviewed),
                        **{k: v for k, v in library.manifest().items() if k != "entries"}}
         else:
             payload = {"sources": [
                 {"path": item.local_path, "status": item.status.value, "shelf": item.shelf,
-                 "version": item.upstream_version, "url": item.canonical_url}
-                for item in library.sources()]}
+                 "version": item.upstream_version, "url": item.canonical_url,
+                 "content_review": item.content_review_state.value,
+                 "approved_by": item.approved_by}
+                for item in library.sources()],
+                "human_content_reviewed": sum(
+                    1 for item in library.sources() if item.human_content_reviewed)}
     except (AcquisitionRejected, KnowledgeLibraryRejected) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

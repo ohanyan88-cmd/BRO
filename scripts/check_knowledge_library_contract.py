@@ -30,16 +30,36 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         (LIBRARY, "def verify_corpus"),
         (LIBRARY, "present in the corpus but not approved for study"),
         (LIBRARY, "APPROVED_FOR_STUDY"),
+        (LIBRARY, "requires a recorded {basis_column}"),
     ),
     "LIBRARY-LIFECYCLE-001": (
-        (LIBRARY, "def review"),
+        (LIBRARY, "def screen"),
         (LIBRARY, "def approve"),
         (LIBRARY, "bro_knowledge_transitions"),
         (LIBRARY, "def _advance"),
     ),
     "LIBRARY-INTEGRITY-001": (
-        (LIBRARY, "content changed since it was staged"),
+        (LIBRARY, "content changed since it was screened"),
         (LIBRARY, "content differs from what was approved"),
+    ),
+    "LIBRARY-SCREENING-001": (
+        (LIBRARY, "def screening_basis"),
+        (LIBRARY, "is not named in the authorized source policy"),
+        (LIBRARY, "STUDY_ELIGIBLE_SUFFIXES"),
+        (ACQUIRE, "def source_policy"),
+        (ACQUIRE, "APPROVAL_BASIS"),
+    ),
+    "LIBRARY-CONTENT-REVIEW-001": (
+        (LIBRARY, "class ContentReview"),
+        (LIBRARY, "def record_content_review"),
+        (LIBRARY, "def human_content_reviewed"),
+        (LIBRARY, "Never derived from SourceStatus"),
+        (ACQUIRE, "content-review"),
+    ),
+    "LIBRARY-MIGRATION-001": (
+        (LIBRARY, "_RENAMED_COLUMNS"),
+        (LIBRARY, "RENAME COLUMN"),
+        (LIBRARY, "def _migrate"),
     ),
     "LIBRARY-CONTAINMENT-001": (
         (LIBRARY, "def acceptable_path"),

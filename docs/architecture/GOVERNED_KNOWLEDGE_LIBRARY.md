@@ -10,14 +10,39 @@ code. Opening BRO to the outside world means it can now read material nobody on 
 project wrote, and the whole design follows from refusing to let *acquired* and *trusted*
 become the same word.
 
-    acquire (a person, with the network) → STAGED
-      → a person reads it → REVIEWED
-        → a person approves it → APPROVED_FOR_STUDY → the corpus STUDY can read
+    acquire (an operator, with the network) → STAGED
+      → screened against the authorized source policy → SCREENED
+        → approved on a recorded basis → APPROVED_FOR_STUDY → the corpus STUDY can read
 
 `STUDY` never crosses that line. It has no network, no subprocess, no acquisition tool and
 no way to approve anything; it reads a rooted directory of files, exactly as it always has.
 The corpus is simply a second rooted directory, and every byte in it was put there by
 `scripts/bro_acquire_knowledge.py`, which a person runs.
+
+### What `APPROVED_FOR_STUDY` means, and what it does not
+
+This is the part worth being exact about, because a governance record that overstates what
+was done is worse than no record.
+
+**It means the screening gates passed.** The source is named in the authorized source policy
+at the address it was fetched from; its shelf, publisher, authority class and scope agree
+with that policy; its provenance is complete; its corpus path is contained and its type is
+one `STUDY` can open; its bytes carry no credential and match the declared language; and the
+bytes approved are the bytes screened. Each of those is a check that can be re-run by anyone,
+on any day, against the same policy file — which is the whole reason the state is called
+`SCREENED` and not `REVIEWED`.
+
+**It does not mean a person read the document**, and it does not mean anyone fact-checked a
+statement in it. Night School v1's fifty documents were approved on the source policy, their
+official provenance and the corpus safety checks — by
+`claude-code-builder@night-school-v1`, which is who actually ran them. Writing a person's
+name there would have been a false record of work nobody did.
+
+**Human content review is a separate state.** `record_content_review` sets it, requires a
+named reader and an artifact — a note, a ticket, a signed-off summary — and is never a side
+effect of approval. No number of approvals adds up to it, and nothing infers it from
+`APPROVED_FOR_STUDY`. A review with no artifact is indistinguishable from no review, so the
+field refuses to be set without one.
 
 ### What a source carries
 
@@ -31,6 +56,8 @@ The corpus is simply a second rooted directory, and every byte in it was put the
 | `source_language` | `en`, `hy` or `ru` — checked against the script actually acquired |
 | `language_variant` | for Armenian, which Armenian |
 | `license`, `notes` | terms, and anything the acquisition found worth recording |
+| `screening_basis`, `approval_basis` | which gates ran, and what the approval rests on |
+| `content_review_state` | whether a person read it — `NOT_HUMAN_REVIEWED` unless one did |
 
 **Authority is scoped, never global.** The RFC Editor is authoritative for the RFC it
 published and about nothing else. Nothing on any shelf outranks BRO's own contracts,
@@ -115,19 +142,45 @@ because a limit that a typo can switch off is not a limit.
 որ հիմա կարող է կարդալ նյութ, որ այս ծրագրում ոչ ոք չի գրել, ու ամբողջ նախագիծը բխում է
 մեկ մերժումից՝ **«բերված»-ը և «վստահելի»-ն նույն բառը չեն**։
 
-    ձեռք բերել (մարդ, ցանցով) → STAGED
-      → մարդ կարդում է → REVIEWED
-        → մարդ հաստատում է → APPROVED_FOR_STUDY → corpus, որ STUDY-ն կարդում է
+    ձեռք բերել (օպերատոր, ցանցով) → STAGED
+      → ստուգվել թույլատրված աղբյուրների քաղաքականության դեմ → SCREENED
+        → հաստատվել գրանցված հիմքով → APPROVED_FOR_STUDY → corpus, որ STUDY-ն կարդում է
 
 `STUDY`-ն այդ գիծը երբեք չի հատում։ Ցանց չունի, subprocess չունի, ձեռքբերման գործիք չունի
 ու ոչինչ հաստատել չի կարող. կարդում է արմատով սահմանափակ թղթապանակ, ինչպես միշտ։
+
+### Ի՞նչ է նշանակում `APPROVED_FOR_STUDY`, ու ի՞նչ չի նշանակում
+
+Սա այն մասն է, որ պիտի ճշգրիտ ասվի, որովհետև իրականից ավելին պնդող governance-ի գրառումը
+վատ է, քան գրառման բացակայությունը։
+
+**Նշանակում է, որ screening-ի gate-երն անցել են։** Աղբյուրը նշված է թույլատրված
+աղբյուրների քաղաքականության մեջ հենց այն հասցեով, որտեղից բերվել է. իր դարակը,
+հրատարակիչը, authority class-ն ու շրջանակը համընկնում են այդ քաղաքականությանը.
+provenance-ը լրիվ է. corpus-ի ուղին պարունակված է ու տեսակը այնպիսին, որ `STUDY`-ն կարող է
+բացել. բայթերը credential չեն կրում ու համապատասխանում են հայտարարված լեզվին. ու
+հաստատված բայթերը հենց screening անցածներն են։ Սրանցից ամեն մեկը ստուգում է, որ ցանկացած
+մեկը կարող է վերավազեցնել ցանկացած օր՝ նույն քաղաքականության ֆայլի դեմ։ Հենց դրա համար
+վիճակը կոչվում է `SCREENED`, ոչ թե `REVIEWED`։
+
+**Չի նշանակում, որ մարդ կարդացել է փաստաթուղթը**, ու չի նշանակում, որ որևէ մեկը ստուգել է
+դրա որևէ պնդման ճշտությունը։ Night School v1-ի հիսուն փաստաթուղթը հաստատվել են աղբյուրների
+քաղաքականությամբ, պաշտոնական provenance-ով ու corpus-ի անվտանգության ստուգումներով՝
+`claude-code-builder@night-school-v1`-ի կողմից, որը իրականում վազեցրել է դրանք։ Այնտեղ
+մարդու անուն գրելը կլիներ չկատարված աշխատանքի կեղծ գրառում։
+
+**Մարդկային բովանդակային վերանայումն առանձին վիճակ է։** Այն դնում է
+`record_content_review`-ը, պահանջում է անվանված ընթերցող ու արտեֆակտ, ու երբեք հաստատման
+կողմնակի հետևանք չէ։ Ոչ մի քանակի հաստատում դրան չի գումարվում, ու ոչինչ այն չի ենթադրում
+`APPROVED_FOR_STUDY`-ից։
 
 ### Ի՞նչ է կրում աղբյուրը
 
 Ամեն աղբյուր գրանցում է հրատարակչին, canonical հասցեն, **authority_class**-ը (նորմատիվ
 ստանդարտ, պաշտոնական բնութագիր, պետական կամ ակադեմիական մարմին, արտադրողի փաստաթուղթ,
 անվտանգության ուղեցույց), **source_scope**-ը, upstream տարբերակը, բովանդակության digest-ը,
-**source_language**-ը, հայերենի դեպքում՝ **language_variant**-ը, ու լիցենզիան։
+**source_language**-ը, հայերենի դեպքում՝ **language_variant**-ը, լիցենզիան, ինչպես նաև
+**screening_basis**-ը, **approval_basis**-ը ու **content_review_state**-ը։
 
 **Հեղինակությունը շրջանակված է, երբեք գլոբալ։** RFC Editor-ը հեղինակավոր է իր հրապարակած
 RFC-ի համար ու ուրիշ ոչնչի։ Ոչ մի դարակ չի գերազանցում BRO-ի սեփական contract-ները,

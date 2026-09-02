@@ -13,8 +13,10 @@ sudo -u bro env HOME=/var/lib/bro PYTHONPATH=/opt/bro/current/src \
 | Command | What it does |
 |---|---|
 | `acquire` | fetches every document in the shelf manifest, converts it to text, hashes it, records it as `STAGED` and writes the bytes to the **staging** tree |
-| `review --actor <person>` | marks staged sources `REVIEWED` — do this after reading them |
-| `publish --actor <person>` | approves reviewed sources, writes exactly the approved bytes into the **corpus**, and removes anything in the corpus that is not approved |
+| `screen --actor <who>` | runs the screening gates against the authorized source policy and marks passing sources `SCREENED`; a source the policy does not name is refused by name |
+| `rescreen --actor <who>` | sends approved sources back through screening, deliberately and on the record |
+| `publish --actor <who>` | approves screened sources on a recorded basis, writes exactly the approved bytes into the **corpus**, and removes anything in the corpus that is not approved |
+| `content-review --actor <person> --path <p> --evidence <artifact>` | records that a **person read that document** — separate from approval, and never implied by it |
 | `verify` | re-reads the corpus and reports any file that is unapproved, altered or missing |
 | `status` | lists every source and its lifecycle state |
 | `probe --url <url>` | fetches one address and prints what the extractor would see; changes nothing |
@@ -23,6 +25,23 @@ Defaults: registry `/var/lib/bro/runtime.sqlite3`, staging `/var/lib/bro/knowled
 corpus `/var/lib/bro/knowledge`. **Staging and corpus are different directories on purpose.**
 Acquiring something must not make it readable by `STUDY`; only `publish` moves bytes across
 that line, and only for a source a named person approved.
+
+### What approval claims
+
+`APPROVED_FOR_STUDY` says the screening gates passed: the source is in the authorized policy
+at the address it came from, agrees with that policy, carries complete provenance, is
+contained and study-eligible, carries no credential, and its approved bytes are its screened
+bytes. **It does not say a person read the document.** `--actor` on `screen` and `publish`
+names whoever ran the gates, which for Night School v1 is
+`claude-code-builder@night-school-v1`.
+
+If a person does read a document, record that with `content-review`. It needs a named reader
+and an artifact, and it is the only thing that sets `HUMAN_CONTENT_REVIEWED`.
+
+**Ի՞նչ է պնդում հաստատումը։** `APPROVED_FOR_STUDY`-ն ասում է, որ screening-ի gate-երն անցել
+են։ **Չի ասում, որ մարդ կարդացել է փաստաթուղթը։** `--actor`-ը անվանում է gate-երը վազեցնողին։
+Եթե մարդ իսկապես կարդում է փաստաթուղթը, դա գրանցվում է `content-review`-ով՝ անվանված
+ընթերցողով ու արտեֆակտով։
 
 ### Pointing STUDY at the corpus
 
@@ -71,8 +90,10 @@ anyone approved.
 | Հրաման | Ի՞նչ է անում |
 |---|---|
 | `acquire` | բերում է manifest-ի ամեն փաստաթուղթ, դարձնում տեքստ, hash անում, գրանցում `STAGED` ու գրում **staging**-ում |
-| `review --actor <անուն>` | կարդալուց հետո նշում է `REVIEWED` |
-| `publish --actor <անուն>` | հաստատում է ու գրում հենց հաստատված բայթերը **corpus**-ում, ու հանում այնտեղից չհաստատված ամեն ինչ |
+| `screen --actor <ով>` | վազեցնում է screening-ի gate-երը թույլատրված քաղաքականության դեմ ու անցածները նշում `SCREENED` |
+| `rescreen --actor <ով>` | հաստատվածները միտումնավոր ու գրառմամբ վերադարձնում է screening |
+| `publish --actor <ով>` | հաստատում է գրանցված հիմքով ու գրում հենց հաստատված բայթերը **corpus**-ում |
+| `content-review --actor <անուն> --path <ուղի> --evidence <արտեֆակտ>` | գրանցում է, որ **մարդ կարդացել է** այդ փաստաթուղթը. առանձին է հաստատումից ու երբեք դրանից չի բխեցվում |
 | `verify` | վերընթերցում է corpus-ը ու հայտնում չհաստատված, փոփոխված կամ բացակայող ֆայլերը |
 | `status` | ցույց է տալիս ամեն աղբյուր ու իր վիճակը |
 | `probe --url <url>` | բերում է մեկ հասցե ու տպում՝ ինչ կտեսներ extractor-ը. ոչինչ չի փոխում |
@@ -91,4 +112,5 @@ anyone approved.
 
 Կրկնակի `acquire`-ը՝ չփոխված փաստաթուղթը `unchanged` է, փոխվածը՝ հին տարբերակը դառնում է
 `SUPERSEDED` (մնում է գրառման մեջ) ու նորը կրկին անցնում է review-ի ու հաստատման միջով։
-Ամեն `publish`-ից հետո՝ `verify`։
+Ամեն `publish`-ից հետո՝ `verify`։ Կրկնակի `screen`-ը հաստատվածների վրա չի աշխատում.
+դրա համար կա `rescreen`, որ վիճակի փոփոխությունը մնա գրառման մեջ։

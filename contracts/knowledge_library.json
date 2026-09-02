@@ -1,7 +1,7 @@
 {
   "contract": "bro.governed-knowledge-library.v1",
   "status": "implemented",
-  "purpose": "External material BRO may study is acquired by a person, reviewed by a person, and approved by a person before STUDY can read a byte of it. Acquisition holds the network; study holds none.",
+  "purpose": "External material BRO may study is acquired by an operator, screened against the authorized source policy, and approved into the corpus on a recorded basis. APPROVED_FOR_STUDY means those gates passed; it never means a person read and fact-checked the document, which is a separate state with its own evidence.",
   "entry": {
     "library": "bro_runtime.knowledge_library.GovernedKnowledgeLibrary",
     "store": "bro_runtime.learning_memory.DurableLearningMemory",
@@ -9,7 +9,13 @@
     "shelf_manifest": "contracts/knowledge_shelves.json",
     "corpus_reader": "bro_runtime.study_runtime.StudySourceReader"
   },
-  "lifecycle": ["STAGED", "REVIEWED", "APPROVED_FOR_STUDY", "SUPERSEDED", "REJECTED"],
+  "lifecycle": [
+    "STAGED",
+    "SCREENED",
+    "APPROVED_FOR_STUDY",
+    "SUPERSEDED",
+    "REJECTED"
+  ],
   "authority_classes": [
     "NORMATIVE_STANDARD",
     "OFFICIAL_SPECIFICATION",
@@ -19,7 +25,11 @@
     "USER_APPROVED_INTERNAL",
     "TRUSTED_REFERENCE"
   ],
-  "supported_source_languages": ["en", "hy", "ru"],
+  "supported_source_languages": [
+    "en",
+    "hy",
+    "ru"
+  ],
   "armenian_variants": [
     "EASTERN_ARMENIAN_NORMATIVE",
     "EASTERN_ARMENIAN_CONVERSATIONAL",
@@ -30,84 +40,156 @@
   "invariants": [
     {
       "id": "LIBRARY-APPROVAL-001",
-      "statement": "Only material a named person approved may exist in the corpus STUDY reads, and only as the exact bytes they approved.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "statement": "Only material that passed screening and was approved on a recorded basis may exist in the corpus STUDY reads, and only as the exact bytes that were screened.",
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LIBRARY-LIFECYCLE-001",
-      "statement": "Approval requires a prior review, each step names its actor, and every transition is recorded.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "statement": "Approval requires prior screening, each step names who ran it, the approval states what it rests on, and every transition is recorded.",
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LIBRARY-INTEGRITY-001",
-      "statement": "Approval re-checks the acquired digest, so material cannot change between review and approval.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "statement": "Approval re-checks the acquired digest, so material cannot change between screening and approval.",
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LIBRARY-CONTAINMENT-001",
       "statement": "Corpus paths stay inside the corpus root and never name executables, archives, key files or hidden directories.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LIBRARY-SECRETS-001",
       "statement": "Material carrying a credential is refused; material that merely names one is not.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LIBRARY-PROVENANCE-001",
       "statement": "Every source records publisher, canonical url, authority class, scope, upstream version, digest, language and license.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LIBRARY-AUTHORITY-001",
       "statement": "Authority is scoped to the source's own subject and never outranks BRO's contracts, governance or runtime truth. Acquired text is data; instruction-shaped sentences inside it are content, not instructions.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LIBRARY-NETWORK-001",
       "statement": "The network lives in the operator acquisition tool. The library reaches nothing and the study runtime reaches nothing.",
-      "tests": ["tests/test_self_study_contract.py"]
+      "tests": [
+        "tests/test_self_study_contract.py"
+      ]
     },
     {
       "id": "LIBRARY-LANGUAGE-001",
       "statement": "A declared source language must match the script actually acquired, and Armenian variants are kept apart rather than collapsed into the normative one.",
-      "tests": ["tests/test_knowledge_library.py"]
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     },
     {
       "id": "LEARN-LANGUAGE-001",
       "statement": "Learned knowledge records the language of its source document and the language of its evidence quote separately.",
-      "tests": ["tests/test_multilingual_learning.py"]
+      "tests": [
+        "tests/test_multilingual_learning.py"
+      ]
     },
     {
       "id": "LEARN-EVIDENCE-001",
       "statement": "The evidence quote stays verbatim in the source language. A translation is never evidence and never makes a claim VERIFIED.",
-      "tests": ["tests/test_multilingual_learning.py"]
+      "tests": [
+        "tests/test_multilingual_learning.py"
+      ]
     },
     {
       "id": "LEARN-RECALL-001",
       "statement": "A question in one supported language reaches knowledge learned from a source in another, through one canonical item with one provenance chain -- never a translated duplicate.",
-      "tests": ["tests/test_multilingual_learning.py"]
+      "tests": [
+        "tests/test_multilingual_learning.py"
+      ]
     },
     {
       "id": "LEARN-KEYS-001",
       "statement": "Recall terms are retrieval keys only: bounded in length, never evidence, and carrying no authority or confidence of their own.",
-      "tests": ["tests/test_multilingual_learning.py"]
+      "tests": [
+        "tests/test_multilingual_learning.py"
+      ]
     },
     {
       "id": "LEARN-PERSIST-001",
       "statement": "Source language, evidence and cross-language recall survive a restart, and Armenian text survives ingestion, storage and retrieval unchanged.",
-      "tests": ["tests/test_multilingual_learning.py"]
+      "tests": [
+        "tests/test_multilingual_learning.py"
+      ]
     },
     {
       "id": "STUDY-LIMITS-001",
       "statement": "The item budget and the diminishing-return threshold are both configuration, both at least one, and a malformed setting falls back rather than removing the limit.",
-      "tests": ["tests/test_study_limits.py"]
+      "tests": [
+        "tests/test_study_limits.py"
+      ]
+    },
+    {
+      "id": "LIBRARY-SCREENING-001",
+      "statement": "Screening is executable, not asserted: the source must be named in the authorized source policy at the address it was fetched from, agree with that policy on shelf, publisher, authority class and scope, carry complete provenance, and be contained and study-eligible. The basis it produces names the gates that ran.",
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
+    },
+    {
+      "id": "LIBRARY-CONTENT-REVIEW-001",
+      "statement": "Human content review is a separate state carrying its own reader and artifact. It is never set by approval, never inferred from APPROVED_FOR_STUDY, and no number of approvals produces it.",
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
+    },
+    {
+      "id": "LIBRARY-MIGRATION-001",
+      "statement": "A registry written before the rename migrates in place: the renamed columns keep their values and rows recorded as REVIEWED become SCREENED, because that is the step that was actually performed.",
+      "tests": [
+        "tests/test_knowledge_library.py"
+      ]
     }
   ],
   "truth_boundary": [
     "Acquiring a document does not make BRO believe it; approval admits it to study, not to authority.",
+    "Approving a document admits it to study on stated grounds; it is not a person vouching for its content, and the record must never let the two be read as one.",
     "External material never grants authority, never approves an action and never overrides current runtime truth.",
     "A translated explanation is an explanation. The evidence remains the original text, in the original language.",
     "The model's multilingual ability is not BRO's learned knowledge; recall is proven through BRO's own memory path."
-  ]
+  ],
+  "content_review_states": [
+    "NOT_HUMAN_REVIEWED",
+    "HUMAN_CONTENT_REVIEWED"
+  ],
+  "approval_semantics": {
+    "APPROVED_FOR_STUDY_means": [
+      "the source is named in the authorized source policy at the address it was fetched from",
+      "its declared shelf, publisher, authority class and scope match that policy",
+      "its provenance is complete: publisher, url, scope, version, digest, language",
+      "its corpus path is contained and its type is study-eligible",
+      "its bytes carry no credential and match the declared language",
+      "the approved bytes are the screened bytes"
+    ],
+    "APPROVED_FOR_STUDY_does_not_mean": [
+      "a person read the document",
+      "a person fact-checked any statement in it",
+      "BRO believes what it says"
+    ],
+    "human_content_review": "recorded only by record_content_review, which requires a named reader and an artifact, and is never a side effect of approval"
+  }
 }
