@@ -121,6 +121,39 @@ class ClaudeCodeCLIAdapterTests(unittest.TestCase):
             model.json_object(instruction="i", request="r")
         self.assertEqual(len(self.invocations), 1, "an authentication fact must not be retried")
 
+    def test_the_message_comes_from_the_envelope_not_from_truncating_it(self):
+        # The production shape, key order included: the CLI prints its usage blocks first
+        # and the sentence that matters last, far past any sensible truncation.
+        noisy = json.dumps({
+            "duration_api_ms": 0,
+            "session_id": "0a192bc1-f548-44f6-b231-0f6ad0805409",
+            "usage": {"input_tokens": 0, "cache_read_input_tokens": 0, "padding": "x" * 400},
+            "modelUsage": {},
+            "is_error": True,
+            "subtype": "success",
+            "api_error_status": None,
+            "result": "Not logged in \u00b7 Please run /login",
+        })
+        self.assertGreater(noisy.index("Not logged in"), 200, "the fixture must reproduce the real ordering")
+        model = self.model([completed(noisy, returncode=1)])
+        with self.assertRaisesRegex(InferenceRejected, "no usable session"):
+            model.json_object(instruction="i", request="r")
+
+    def test_an_unauthenticated_failed_turn_is_named_even_on_a_zero_exit(self):
+        model = self.model([completed(envelope(result="Not logged in", is_error=True))])
+        with self.assertRaisesRegex(InferenceRejected, "no usable session"):
+            model.json_object(instruction="i", request="r")
+
+    def test_a_stderr_message_still_wins_when_there_is_one(self):
+        model = self.model([completed(envelope(result="ignored"), stderr="disk on fire", returncode=3)])
+        with self.assertRaisesRegex(InferenceRejected, "disk on fire"):
+            model.json_object(instruction="i", request="r")
+
+    def test_non_json_output_on_failure_is_still_reported(self):
+        model = self.model([completed("segmentation fault", returncode=139)])
+        with self.assertRaisesRegex(InferenceRejected, "segmentation fault"):
+            model.json_object(instruction="i", request="r")
+
     def test_an_upstream_rate_limit_is_transient_and_bounded(self):
         model = self.model([completed(envelope(api_error_status="429", is_error=True))],
                            max_attempts=3)

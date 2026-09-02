@@ -140,9 +140,31 @@ class ClaudeCodeCLIModel(BROInference):
         return collapsed[:limit]
 
     @classmethod
+    def _detail(cls, completed: subprocess.CompletedProcess) -> str:
+        """The CLI's own message, not a truncation of the envelope that carries it.
+
+        On a failed turn the CLI still prints its whole JSON result to stdout, and the
+        sentence that matters -- "Not logged in", say -- sits far past any sensible
+        truncation. Reading the envelope's own fields is the difference between telling
+        the operator to authenticate and handing them 200 characters of token counters.
+        """
+        if completed.stderr and completed.stderr.strip():
+            return cls._sanitised(completed.stderr)
+        try:
+            envelope = json.loads(completed.stdout)
+        except (TypeError, json.JSONDecodeError):
+            return cls._sanitised(completed.stdout)
+        if isinstance(envelope, dict):
+            for key in ("result", "subtype", "terminal_reason"):
+                value = envelope.get(key)
+                if isinstance(value, str) and value.strip():
+                    return cls._sanitised(value)
+        return cls._sanitised(completed.stdout)
+
+    @classmethod
     def _classify_failure(cls, completed: subprocess.CompletedProcess) -> None:
         """Map a non-zero exit deterministically. Always raises."""
-        detail = cls._sanitised(completed.stderr or completed.stdout)
+        detail = cls._detail(completed)
         lowered = detail.lower()
         if any(marker in lowered for marker in UNAUTHENTICATED_MARKERS):
             raise InferenceRejected(
@@ -172,10 +194,13 @@ class ClaudeCodeCLIModel(BROInference):
         if status is not None and str(status) in RETRYABLE_API_STATUSES:
             raise TransientInferenceError(f"Claude Code CLI reported upstream status {status}")
         if envelope.get("is_error") or str(envelope.get("subtype", "success")) != "success":
-            raise InferenceRejected(
-                f"Claude Code CLI reported a failed turn: "
-                f"{self._sanitised(envelope.get('result') or envelope.get('subtype'))}"
-            )
+            detail = self._detail(completed)
+            if any(marker in detail.lower() for marker in UNAUTHENTICATED_MARKERS):
+                raise InferenceRejected(
+                    f"Claude Code CLI has no usable session; authenticate it with the official "
+                    f"login for this identity: {detail}"
+                )
+            raise InferenceRejected(f"Claude Code CLI reported a failed turn: {detail}")
         if str(envelope.get("stop_reason", "")) == "max_tokens":
             raise InferenceRejected("Claude Code CLI response was truncated before it finished")
         text = envelope.get("result")
