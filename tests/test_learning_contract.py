@@ -23,6 +23,7 @@ COPIED = (
     "src/bro_runtime/learning_memory.py",
     "src/bro_runtime/conversation.py",
     "src/bro_runtime/final_delivery.py",
+    "src/bro_runtime/external_model.py",
     "scripts/bro_interact.py",
     "scripts/run_production_intelligent_acceptance.py",
 )

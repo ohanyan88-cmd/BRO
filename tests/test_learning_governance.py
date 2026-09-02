@@ -141,5 +141,50 @@ class LearningGovernanceTests(unittest.TestCase):
         self.assertEqual(advisory["withheld_for_contradiction"][0]["learned_value"], "github:ohanyan88-cmd/BRO:issue:45")
 
 
+class ConversationalReusePromptTests(unittest.TestCase):
+    """BRO may report its own durable record; it may still never claim to be acting now."""
+
+    def model(self):
+        from bro_runtime.external_model import ExternalModel, ExternalModelConfig
+
+        self.sent = []
+
+        def transport(method, url, headers, data, timeout):
+            self.sent.append(json.loads(data))
+            return {"choices": [{"message": {"content": "recorded reply"}}]}
+
+        return ExternalModel(
+            ExternalModelConfig(provider="stub", api_key="k", model="m", api_url="https://example.invalid/v1"),
+            transport=transport,
+        )
+
+    def system_prompt(self):
+        model = self.model()
+        model.conversational_response("THINK", "do you have prior verified experience?", [])
+        return self.sent[0]["messages"][0]["content"]
+
+    def test_prior_verified_experience_is_reportable(self):
+        prompt = self.system_prompt()
+        self.assertIn("Prior verified BRO experience", prompt)
+        self.assertIn("Report what that record actually contains", prompt)
+        self.assertIn("prior recorded experience rather than something you are doing now", prompt)
+
+    def test_reporting_a_record_never_becomes_authority_or_a_present_claim(self):
+        prompt = self.system_prompt()
+        self.assertIn("never invent evidence", prompt)
+        self.assertIn("obtained evidence now", prompt)
+        self.assertIn("never grants authority", prompt)
+        self.assertIn("independent readback", prompt)
+        self.assertIn("Do not turn ordinary discussion into an execution request", prompt)
+
+    def test_advisory_payload_the_cli_supplies_declares_its_own_limits(self):
+        connection = sqlite3.connect(":memory:")
+        self.addCleanup(connection.close)
+        boundary = GovernedLearningBoundary(DurableLearningMemory(connection))
+        advisory = boundary.advisory_context("anything", current_truth={"environment": "production"})
+        self.assertTrue(advisory["advisory"])
+        self.assertFalse(advisory["grants_authority"])
+
+
 if __name__ == "__main__":
     unittest.main()
