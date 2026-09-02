@@ -143,12 +143,16 @@ class ExternalModel:
         chosen = backoff if requested is None else max(requested, 0.0)
         return min(chosen, self.config.max_retry_wait_seconds)
 
-    def _send(self, method: str, url: str, headers: dict[str, str], data: bytes) -> Mapping[str, Any]:
-        """Try a bounded number of times, then fail with how many attempts were spent."""
+    def _with_retries(self, call: Callable[[], Any]) -> Any:
+        """Try a bounded number of times, then fail with how many attempts were spent.
+
+        Shared by every provider: whether the boundary is an HTTP endpoint or a local
+        CLI, "worth one more try" and "give up and say how many" mean the same thing.
+        """
         last: TransientExternalModelError | None = None
         for attempt in range(1, self.config.max_attempts + 1):
             try:
-                return self.transport(method, url, headers, data, self.config.timeout_seconds)
+                return call()
             except TransientExternalModelError as exc:
                 last = exc
                 if attempt == self.config.max_attempts:
@@ -158,6 +162,11 @@ class ExternalModel:
             f"{last} (gave up after {self.config.max_attempts} attempt"
             f"{'s' if self.config.max_attempts != 1 else ''})"
         ) from None
+
+    def _send(self, method: str, url: str, headers: dict[str, str], data: bytes) -> Mapping[str, Any]:
+        return self._with_retries(
+            lambda: self.transport(method, url, headers, data, self.config.timeout_seconds)
+        )
 
     def _complete(self, messages: list[dict[str, str]]) -> str:
         payload = json.dumps({

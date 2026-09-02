@@ -3,8 +3,8 @@
 from __future__ import annotations
 import json, os, re, sqlite3, sys
 from pathlib import Path
-from bro_runtime.anthropic_messages import AnthropicMessagesConfig, AnthropicMessagesModel
-from bro_runtime.external_model import ExternalModel, ExternalModelConfig
+from bro_runtime.external_model import ExternalModelRejected
+from bro_runtime.model_provider import build_model as build_configured_model
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
 from bro_runtime.learning_boundary import ExperienceContext, GovernedLearningBoundary
@@ -22,10 +22,10 @@ def _revision() -> str:
     return value
 
 def _model():
-    provider=_required("BRO_MODEL_PROVIDER").lower()
-    if provider == "anthropic":
-        return AnthropicMessagesModel(AnthropicMessagesConfig(api_key=_required("BRO_MODEL_API_KEY"), model=_required("BRO_MODEL_NAME"), api_url=os.environ.get("BRO_MODEL_API_URL","https://api.anthropic.com/v1/messages").strip()))
-    return ExternalModel(ExternalModelConfig(provider=provider, api_key=_required("BRO_MODEL_API_KEY"), model=_required("BRO_MODEL_NAME"), api_url=_required("BRO_MODEL_API_URL")))
+    try:
+        return build_configured_model(os.environ)
+    except ExternalModelRejected as exc:
+        raise SystemExit(str(exc)) from None
 
 def _submit_learning(model, target, intent, result: dict) -> str:
     """Send this governed outcome to BRO's one learning mechanism.
