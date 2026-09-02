@@ -28,8 +28,8 @@ class ConversationalInteractionSurface:
     """Route natural language to TALK, THINK, or the existing governed ACT path.
 
     TALK and THINK are non-effecting conversational modes. ACT delegates to the
-    already-governed InteractionSurface, preserving explicit confirmation,
-    specialist selection, provider execution, and independent readback.
+    already-governed InteractionSurface. Optional durable hooks can restore/persist
+    conversation and record evidenced outcomes without creating a second action path.
     """
 
     def __init__(
@@ -38,15 +38,31 @@ class ConversationalInteractionSurface:
         action_surface: InteractionSurface,
         router: Callable[[str, Sequence[ConversationMessage]], Mapping[str, Any]],
         responder: Callable[[InteractionMode, str, Sequence[ConversationMessage]], str],
+        initial_history: Sequence[Mapping[str, str]] = (),
+        message_recorder: Callable[[str, str, str], None] | None = None,
+        outcome_recorder: Callable[[str, bool, Mapping[str, Any] | None, str], None] | None = None,
     ) -> None:
         self.action_surface = action_surface
         self.router = router
         self.responder = responder
+        self.message_recorder = message_recorder
+        self.outcome_recorder = outcome_recorder
         self._history: list[ConversationMessage] = []
+        self._pending_actions: dict[str, str] = {}
+        for item in initial_history:
+            role = str(item.get("role", "")).strip()
+            content = str(item.get("content", "")).strip()
+            if role in {"user", "assistant"} and content:
+                self._history.append(ConversationMessage(role, content))
 
     @property
     def history(self) -> tuple[ConversationMessage, ...]:
         return tuple(self._history)
+
+    def _remember(self, role: str, content: str, mode: str) -> None:
+        self._history.append(ConversationMessage(role, content))
+        if self.message_recorder is not None:
+            self.message_recorder(role, content, mode)
 
     def submit(self, request: str) -> dict[str, Any]:
         request = request.strip()
@@ -60,20 +76,32 @@ class ConversationalInteractionSurface:
 
         if mode is InteractionMode.ACT:
             preview = self.action_surface.submit(request)
-            self._history.append(ConversationMessage("user", request))
+            self._pending_actions[preview["request_id"]] = request
+            self._remember("user", request, mode.value)
             return {"mode": mode.value, "action": preview, "requires_confirmation": preview["requires_confirmation"]}
 
         reply = str(self.responder(mode, request, self.history)).strip()
         if not reply:
             raise ConversationRejected("conversational responder returned an empty reply")
-        self._history.extend((ConversationMessage("user", request), ConversationMessage("assistant", reply)))
+        self._remember("user", request, mode.value)
+        self._remember("assistant", reply, mode.value)
         return {"mode": mode.value, "response": reply, "requires_confirmation": False}
 
     def confirm_and_execute(self, request_id: str, *, confirmed_by: str, scope_digest: str) -> dict[str, Any]:
-        receipt = self.action_surface.confirm_and_execute(
-            request_id,
-            confirmed_by=confirmed_by,
-            scope_digest=scope_digest,
-        )
-        self._history.append(ConversationMessage("assistant", f"Executed governed action: {receipt['effect_ref']}"))
+        request = self._pending_actions.get(request_id, "")
+        try:
+            receipt = self.action_surface.confirm_and_execute(
+                request_id,
+                confirmed_by=confirmed_by,
+                scope_digest=scope_digest,
+            )
+        except Exception as exc:
+            if request and self.outcome_recorder is not None:
+                self.outcome_recorder(request, False, None, f"{type(exc).__name__}:{exc}")
+            raise
+        finally:
+            self._pending_actions.pop(request_id, None)
+        if request and self.outcome_recorder is not None:
+            self.outcome_recorder(request, True, receipt, "")
+        self._remember("assistant", f"Executed governed action: {receipt['effect_ref']}", InteractionMode.ACT.value)
         return receipt
