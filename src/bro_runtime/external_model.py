@@ -24,6 +24,9 @@ class ExternalModelConfig:
     model: str
     api_url: str
     timeout_seconds: float = 60.0
+    # Without an explicit output budget the endpoint truncates a long answer and the
+    # caller sees malformed JSON instead of the real cause.
+    max_output_tokens: int = 2048
 
     def __post_init__(self) -> None:
         if not self.provider.strip():
@@ -36,6 +39,8 @@ class ExternalModelConfig:
             raise ExternalModelRejected("external model API URL must use HTTPS")
         if self.timeout_seconds <= 0:
             raise ExternalModelRejected("timeout_seconds must be positive")
+        if self.max_output_tokens <= 0:
+            raise ExternalModelRejected("max_output_tokens must be positive")
 
     @property
     def model_ref(self) -> str:
@@ -71,6 +76,10 @@ class ExternalModel:
         first = choices[0]
         if not isinstance(first, dict):
             raise ExternalModelRejected("external model response choice is invalid")
+        # A truncated answer is a different failure from a malformed one, and saying so
+        # is the difference between fixing the output budget and hunting a parser bug.
+        if str(first.get("finish_reason", "")).strip() == "length":
+            raise ExternalModelRejected("external model response was truncated before it finished")
         message = first.get("message")
         if not isinstance(message, dict):
             raise ExternalModelRejected("external model response is missing message")
@@ -80,7 +89,10 @@ class ExternalModel:
         return text.strip()
 
     def _complete(self, messages: list[dict[str, str]]) -> str:
-        payload = json.dumps({"model": self.config.model, "messages": messages, "temperature": 0}).encode("utf-8")
+        payload = json.dumps({
+            "model": self.config.model, "messages": messages, "temperature": 0,
+            "max_tokens": self.config.max_output_tokens,
+        }).encode("utf-8")
         response = self.transport(
             "POST",
             self.config.api_url,
@@ -138,12 +150,12 @@ class ExternalModel:
                 "Plan a small BRO study curriculum. Required key: topics, an array of objects with keys "
                 "topic and source_ref. Every source_ref MUST be copied exactly from the supplied available "
                 "sources list; never invent a path. Order the topics so the most foundational source is first. "
-                "Return at most twelve topics and no commentary."
+                "Return at most eight topics and no commentary."
             ),
             request=f"Study mission: {mission.strip()}\nAvailable sources: {json.dumps(list(available_sources))}",
         )
 
-    def study_extract(self, topic: str, source_text: str, *, max_chars: int = 24000) -> dict[str, Any]:
+    def study_extract(self, topic: str, source_text: str, *, max_chars: int = 12000) -> dict[str, Any]:
         """Extract claims, each carrying the verbatim quote that would prove it."""
         return self.json_object(
             instruction=(
@@ -151,7 +163,7 @@ class ExternalModel:
                 "claims, an array of objects with keys claim, evidence_quote and inference. evidence_quote "
                 "MUST be copied verbatim from the source text and be long enough to locate; leave it empty "
                 "and set inference true when the claim is your reasoning rather than something the source "
-                "states. Never invent a quote. Return at most ten claims and no commentary."
+                "states. Never invent a quote. Return at most five claims and no commentary."
             ),
             request=f"Topic: {topic.strip()}\nSource text:\n{source_text[:max_chars]}",
         )

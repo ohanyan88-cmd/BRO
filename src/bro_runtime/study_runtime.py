@@ -223,6 +223,7 @@ class GovernedStudyRuntime:
         self.extractor = extractor
         self.item_budget = int(item_budget)
         self.diminishing_after = int(diminishing_after)
+        self.last_planner_error = ""
 
     # ------------------------------------------------------------ verification
     @staticmethod
@@ -254,12 +255,15 @@ class GovernedStudyRuntime:
             provenance=context.provenance(),
         )
         notes: list[str] = []
+        self.last_planner_error = ""
         if not available:
             self.memory.set_study_status(record.mission_id, StudyStatus.BLOCKED, stop_reason=StudyStop.SCOPE_EXHAUSTED.value)
             return self._report(record.mission_id, mission, StudyStatus.BLOCKED, StudyStop.SCOPE_EXHAUSTED,
                                 notes=("no readable source matched the requested scope",))
 
         planned = self._plan(mission, available)
+        if self.last_planner_error:
+            notes.append(f"curriculum planning failed, fell back to discovered sources: {self.last_planner_error}")
         if not planned:
             self.memory.set_study_status(record.mission_id, StudyStatus.BLOCKED, stop_reason=StudyStop.SCOPE_EXHAUSTED.value)
             return self._report(record.mission_id, mission, StudyStatus.BLOCKED, StudyStop.SCOPE_EXHAUSTED,
@@ -294,6 +298,12 @@ class GovernedStudyRuntime:
             detail = f"{retained['verified']} verified, {retained['inference']} inference, {retained['unverified']} unverified"
             if document.truncated:
                 detail += "; source truncated to the reader budget"
+            if retained["error"]:
+                # A study item that produced nothing because the boundary failed is not
+                # an item that found nothing, and the report must not conflate them.
+                detail += f"; extraction failed: {retained['error']}"
+                if retained["error"] not in notes:
+                    notes.append(retained["error"])
             self.memory.set_curriculum_status(item.item_id, CurriculumStatus.STUDIED, detail=detail)
             barren_streak = 0 if retained["verified"] else barren_streak + 1
             if barren_streak >= self.diminishing_after:
@@ -312,9 +322,11 @@ class GovernedStudyRuntime:
 
     def _plan(self, mission: str, available: Sequence[str]) -> list[tuple[str, str]]:
         """The model may choose among real sources; it may not invent one."""
+        self.last_planner_error = ""
         try:
             proposal = dict(self.planner(mission, list(available)))
-        except Exception:
+        except Exception as exc:
+            self.last_planner_error = f"{type(exc).__name__}:{exc}"
             proposal = {}
         allowed = set(available)
         planned: list[tuple[str, str]] = []
@@ -340,9 +352,11 @@ class GovernedStudyRuntime:
     def _study_item(self, mission_id: str, item, document: SourceDocument, context: StudyContext) -> dict[str, int]:
         try:
             extracted = dict(self.extractor(item.topic, document.text))
-        except Exception:
+            error = ""
+        except Exception as exc:
             extracted = {}
-        counts = {"verified": 0, "inference": 0, "unverified": 0}
+            error = f"{type(exc).__name__}:{exc}"
+        counts = {"verified": 0, "inference": 0, "unverified": 0, "error": error}
         for claim in extracted.get("claims", []) or []:
             if not isinstance(claim, Mapping):
                 continue
