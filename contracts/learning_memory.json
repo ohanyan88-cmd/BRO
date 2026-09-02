@@ -1,22 +1,79 @@
 {
-  "contract": "bro.durable-learning-memory.v1",
+  "contract": "bro.governed-self-learning.v2",
   "status": "implemented-repository-boundary",
+  "learning_entry": {
+    "boundary": "bro_runtime.learning_boundary.GovernedLearningBoundary",
+    "store": "bro_runtime.learning_memory.DurableLearningMemory",
+    "submitting_paths": [
+      "scripts/bro_interact.py",
+      "scripts/run_production_intelligent_acceptance.py"
+    ]
+  },
   "invariants": [
-    "Conversation memory survives CLI process restarts when the same SQLite database is reused.",
-    "Only successful governed ACT outcomes carrying an external evidence_ref may update learned lessons.",
-    "Failed or unverified outcomes are retained as experience but cannot create reusable lessons.",
-    "A reusable skill candidate requires repeated evidenced success for the same learned pattern.",
-    "BRO cannot activate a candidate automatically: promotion requires a prior explicit approval actor and a separate explicit promotion actor.",
-    "Learning-hook failure cannot reverse or falsify an already completed governed action receipt.",
-    "Relevant learned lessons may inform later conversation and specialist selection but never grant authority or bypass ACT confirmation."
+    {
+      "id": "LEARN-ENTRY-001",
+      "statement": "Every governed ACT outcome reaches learning through one boundary; no path writes lessons on its own.",
+      "enforcement": ["tests/test_learning_boundary.py"]
+    },
+    {
+      "id": "LEARN-EVIDENCE-001",
+      "statement": "Only a success carrying external-system assurance with an independent readback may create or reinforce a lesson.",
+      "enforcement": ["tests/test_learning_boundary.py", "tests/test_learning_memory.py"]
+    },
+    {
+      "id": "LEARN-FAILURE-001",
+      "statement": "Failed or unverified outcomes are kept as experience, recorded as failure observations, and can never raise successful-skill confidence.",
+      "enforcement": ["tests/test_learning_boundary.py"]
+    },
+    {
+      "id": "LEARN-MODEL-001",
+      "statement": "The model proposes guidance only: pattern identity, observations, evidence references and confidence are derived by the runtime from governed receipts.",
+      "enforcement": ["tests/test_learning_boundary.py"]
+    },
+    {
+      "id": "LEARN-SECRET-001",
+      "statement": "Only whitelisted receipt fields reach the lesson extractor; credentials and provider payloads never do.",
+      "enforcement": ["tests/test_learning_boundary.py"]
+    },
+    {
+      "id": "LEARN-CONFIDENCE-001",
+      "statement": "Confidence follows evidence in both directions, and a lesson can be disputed, marked stale, or retired.",
+      "enforcement": ["tests/test_learning_boundary.py"]
+    },
+    {
+      "id": "LEARN-TRUTH-001",
+      "statement": "Current runtime truth outranks learned memory: a lesson whose binding facts are contradicted is withheld from reuse and the contradiction is recorded.",
+      "enforcement": ["tests/test_learning_boundary.py", "tests/test_learning_governance.py"]
+    },
+    {
+      "id": "LEARN-PORTABLE-001",
+      "statement": "Learned state belongs to BRO: model and provider identity are provenance only, and learning survives a model or provider change.",
+      "enforcement": ["tests/test_learning_provider_portability.py"]
+    },
+    {
+      "id": "LEARN-CANDIDATE-001",
+      "statement": "Repeated evidenced success may create a skill candidate; approval and promotion remain separate explicit transitions with an append-only audit trail.",
+      "enforcement": ["tests/test_learning_boundary.py", "tests/test_learning_memory.py"]
+    },
+    {
+      "id": "LEARN-ADVISORY-001",
+      "statement": "Learned knowledge is advisory context and never bypasses scope confirmation, authority evaluation, provider restriction or independent readback.",
+      "enforcement": ["tests/test_learning_governance.py", "tests/test_final_delivery.py"]
+    },
+    {
+      "id": "LEARN-FAILSAFE-001",
+      "statement": "A learning-subsystem failure cannot reverse or falsify an already completed governed action receipt.",
+      "enforcement": ["tests/test_learning_governance.py", "tests/test_conversation_learning.py"]
+    }
   ],
   "truth_boundary": {
-    "repository_claim": "Durable storage, retrieval, outcome accumulation, candidate creation, and guarded approval/promotion transitions are implemented and testable.",
+    "repository_claim": "Durable BRO-owned experience, evidence-gated lesson accumulation, evidence-aware confidence, contradiction handling, deterministic retrieval, structured skill candidates and guarded approval/promotion transitions are implemented and testable.",
     "not_claimed": [
+      "Autonomous model-weight training or fine-tuning of any kind",
+      "Arbitrary self-modifying code or automatic installation of generated code",
       "Semantic quality of every model-derived lesson",
-      "Automatic production skill-code generation or installation",
       "Authority expansion from learned content",
-      "Production deployment of this revision before host rollout and readback"
+      "Production learning evidence before host rollout, readback and a live governed ACT"
     ]
   }
 }

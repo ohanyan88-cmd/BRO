@@ -2,35 +2,390 @@
   "version": 1,
   "method": "Repository evidence coverage only. A selector proves that declared test source exists; it does not prove that the test ran, that an external integration passed, or that BRO is production-ready. CI results and external acceptance records must be assessed separately.",
   "criteria": [
-    {"id":"BUILD-CONTRACTS","category":"build","label":"Canonical ownership contracts are executable","evidence":[{"path":"tests/test_contracts.py","contains":"test_repository_contracts_pass"}]},
-    {"id":"BUILD-INVARIANTS","category":"build","label":"Recurring architecture lessons are executable invariants","evidence":[{"path":"tests/test_invariants.py","contains":"test_repository_invariants_have_executable_enforcement"}]},
-    {"id":"BUILD-KERNEL","category":"build","label":"Single-step canonical request reaches verified completion","evidence":[{"path":"tests/test_kernel.py","contains":"test_outcome_request_reaches_verified_terminal_state_and_truthful_voice"}]},
-    {"id":"BUILD-APPROVAL","category":"build","label":"Kernel approval resume preserves Task Step and route","evidence":[{"path":"tests/test_kernel_approval.py","contains":"test_kernel_resume_preserves_same_task_step_route_and_cannot_replay_consumed_approval"}]},
-    {"id":"BUILD-RECOVERY","category":"build","label":"Crash recovery reconstructs work without replay","evidence":[{"path":"tests/test_supervision.py","contains":"test_restart_reconstructs_the_next_step_without_replaying_the_command"}]},
-    {"id":"BUILD-READINESS","category":"build","label":"Runtime readiness derives from canonical state","evidence":[{"path":"tests/test_readiness.py","contains":"test_verified_consistent_runtime_is_100"}]},
-    {"id":"BUILD-MULTISTEP-PLAN","category":"build","label":"Multi-step dependency planning is canonical","evidence":[{"path":"tests/test_multistep.py","contains":"test_three_step_business_plan_preserves_canonical_owners_and_dependencies"}]},
-    {"id":"BUILD-MULTISTEP-EXEC","category":"build","label":"Multi-step execution continues on one Task","evidence":[{"path":"tests/test_multistep_execution.py","contains":"test_three_step_outcome_executes_on_one_task_and_completes_verified"}]},
-    {"id":"BUILD-REPLAN","category":"build","label":"Verifier-confirmed current reality can trigger governed replan","evidence":[{"path":"tests/test_replan.py","contains":"test_verified_current_observation_supersedes_unfinished_route_and_completes"}]},
-    {"id":"BUILD-CONTINUITY-MEMORY","category":"build","label":"Minimal continuity and governed memory feed context","evidence":[{"path":"tests/test_kernel.py","contains":"test_prepare_uses_minimal_continuity_and_memory_as_supporting_context"}]},
-    {"id":"BUILD-CAPABILITY-GOVERNANCE","category":"build","label":"Capability discovery never grants authority","evidence":[{"path":"tests/test_skills.py","contains":"test_discovery_returns_capability_and_authority_requirements_without_granting_authority"}]},
-    {"id":"BUILD-ARTIFACT-RUNTIME","category":"build","label":"Artifact runtime records are integrated and verified","evidence":[{"path":"tests/test_artifact_runtime.py","contains":"test_artifact_runtime_is_canonical_and_verified"}]},
-    {"id":"BUILD-AUTOMATION-RUNTIME","category":"build","label":"Durable scheduled wake-up reconciles into one canonical Task without granting authority","evidence":[{"path":"tests/test_automation_runtime.py","contains":"test_restart_reconciles_reserved_task_without_duplicate_after_crash_boundary"}]},
-    {"id":"BUILD-HUMAN-APPROVAL-LOOP","category":"build","label":"Human approval delivery and response preserve the same canonical Task binding","evidence":[{"path":"tests/test_human_loop.py","contains":"test_request_delivery_and_human_response_return_to_same_task"}]},
-    {"id":"BUILD-RUNTIME-OPERATIONS","category":"build","label":"Runtime health, audit projection, and verified SQLite backup are executable","evidence":[{"path":"tests/test_operations_runtime.py","contains":"test_backup_is_verified_and_task_audit_remains_available"}]},
-    {"id":"BUILD-RESTORE-DRILL","category":"build","label":"Verified backup restore drill reconstructs an isolated SQLite runtime copy","evidence":[{"path":"tests/test_restore_runtime.py","contains":"test_verified_backup_can_be_restored_and_drilled"}]},
-    {"id":"BUILD-PRODUCTION-ACCEPTANCE","category":"build","label":"Acceptance runs fail closed when required external evidence is absent","evidence":[{"path":"tests/test_acceptance_runtime.py","contains":"test_external_requirement_blocks_repository_only_acceptance"}]},
-    {"id":"PROD-HUMAN-LOOP","category":"production","assurance":"simulation","label":"Durable human approval inbox/outbox behavior is covered","limitation":"No deployed notification transport or real human identity provider is exercised in CI.","evidence":[{"path":"tests/test_human_loop.py","contains":"test_request_delivery_and_human_response_return_to_same_task"}]},
-    {"id":"PROD-OPS-BACKUP","category":"production","assurance":"simulation","label":"Runtime health, verified SQLite backup, and isolated restore-drill behavior are covered","limitation":"Backup and restore storage remain local SQLite/file-system state; no remote retention or multi-node failover is exercised.","evidence":[{"path":"tests/test_operations_runtime.py","contains":"test_backup_is_verified_and_task_audit_remains_available"},{"path":"tests/test_restore_runtime.py","contains":"test_verified_backup_can_be_restored_and_drilled"}]},
-    {"id":"PROD-ACCEPTANCE-TRUTH","category":"production","assurance":"simulation","label":"Production acceptance cannot self-upgrade repository evidence to external assurance","limitation":"The gate validates evidence classification and required checks; actual production assurance still requires real external acceptance records.","evidence":[{"path":"tests/test_acceptance_runtime.py","contains":"test_probe_cannot_self_upgrade_assurance"}]},
-    {"id":"PROD-GOVERNED-ACCEPTANCE","category":"production","assurance":"simulation","label":"In-memory governed multi-step acceptance is covered","limitation":"No external business provider is exercised.","evidence":[{"path":"tests/test_multistep_execution.py","contains":"test_three_step_outcome_executes_on_one_task_and_completes_verified"}]},
-    {"id":"PROD-REALITY-ADAPTATION","category":"production","assurance":"simulation","label":"Verifier-confirmed replanning is covered in memory","limitation":"No external source-of-record is exercised.","evidence":[{"path":"tests/test_replan.py","contains":"test_verified_current_observation_supersedes_unfinished_route_and_completes"}]},
-    {"id":"PROD-ADAPTER-REGISTRY","category":"production","assurance":"simulation","label":"In-process versioned adapter registry is covered","limitation":"The adapter is a test lambda, not a deployed connector.","evidence":[{"path":"tests/test_provider_adapters.py","contains":"test_real_adapter_registry_routes_versioned_providers"}]},
-    {"id":"PROD-LIVE-READBACK","category":"production","assurance":"simulation","label":"Registered-provider readback protocol is covered","limitation":"The provider is an in-memory fake.","evidence":[{"path":"tests/test_live_readback.py","contains":"test_registered_provider_read_reconciles_from_versioned_external_truth"}]},
-    {"id":"PROD-SECRETS","category":"production","assurance":"simulation","label":"Secret-boundary mediation is covered","limitation":"No production secret manager or credential rotation is exercised.","evidence":[{"path":"tests/test_secret_mediation.py","contains":"test_secret_never_crosses_unapproved_boundary"}]},
-    {"id":"PROD-DEPLOY","category":"production","assurance":"simulation","label":"Release promotion state machine is covered","limitation":"No deployment platform is exercised.","evidence":[{"path":"tests/test_deployment_runtime.py","contains":"test_verified_release_promotes_and_reads_back"}]},
-    {"id":"PROD-MULTISTEP-RECOVERY","category":"production","assurance":"simulation","label":"SQLite process-restart recovery is covered","limitation":"No distributed crash, durable queue, or provider outage is exercised.","evidence":[{"path":"tests/test_multistep_recovery.py","contains":"test_restart_resumes_dependency_ready_step_without_replay"}]},
-    {"id":"PROD-ARTIFACT-VERIFY","category":"production","assurance":"simulation","label":"Canonical artifact verification lifecycle is covered","limitation":"No external artifact store or tamper-resistant attestation is exercised.","evidence":[{"path":"tests/test_artifact_runtime.py","contains":"test_artifact_runtime_is_canonical_and_verified"}]},
-    {"id":"PROD-HEALTH-ROUTING","category":"production","assurance":"simulation","label":"Declared provider-health routing is covered","limitation":"Health is caller-supplied test state, not an external health signal.","evidence":[{"path":"tests/test_capability_selection.py","contains":"test_degraded_provider_is_ranked_below_healthy_equivalent"}]},
-    {"id":"PROD-REAL-SYSTEM","category":"production","assurance":"external_system","label":"Live read-only GitHub acceptance is declared","limitation":"This proves one public read-only integration when the networked test actually runs; it is not evidence of write effects or general business-system readiness.","evidence":[{"path":"tests/test_real_system_acceptance.py","contains":"test_real_business_outcome_reaches_verified_done"}]}
+    {
+      "id": "BUILD-CONTRACTS",
+      "category": "build",
+      "label": "Canonical ownership contracts are executable",
+      "evidence": [
+        {
+          "path": "tests/test_contracts.py",
+          "contains": "test_repository_contracts_pass"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-INVARIANTS",
+      "category": "build",
+      "label": "Recurring architecture lessons are executable invariants",
+      "evidence": [
+        {
+          "path": "tests/test_invariants.py",
+          "contains": "test_repository_invariants_have_executable_enforcement"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-KERNEL",
+      "category": "build",
+      "label": "Single-step canonical request reaches verified completion",
+      "evidence": [
+        {
+          "path": "tests/test_kernel.py",
+          "contains": "test_outcome_request_reaches_verified_terminal_state_and_truthful_voice"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-APPROVAL",
+      "category": "build",
+      "label": "Kernel approval resume preserves Task Step and route",
+      "evidence": [
+        {
+          "path": "tests/test_kernel_approval.py",
+          "contains": "test_kernel_resume_preserves_same_task_step_route_and_cannot_replay_consumed_approval"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-RECOVERY",
+      "category": "build",
+      "label": "Crash recovery reconstructs work without replay",
+      "evidence": [
+        {
+          "path": "tests/test_supervision.py",
+          "contains": "test_restart_reconstructs_the_next_step_without_replaying_the_command"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-READINESS",
+      "category": "build",
+      "label": "Runtime readiness derives from canonical state",
+      "evidence": [
+        {
+          "path": "tests/test_readiness.py",
+          "contains": "test_verified_consistent_runtime_is_100"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-MULTISTEP-PLAN",
+      "category": "build",
+      "label": "Multi-step dependency planning is canonical",
+      "evidence": [
+        {
+          "path": "tests/test_multistep.py",
+          "contains": "test_three_step_business_plan_preserves_canonical_owners_and_dependencies"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-MULTISTEP-EXEC",
+      "category": "build",
+      "label": "Multi-step execution continues on one Task",
+      "evidence": [
+        {
+          "path": "tests/test_multistep_execution.py",
+          "contains": "test_three_step_outcome_executes_on_one_task_and_completes_verified"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-REPLAN",
+      "category": "build",
+      "label": "Verifier-confirmed current reality can trigger governed replan",
+      "evidence": [
+        {
+          "path": "tests/test_replan.py",
+          "contains": "test_verified_current_observation_supersedes_unfinished_route_and_completes"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-CONTINUITY-MEMORY",
+      "category": "build",
+      "label": "Minimal continuity and governed memory feed context",
+      "evidence": [
+        {
+          "path": "tests/test_kernel.py",
+          "contains": "test_prepare_uses_minimal_continuity_and_memory_as_supporting_context"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-CAPABILITY-GOVERNANCE",
+      "category": "build",
+      "label": "Capability discovery never grants authority",
+      "evidence": [
+        {
+          "path": "tests/test_skills.py",
+          "contains": "test_discovery_returns_capability_and_authority_requirements_without_granting_authority"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-ARTIFACT-RUNTIME",
+      "category": "build",
+      "label": "Artifact runtime records are integrated and verified",
+      "evidence": [
+        {
+          "path": "tests/test_artifact_runtime.py",
+          "contains": "test_artifact_runtime_is_canonical_and_verified"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-AUTOMATION-RUNTIME",
+      "category": "build",
+      "label": "Durable scheduled wake-up reconciles into one canonical Task without granting authority",
+      "evidence": [
+        {
+          "path": "tests/test_automation_runtime.py",
+          "contains": "test_restart_reconciles_reserved_task_without_duplicate_after_crash_boundary"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-HUMAN-APPROVAL-LOOP",
+      "category": "build",
+      "label": "Human approval delivery and response preserve the same canonical Task binding",
+      "evidence": [
+        {
+          "path": "tests/test_human_loop.py",
+          "contains": "test_request_delivery_and_human_response_return_to_same_task"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-RUNTIME-OPERATIONS",
+      "category": "build",
+      "label": "Runtime health, audit projection, and verified SQLite backup are executable",
+      "evidence": [
+        {
+          "path": "tests/test_operations_runtime.py",
+          "contains": "test_backup_is_verified_and_task_audit_remains_available"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-RESTORE-DRILL",
+      "category": "build",
+      "label": "Verified backup restore drill reconstructs an isolated SQLite runtime copy",
+      "evidence": [
+        {
+          "path": "tests/test_restore_runtime.py",
+          "contains": "test_verified_backup_can_be_restored_and_drilled"
+        }
+      ]
+    },
+    {
+      "id": "BUILD-PRODUCTION-ACCEPTANCE",
+      "category": "build",
+      "label": "Acceptance runs fail closed when required external evidence is absent",
+      "evidence": [
+        {
+          "path": "tests/test_acceptance_runtime.py",
+          "contains": "test_external_requirement_blocks_repository_only_acceptance"
+        }
+      ]
+    },
+    {
+      "id": "PROD-HUMAN-LOOP",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Durable human approval inbox/outbox behavior is covered",
+      "limitation": "No deployed notification transport or real human identity provider is exercised in CI.",
+      "evidence": [
+        {
+          "path": "tests/test_human_loop.py",
+          "contains": "test_request_delivery_and_human_response_return_to_same_task"
+        }
+      ]
+    },
+    {
+      "id": "PROD-OPS-BACKUP",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Runtime health, verified SQLite backup, and isolated restore-drill behavior are covered",
+      "limitation": "Backup and restore storage remain local SQLite/file-system state; no remote retention or multi-node failover is exercised.",
+      "evidence": [
+        {
+          "path": "tests/test_operations_runtime.py",
+          "contains": "test_backup_is_verified_and_task_audit_remains_available"
+        },
+        {
+          "path": "tests/test_restore_runtime.py",
+          "contains": "test_verified_backup_can_be_restored_and_drilled"
+        }
+      ]
+    },
+    {
+      "id": "PROD-ACCEPTANCE-TRUTH",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Production acceptance cannot self-upgrade repository evidence to external assurance",
+      "limitation": "The gate validates evidence classification and required checks; actual production assurance still requires real external acceptance records.",
+      "evidence": [
+        {
+          "path": "tests/test_acceptance_runtime.py",
+          "contains": "test_probe_cannot_self_upgrade_assurance"
+        }
+      ]
+    },
+    {
+      "id": "PROD-GOVERNED-ACCEPTANCE",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "In-memory governed multi-step acceptance is covered",
+      "limitation": "No external business provider is exercised.",
+      "evidence": [
+        {
+          "path": "tests/test_multistep_execution.py",
+          "contains": "test_three_step_outcome_executes_on_one_task_and_completes_verified"
+        }
+      ]
+    },
+    {
+      "id": "PROD-REALITY-ADAPTATION",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Verifier-confirmed replanning is covered in memory",
+      "limitation": "No external source-of-record is exercised.",
+      "evidence": [
+        {
+          "path": "tests/test_replan.py",
+          "contains": "test_verified_current_observation_supersedes_unfinished_route_and_completes"
+        }
+      ]
+    },
+    {
+      "id": "PROD-ADAPTER-REGISTRY",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "In-process versioned adapter registry is covered",
+      "limitation": "The adapter is a test lambda, not a deployed connector.",
+      "evidence": [
+        {
+          "path": "tests/test_provider_adapters.py",
+          "contains": "test_real_adapter_registry_routes_versioned_providers"
+        }
+      ]
+    },
+    {
+      "id": "PROD-LIVE-READBACK",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Registered-provider readback protocol is covered",
+      "limitation": "The provider is an in-memory fake.",
+      "evidence": [
+        {
+          "path": "tests/test_live_readback.py",
+          "contains": "test_registered_provider_read_reconciles_from_versioned_external_truth"
+        }
+      ]
+    },
+    {
+      "id": "PROD-SECRETS",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Secret-boundary mediation is covered",
+      "limitation": "No production secret manager or credential rotation is exercised.",
+      "evidence": [
+        {
+          "path": "tests/test_secret_mediation.py",
+          "contains": "test_secret_never_crosses_unapproved_boundary"
+        }
+      ]
+    },
+    {
+      "id": "PROD-DEPLOY",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Release promotion state machine is covered",
+      "limitation": "No deployment platform is exercised.",
+      "evidence": [
+        {
+          "path": "tests/test_deployment_runtime.py",
+          "contains": "test_verified_release_promotes_and_reads_back"
+        }
+      ]
+    },
+    {
+      "id": "PROD-MULTISTEP-RECOVERY",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "SQLite process-restart recovery is covered",
+      "limitation": "No distributed crash, durable queue, or provider outage is exercised.",
+      "evidence": [
+        {
+          "path": "tests/test_multistep_recovery.py",
+          "contains": "test_restart_resumes_dependency_ready_step_without_replay"
+        }
+      ]
+    },
+    {
+      "id": "PROD-ARTIFACT-VERIFY",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Canonical artifact verification lifecycle is covered",
+      "limitation": "No external artifact store or tamper-resistant attestation is exercised.",
+      "evidence": [
+        {
+          "path": "tests/test_artifact_runtime.py",
+          "contains": "test_artifact_runtime_is_canonical_and_verified"
+        }
+      ]
+    },
+    {
+      "id": "PROD-HEALTH-ROUTING",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Declared provider-health routing is covered",
+      "limitation": "Health is caller-supplied test state, not an external health signal.",
+      "evidence": [
+        {
+          "path": "tests/test_capability_selection.py",
+          "contains": "test_degraded_provider_is_ranked_below_healthy_equivalent"
+        }
+      ]
+    },
+    {
+      "id": "PROD-REAL-SYSTEM",
+      "category": "production",
+      "assurance": "external_system",
+      "label": "Live read-only GitHub acceptance is declared",
+      "limitation": "This proves one public read-only integration when the networked test actually runs; it is not evidence of write effects or general business-system readiness.",
+      "evidence": [
+        {
+          "path": "tests/test_real_system_acceptance.py",
+          "contains": "test_real_business_outcome_reaches_verified_done"
+        }
+      ]
+    },
+    {
+      "id": "PROD-GOVERNED-LEARNING",
+      "category": "production",
+      "assurance": "simulation",
+      "label": "Governed self-learning is evidence-gated, contradiction-aware and provider-portable",
+      "limitation": "This is in-repository coverage of the learning boundary, confidence, contradiction handling and provider portability. It is not evidence that a live production ACT produced a durable lesson; that is claimed separately after host rollout and a real governed ACT.",
+      "evidence": [
+        {
+          "path": "tests/test_learning_boundary.py",
+          "contains": "test_model_assertion_cannot_manufacture_evidence"
+        },
+        {
+          "path": "tests/test_learning_governance.py",
+          "contains": "test_learned_memory_cannot_bypass_scope_confirmation"
+        },
+        {
+          "path": "tests/test_learning_provider_portability.py",
+          "contains": "test_lesson_learned_under_one_model_is_reusable_under_another"
+        },
+        {
+          "path": "scripts/check_learning_contract.py",
+          "contains": "outside the governed learning boundary"
+        }
+      ]
+    }
   ]
 }

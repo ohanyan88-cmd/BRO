@@ -243,6 +243,28 @@
         "tests/test_production_acceptance_binding.py",
         "tests/test_production_control.py"
       ]
+    },
+    {
+      "id": "INV-LEARNING-001",
+      "statement": "Every governed ACT outcome reaches learning through one boundary, and only independently evidenced success may create or reinforce a lesson",
+      "enforcement": [
+        "tests/test_learning_boundary.py",
+        "tests/test_learning_contract.py"
+      ]
+    },
+    {
+      "id": "INV-LEARNING-002",
+      "statement": "Learned knowledge is advisory: current runtime truth outranks it, and it never bypasses scope confirmation, authority, provider restriction or independent readback",
+      "enforcement": [
+        "tests/test_learning_governance.py"
+      ]
+    },
+    {
+      "id": "INV-LEARNING-003",
+      "statement": "Learned state belongs to BRO and survives a model or provider change; model identity is provenance only",
+      "enforcement": [
+        "tests/test_learning_provider_portability.py"
+      ]
     }
   ]
 }

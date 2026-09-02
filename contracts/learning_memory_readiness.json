@@ -1,18 +1,24 @@
 {
-  "name": "durable-learning-memory-readiness",
+  "name": "governed-self-learning-readiness",
   "repository_ready_when": [
     "durable conversation history is persisted and restored",
-    "governed ACT outcomes are recorded",
-    "only externally evidenced success can update reusable lessons",
-    "repeated success can create a skill candidate",
-    "candidate promotion requires explicit prior approval",
+    "every governed ACT path submits its outcome through one learning boundary",
+    "only externally evidenced, independently read-back success can create or reinforce a lesson",
+    "failed or unverified outcomes are kept as experience and lower rather than raise confidence",
+    "pattern identity, observations and evidence are derived by the runtime, never by the model",
+    "current runtime truth outranks learned memory and contradictions are recorded",
+    "repeated evidence can create a structured skill candidate",
+    "candidate approval and promotion remain separate explicit audited transitions",
+    "learned state survives a model or provider change",
     "learning failure cannot rewrite successful action truth"
   ],
   "production_ready_when": [
     "revision is deployed to the Debian production host",
-    "the production CLI can write/read the durable memory database",
-    "real successful ACT evidence produces a durable learning record",
-    "subsequent interaction reuses a relevant durable lesson"
+    "the production CLI can write and read the durable memory database",
+    "a real governed conversational ACT with independent external evidence produces a durable experience record",
+    "that outcome creates or reinforces an evidence-backed lesson",
+    "a separate process retrieves and reuses the same lesson",
+    "repeated evidenced success produces a skill candidate that stays CANDIDATE until an explicit approval"
   ],
-  "current_claim": "repository implementation only; production deployment and live learning evidence are not yet claimed"
+  "current_claim": "repository implementation only; production learning evidence is claimed separately after host rollout, exact-revision readback and a live governed ACT"
 }

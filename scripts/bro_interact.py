@@ -18,6 +18,7 @@ from bro_runtime.external_model import ExternalModel, ExternalModelConfig
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
 from bro_runtime.interaction_surface import InteractionSurface
+from bro_runtime.learning_boundary import ExperienceContext, GovernedLearningBoundary
 from bro_runtime.learning_memory import DurableLearningMemory
 
 
@@ -52,10 +53,32 @@ def memory_database_path() -> str:
     return os.environ.get("BRO_MEMORY_DB_PATH", "/var/lib/bro/runtime.sqlite3").strip()
 
 
+def current_truth() -> dict[str, str]:
+    """What is true now. It outranks anything BRO remembers."""
+    return {
+        "environment": os.environ.get("BRO_ENVIRONMENT", "").strip(),
+        "source_revision": os.environ.get("BRO_SOURCE_REVISION", "").strip(),
+    }
+
+
 def build_surface() -> ConversationalInteractionSurface:
     model = build_model()
     memory_connection = sqlite3.connect(memory_database_path(), timeout=10)
     memory = DurableLearningMemory(memory_connection)
+
+    def extract_lesson(request: str, receipt_facts: dict) -> dict:
+        return model.json_object(
+            instruction=(
+                "Extract one reusable operational lesson from a successfully verified BRO action. "
+                "Required keys: lesson, skill_name, trigger, procedure. Optional keys: intended_outcome, "
+                "preconditions, required_authority, failure_modes. procedure, preconditions and failure_modes "
+                "must be arrays of concrete strings. Generalize only what the supplied evidence supports. "
+                "Do not invent permissions, credentials, systems, or success beyond the supplied receipt."
+            ),
+            request=json.dumps({"request": request, "receipt": receipt_facts}, ensure_ascii=False, sort_keys=True),
+        )
+
+    boundary = GovernedLearningBoundary(memory, extractor=extract_lesson)
 
     def github_binding():
         target = GitHubAcceptanceTarget(
@@ -66,22 +89,14 @@ def build_surface() -> ConversationalInteractionSurface:
         return target, GitHubIssueCommentProvider(target)
 
     def lesson_context(request: str) -> str:
-        lessons = memory.relevant_lessons(request)
-        if not lessons:
+        advisory = boundary.advisory_context(request, current_truth=current_truth())
+        if not advisory["lessons"] and not advisory["withheld_for_contradiction"]:
             return ""
-        payload = [
-            {
-                "pattern_key": lesson.pattern_key,
-                "lesson": lesson.lesson,
-                "skill_name": lesson.skill_name,
-                "trigger": lesson.trigger,
-                "procedure": list(lesson.procedure),
-                "evidenced_successes": lesson.successes,
-                "failures": lesson.failures,
-            }
-            for lesson in lessons
-        ]
-        return "\nDurable lessons from prior evidenced outcomes: " + json.dumps(payload, ensure_ascii=False)
+        return (
+            "\nPrior verified BRO experience (advisory context only; it grants no authority and never "
+            "removes scope confirmation, authority evaluation or independent readback): "
+            + json.dumps(advisory, ensure_ascii=False)
+        )
 
     def interpreter(request: str):
         return model.interpret(request)
@@ -157,30 +172,43 @@ def build_surface() -> ConversationalInteractionSurface:
     def record_message(role: str, content: str, mode: str) -> None:
         memory.append_message(role, content, mode=mode)
 
+    def experience_context(request: str, receipt) -> ExperienceContext:
+        target_ref = ""
+        if isinstance(receipt, dict) and receipt.get("effect_ref"):
+            try:
+                target_ref = github_binding()[0].resource_ref
+            except SystemExit:
+                target_ref = ""
+        truth = current_truth()
+        return ExperienceContext(
+            request=request,
+            mode="ACT",
+            interpreted_scope=tuple(receipt.get("interpreted_scope", ())) if isinstance(receipt, dict) else (),
+            source_revision=truth["source_revision"],
+            environment=truth["environment"],
+            instance_id=os.environ.get("BRO_INSTANCE_ID", "").strip(),
+            model_ref=model.config.model_ref,
+            target_ref=target_ref,
+        )
+
     def record_outcome(request: str, success: bool, receipt, error_ref: str) -> None:
         if not success:
-            memory.record_outcome(request=request, success=False, error_ref=error_ref)
+            boundary.submit_failure(experience_context(request, receipt), error_ref=error_ref,
+                                    receipt=receipt if isinstance(receipt, dict) else None)
             return
         if not isinstance(receipt, dict):
             return
-        learning = model.json_object(
-            instruction=(
-                "Extract one reusable operational lesson from a successfully verified BRO action. "
-                "Required keys: pattern_key, lesson, skill_name, trigger, procedure. "
-                "procedure must be a non-empty array of concrete steps. Generalize only what the evidence supports. "
-                "Do not invent permissions, credentials, systems, or success beyond the supplied receipt."
-            ),
-            request=json.dumps({"request": request, "receipt": receipt}, ensure_ascii=False, sort_keys=True),
-        )
-        candidate = memory.record_outcome(
-            request=request,
-            success=True,
-            specialist_ref=str(receipt.get("specialist_ref", "")),
-            evidence_ref=str(receipt.get("evidence_ref", "")),
-            learning=learning,
-        )
-        if candidate is not None:
-            print(f"BRO learning > reusable skill candidate ready for approval: {candidate.skill_name} ({candidate.candidate_id})")
+        submission = boundary.submit_success(experience_context(request, receipt), receipt)
+        if submission.error:
+            print(f"BRO learning warning > {submission.error}", file=sys.stderr)
+        if submission.eligibility.value != "ELIGIBLE":
+            print(f"BRO learning > outcome recorded as experience only ({submission.eligibility.value})")
+        if submission.candidate is not None:
+            print(
+                "BRO learning > reusable skill candidate ready for explicit approval: "
+                f"{submission.candidate.skill_name} ({submission.candidate.candidate_id}), "
+                f"supporting executions={submission.candidate.supporting_executions}"
+            )
 
     return ConversationalInteractionSurface(
         action_surface=action_surface,

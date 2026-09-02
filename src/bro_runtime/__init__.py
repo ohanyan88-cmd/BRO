@@ -38,5 +38,7 @@ from .multistep import MultiStepRejected,PreparedPlan,PreparedStep,StepRequest,r
 from .multistep_runtime import prepare_multistep,ready_multistep
 from .multistep_execution import complete_multistep,continue_multistep,open_multistep,resume_multistep_with_approval,settle_multistep
 from .replan import ReplanResult,open_replanned_step,replan_from_observation
+from .learning_memory import Contradiction,DurableLearningMemory,LearnedLesson,LearningMemoryRejected,LessonStatus,Provenance,Retrieval,SkillCandidate
+from .learning_boundary import ExperienceContext,GovernedLearningBoundary,LearningEligibility,LearningSubmission
 
 __all__=[name for name in globals() if not name.startswith('_')]
