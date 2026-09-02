@@ -35,28 +35,33 @@ revision that follows it.
 
 The requirement to accept this candidate is closed by that decision, not by evidence.
 
-### Night School v1 — DEPLOYED, NOT YET ACCEPTED
+### Night School v1 — ACCEPTED
 
-Night School v1: the governed knowledge library, the fifty-document corpus and
-cross-language recall. **Deployed and verified as `HOST_DEPLOYED`** — active service, exact
-configured revision, healthy heartbeat from durable state, corpus containment `PASS` on 50
-documents, and `STUDY` reading exactly those 50 and still refusing to escape its root.
+The governed knowledge library, the fifty-document corpus, cross-language recall, and the
+correction that made `APPROVED_FOR_STUDY` mean what it says.
 
-It is **not accepted**, and the release ledger says so itself: the `ACTIVE` acceptance still
-names `d9522ea2…` and reports `matches_configured_revision: false`. Acceptance is
-SHA-bound and is never transferred between revisions, so the accepted baseline stays where
-its evidence is until a real external governed ACT is performed on this revision and read
-back independently. That needs an authorised external write, which this work package did
-not carry.
+Accepted on the established isolated governed ACT path: the runtime interpreted the request,
+the interpreted scope was read and confirmed against its own digest before any external
+effect was attempted, one comment was posted to the configured isolated issue, and a
+**separate** external read confirmed it. `ProductionControlPlane.activate` recorded the
+result behind an acceptance run carrying both the external-system check and the host
+exact-revision readback.
 
-This entry deliberately does not name the deployed revision. Writing this file *is* a
-commit, so deploying it moves the deployed SHA and makes any sentence naming that SHA false
-on arrival — which is exactly what happened to the first draft. The live answer is
-`/etc/bro/bro.release.env` and the ledger's own `matches_configured_revision`.
+This entry names no revision, on purpose. Writing it is itself a commit, so deploying it
+moves the deployed SHA — the first draft of the previous entry said "production runs
+918c80d4" and was false on arrival. The live answer is `/etc/bro/bro.release.env` and the
+ledger itself:
 
-What does not move: **the last accepted revision is `d9522ea2…`, and the revision production
-is running is not it.** That stays true through any number of further commits, and stops
-being true only when a real external governed ACT is accepted on a later revision.
+    bind_production_acceptance.py --verify   →  state ACTIVE, matches_configured_revision true
+
+What holds: **the accepted revision and the deployed revision are the same**, and acceptance
+is bound to that exact SHA. It never travels to a later one; the next revision starts its own
+acceptance from nothing.
+
+Two things this does **not** claim. It is not `PRODUCTION_GRADUATED`, which still needs the
+identity, custody and DR blocks in `contracts/final_delivery.json`. And it says nothing about
+whether a person read the fifty study documents — nobody has; every source in the corpus
+reads `NOT_HUMAN_REVIEWED`, which is the accurate value.
 
 ## Հայերեն
 
@@ -87,28 +92,25 @@ revision-ին։
 
 Այս թեկնածուն ընդունելու պահանջը փակվում է որոշմամբ, ոչ թե ապացույցով։
 
-### Night School v1 — DEPLOYED, ԴԵՌ ՉԸՆԴՈՒՆՎԱԾ
+### Night School v1 — ԸՆԴՈՒՆՎԱԾ
 
-Night School v1՝ կառավարվող գիտելիքի գրադարանը, հիսուն փաստաթղթանոց corpus-ը ու
-խաչ-լեզվային recall-ը։ **Deploy արված ու ստուգված որպես `HOST_DEPLOYED`** — active
-service, ճշգրիտ configured revision, healthy heartbeat durable state-ից, corpus-ի
-պարունակման `PASS` 50 փաստաթղթի վրա, ու `STUDY`-ն կարդում է հենց այդ 50-ը ու շարունակում
-է մերժել իր արմատից դուրս գալը։
+Կառավարվող գիտելիքի գրադարանը, հիսուն փաստաթղթանոց corpus-ը, խաչ-լեզվային recall-ը ու այն
+ուղղումը, որից հետո `APPROVED_FOR_STUDY`-ն նշանակում է հենց այն, ինչ ասում է։
 
-**Ընդունված չէ**, ու դա ասում է հենց release ledger-ը․ `ACTIVE` acceptance-ը դեռ կրում է
-`d9522ea2…` անունը ու հայտնում `matches_configured_revision: false`։ Acceptance-ը
-SHA-կապված է ու երբեք չի փոխանցվում revision-ից revision, ուրեմն ընդունված baseline-ը
-մնում է այնտեղ, ուր իր ապացույցն է, մինչև այս revision-ի վրա կատարվի իրական արտաքին
-governed ACT ու անկախ readback։ Դրա համար պետք է թույլատրված արտաքին գրառում, որը այս
-աշխատանքային փաթեթը չի կրել։
+Ընդունվել է սահմանված մեկուսացված governed ACT ուղով․ runtime-ը մեկնաբանել է հարցումը,
+մեկնաբանված շրջանակը կարդացվել ու հաստատվել է իր digest-ով **նախքան** որևէ արտաքին էֆեկտ,
+մեկ comment է գրվել կարգավորված մեկուսացված issue-ում, ու **առանձին** արտաքին ընթերցում
+հաստատել է այն։
 
-Այս գրառումը միտումնավոր չի անվանում deployed revision-ը։ Այս ֆայլը գրելը **ինքը
-commit է**, ուրեմն դրա deploy-ը շարժում է deployed SHA-ն ու ցանկացած այդ SHA-ն անվանող
-նախադասություն կեղծ է դարձնում հենց ժամանելուն պես — հենց դա էլ պատահեց առաջին
-տարբերակի հետ։ Կենդանի պատասխանը `/etc/bro/bro.release.env`-ն է ու ledger-ի սեփական
-`matches_configured_revision`-ը։
+Այս գրառումը միտումնավոր revision չի անվանում։ Այն գրելը ինքը commit է, ուրեմն deploy-ը
+շարժում է SHA-ն — նախորդ գրառման առաջին տարբերակը գրում էր «production runs 918c80d4» ու
+կեղծ էր ժամանելուն պես։ Կենդանի պատասխանը `/etc/bro/bro.release.env`-ն է ու ledger-ը՝
+`bind_production_acceptance.py --verify` → `state ACTIVE`, `matches_configured_revision true`։
 
-Ինչը չի շարժվում՝ **վերջին ընդունված revision-ը `d9522ea2…` է, ու production-ի վազեցրածը
-դա չէ։** Սա ճշմարիտ է մնում ցանկացած թվով հետագա commit-ից հետո ու դադարում է ճշմարիտ
-լինելուց միայն այն ժամանակ, երբ ավելի ուշ revision-ի վրա ընդունվի իրական արտաքին
-governed ACT։
+Ինչը մնում է ճշմարիտ՝ **ընդունված revision-ը և deploy արվածը նույնն են**, ու acceptance-ը
+կապված է հենց այդ SHA-ին։ Այն երբեք չի փոխանցվում հաջորդին։
+
+Երկու բան, որ սա **չի** պնդում։ Սա `PRODUCTION_GRADUATED` չէ — դրան դեռ պետք են
+`contracts/final_delivery.json`-ի identity, custody ու DR բլոկները։ Ու սա ոչինչ չի ասում այն
+մասին, թե մարդ կարդացե՞լ է հիսուն ուսումնական փաստաթուղթը — ոչ ոք չի կարդացել, ու corpus-ի
+ամեն աղբյուր գրված է `NOT_HUMAN_REVIEWED`, ինչը ճշգրիտ արժեքն է։
