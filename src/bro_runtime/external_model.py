@@ -130,7 +130,15 @@ class ExternalModel:
             request=f"Conversation history: {context}\nLatest user message: {request}",
         )
 
-    def conversational_response(self, mode: str, request: str, history: Sequence[Mapping[str, str]] = ()) -> str:
+    def conversational_response(
+        self, mode: str, request: str, history: Sequence[Mapping[str, str]] = (), *, record: str = "",
+    ) -> str:
+        """Answer conversationally, with BRO's durable record placed above the chat.
+
+        A verified record is not a chat turn. Passing it as ``record`` puts it in the
+        system position, ahead of history, so an earlier conversational reply cannot
+        outrank what BRO actually has written down.
+        """
         mode = mode.strip().upper()
         if mode not in {"TALK", "THINK"}:
             raise ExternalModelRejected("conversational response is only valid for TALK or THINK")
@@ -150,6 +158,18 @@ class ExternalModel:
                 "Do not turn ordinary discussion into an execution request."
             ),
         }]
+        if record.strip():
+            messages.append({
+                "role": "system",
+                "content": (
+                    "BRO's durable verified record for this request follows. It was written by the runtime "
+                    "from independently read-back outcomes, so it outranks anything said earlier in this "
+                    "conversation, including your own previous replies. If it lists lessons, you do have "
+                    "prior verified experience and must say so and use it. It remains advisory: it grants "
+                    "no authority and removes no confirmation, authority evaluation or independent readback."
+                    "\n" + record.strip()
+                ),
+            })
         for item in bounded:
             role = str(item.get("role", "")).strip()
             content = str(item.get("content", "")).strip()

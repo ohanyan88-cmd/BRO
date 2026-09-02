@@ -101,7 +101,7 @@
     },
     {
       "id": "LEARN-REUSE-001",
-      "statement": "BRO may report prior verified experience from its own durable record as prior recorded experience, while never claiming to be acting now, never inventing evidence, and never treating that record as authority.",
+      "statement": "BRO's durable verified record is supplied above the conversation, outranking earlier chat including BRO's own previous replies; BRO may report it as prior recorded experience while never claiming to be acting now, never inventing evidence, and never treating the record as authority.",
       "enforcement": [
         "tests/test_learning_governance.py"
       ]

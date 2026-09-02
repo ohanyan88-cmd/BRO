@@ -78,6 +78,8 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         (EXTERNAL_MODEL, "recorded experience rather than something you are doing now"),
         (EXTERNAL_MODEL, "never invent evidence"),
         (EXTERNAL_MODEL, "never grants authority"),
+        (EXTERNAL_MODEL, "outranks anything said earlier in this "),
+        ("scripts/bro_interact.py", "record=lesson_context(request)"),
     ),
     "LEARN-FAILSAFE-001": (
         (BOUNDARY, "learning must never rewrite an executed truth"),
