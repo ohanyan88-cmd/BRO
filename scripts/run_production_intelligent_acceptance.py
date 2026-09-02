@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run FINAL-1 production intelligent execution against an isolated GitHub issue."""
 from __future__ import annotations
-import json, os
+import json, os, re
 from pathlib import Path
 from bro_runtime.anthropic_messages import AnthropicMessagesConfig, AnthropicMessagesModel
 from bro_runtime.external_model import ExternalModel, ExternalModelConfig
@@ -13,6 +13,12 @@ def _required(name: str) -> str:
     if not value: raise SystemExit(f"missing required environment variable: {name}")
     return value
 
+def _revision() -> str:
+    """Acceptance evidence is worthless unless it names the revision it was produced on."""
+    value=_required("BRO_SOURCE_REVISION").lower()
+    if not re.fullmatch(r"[0-9a-f]{40}", value): raise SystemExit("BRO_SOURCE_REVISION must be an exact 40-character git SHA")
+    return value
+
 def _model():
     provider=_required("BRO_MODEL_PROVIDER").lower()
     if provider == "anthropic":
@@ -20,7 +26,7 @@ def _model():
     return ExternalModel(ExternalModelConfig(provider=provider, api_key=_required("BRO_MODEL_API_KEY"), model=_required("BRO_MODEL_NAME"), api_url=_required("BRO_MODEL_API_URL")))
 
 def main() -> int:
-    request=_required("BRO_INTELLIGENT_REQUEST"); token=_required("BRO_GITHUB_TOKEN"); key=_required("BRO_INTELLIGENT_IDEMPOTENCY_KEY"); body=_required("BRO_INTELLIGENT_COMMENT_BODY"); confirmed_by=_required("BRO_INTELLIGENT_CONFIRMED_BY")
+    request=_required("BRO_INTELLIGENT_REQUEST"); token=_required("BRO_GITHUB_TOKEN"); key=_required("BRO_INTELLIGENT_IDEMPOTENCY_KEY"); body=_required("BRO_INTELLIGENT_COMMENT_BODY"); confirmed_by=_required("BRO_INTELLIGENT_CONFIRMED_BY"); source_revision=_revision()
     model=_model(); target=GitHubAcceptanceTarget(_required("BRO_GITHUB_OWNER"),_required("BRO_GITHUB_REPOSITORY"),int(_required("BRO_GITHUB_ISSUE"))); provider=GitHubIssueCommentProvider(target); parsed=model.interpret(request)
     def planner(intent): return model.select_specialist(intent.raw_request,intent.interpreted_scope)
     def executor(intent,specialist):
@@ -37,5 +43,5 @@ def main() -> int:
     print("=== INTERPRETED SCOPE ==="); print(json.dumps(preview,sort_keys=True,indent=2)); entered=input("Confirm by pasting the exact scope_digest: ").strip()
     if entered != digest: raise SystemExit("scope confirmation mismatch; no external effect was attempted")
     runtime.confirm_scope(intent.request_id,confirmed_by=confirmed_by,scope_digest=entered); receipt=runtime.execute(intent.request_id)
-    result={**preview,"confirmed_by":confirmed_by,"specialist_ref":receipt.specialist_ref,"provider_ref":receipt.provider_ref,"effect_ref":receipt.effect_ref,"readback_ref":receipt.readback_ref,"readback_provider_ref":receipt.readback_provider_ref,"evidence_ref":receipt.evidence_ref,"assurance":receipt.assurance.value}; out=Path(os.environ.get("BRO_INTELLIGENT_ACCEPTANCE_RECORD","/var/lib/bro/intelligent-acceptance.json")); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n",encoding="utf-8"); print("=== INTELLIGENT ACCEPTANCE RECORD ==="); print(json.dumps(result,sort_keys=True)); return 0
+    result={**preview,"source_revision":source_revision,"confirmed_by":confirmed_by,"specialist_ref":receipt.specialist_ref,"provider_ref":receipt.provider_ref,"effect_ref":receipt.effect_ref,"readback_ref":receipt.readback_ref,"readback_provider_ref":receipt.readback_provider_ref,"evidence_ref":receipt.evidence_ref,"assurance":receipt.assurance.value}; out=Path(os.environ.get("BRO_INTELLIGENT_ACCEPTANCE_RECORD","/var/lib/bro/intelligent-acceptance.json")); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n",encoding="utf-8"); print("=== INTELLIGENT ACCEPTANCE RECORD ==="); print(json.dumps(result,sort_keys=True)); return 0
 if __name__ == "__main__": raise SystemExit(main())

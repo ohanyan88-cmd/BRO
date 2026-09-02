@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "purpose": "Host-level production deployment contract for BRO. Host deployment, health readback, or intelligent acceptance evidence do not by themselves satisfy final production graduation.",
   "platform": "Debian 13 + systemd",
   "states": {
@@ -13,7 +13,8 @@
     "PRODUCTION_ACCEPTED": [
       "HOST_DEPLOYED evidence",
       "repository contract gates green for the deployed revision",
-      "real external-system acceptance evidence bound to the deployed revision"
+      "real external-system acceptance evidence bound to the deployed revision",
+      "acceptance evidence bound to the deployed revision in the durable production release ledger"
     ],
     "INTELLIGENT_ACCEPTED": [
       "natural-language request interpreted through a declared provider-neutral non-test external model boundary",
@@ -21,7 +22,8 @@
       "material interpreted scope shown to and explicitly confirmed by a human before execution",
       "specialist selected before execution",
       "real external provider effect reference",
-      "independent external-system readback evidence"
+      "independent external-system readback evidence",
+      "acceptance record names the exact deployed source revision it was produced on"
     ],
     "PRODUCTION_GRADUATED": [
       "all contracts/final_delivery.json graduation requirements"
@@ -34,6 +36,7 @@
     "sending effect-provider credentials or repository source code to the interpretation model",
     "claiming intelligent acceptance alone as final production graduation",
     "deploying a revision that is not current origin/main",
-    "embedding secrets in release artifacts or deployment evidence"
+    "embedding secrets in release artifacts or deployment evidence",
+    "letting the interpretation model decide that a real external effect needs no scope confirmation"
   ]
 }

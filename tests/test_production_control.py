@@ -24,4 +24,13 @@ class ProductionControlTests(unittest.TestCase):
         self.runtime.heartbeat(service_id='bro',instance_id='worker-1',revision='git:1',state='HEALTHY',evidence_ref='probe:1',observed_at='2026-09-01T00:00:00+00:00')
         self.runtime.heartbeat(service_id='bro',instance_id='worker-1',revision='git:2',state='DEGRADED',evidence_ref='probe:2',observed_at='2026-09-01T00:01:00+00:00')
         latest=self.runtime.latest_heartbeats('bro'); self.assertEqual(len(latest),1); self.assertEqual(latest[0].revision,'git:2'); self.assertEqual(latest[0].state,'DEGRADED')
+    def test_ledger_readback_returns_the_same_state_type_as_activation(self):
+        deployment=DeploymentResult('release:1','production',ReleaseState.PROMOTED,'evidence:deploy:1')
+        acceptance=AcceptanceRun('acceptance:1',AcceptanceVerdict.PASS,(AcceptanceResult('external',True,'evidence:external','ok','external_system'),),'2026-09-01T00:00:00+00:00')
+        activated=self.runtime.activate(deployment=deployment,artifact_ref='artifact:1',source_revision='git:1',acceptance=acceptance)
+        readback=self.runtime.active('production')
+        self.assertIs(activated.state,ProductionState.ACTIVE)
+        self.assertIs(readback.state,ProductionState.ACTIVE)
+        self.assertIsInstance(readback.state,ProductionState)
+        self.assertEqual(readback.source_revision,'git:1')
 if __name__=='__main__': unittest.main()

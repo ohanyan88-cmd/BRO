@@ -67,6 +67,13 @@ class IntelligentInteractionRuntime:
     The runtime accepts injected model/specialist/provider boundaries so production
     callers can compose real services. It fails closed when material scope was not
     explicitly confirmed or when execution cannot be independently read back.
+
+    Materiality is owned by the runtime, not by the interpreting model. The model is
+    an untrusted boundary: its output may raise a governance requirement but may never
+    lower one. ``material_floor`` therefore defaults to True, so a model that answers
+    ``material: false`` cannot remove the explicit scope confirmation that stands in
+    front of a real external effect. Lowering the floor is a deliberate composition
+    decision made in code by the caller that wires the executor.
     """
 
     def __init__(
@@ -77,9 +84,11 @@ class IntelligentInteractionRuntime:
         executor: Callable[[InteractionIntent, str], Mapping[str, str]],
         readback: Callable[[InteractionIntent, Mapping[str, str]], Mapping[str, str]],
         model_ref: str,
+        material_floor: bool = True,
     ) -> None:
         if not model_ref.strip() or model_ref.startswith("test:"):
             raise FinalDeliveryRejected("a non-test model_ref is required")
+        self.material_floor = bool(material_floor)
         self.interpreter = interpreter
         self.planner = planner
         self.executor = executor
@@ -120,7 +129,7 @@ class IntelligentInteractionRuntime:
             interpreted_scope=self._clean(parsed.get("scope"), "interpreted scope"),
             constraints=tuple(dict.fromkeys(str(v).strip() for v in parsed.get("constraints", ()) if str(v).strip())),
             success_conditions=self._clean(parsed.get("success_conditions"), "success conditions"),
-            material=bool(parsed.get("material", True)),
+            material=self.material_floor or bool(parsed.get("material", True)),
             model_ref=self.model_ref,
         )
         self._intents[intent.request_id] = intent
