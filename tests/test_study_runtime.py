@@ -215,6 +215,26 @@ class StudyRuntimeTests(unittest.TestCase):
         self.assertIn("uncertain_topics", report)
         self.assertIn("stop_reason", report)
 
+    def test_an_extraction_failure_is_reported_not_swallowed(self):
+        def failing(topic, text):
+            raise RuntimeError("external model response was truncated before it finished")
+
+        report = self.runtime(extractor=failing, diminishing_after=5).study("Study everything", context())
+        self.assertEqual(report.verified, 0)
+        self.assertTrue(any("truncated" in note for note in report.notes),
+                        "a boundary failure must not read as 'found nothing'")
+        details = [item.detail for item in self.memory.curriculum(report.mission_id)]
+        self.assertTrue(any("extraction failed" in detail for detail in details), details)
+
+    def test_a_planning_failure_is_reported_and_falls_back(self):
+        def failing(mission, sources):
+            raise RuntimeError("external model response was truncated before it finished")
+
+        report = self.runtime(planner=failing).study("Study everything", context())
+        self.assertTrue(any("curriculum planning failed" in note for note in report.notes), report.notes)
+        self.assertEqual(report.planned, 2, "the fallback still studies real discovered sources")
+        self.assertGreaterEqual(report.verified, 1)
+
     # ------------------------------------------------------------- durability
     def test_knowledge_survives_a_process_restart(self):
         directory = tempfile.TemporaryDirectory()

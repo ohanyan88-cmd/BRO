@@ -37,5 +37,44 @@ class ExternalModelTests(unittest.TestCase):
             ExternalModelConfig(provider="groq", api_key="x", model="real", api_url="http://localhost/model")
 
 
+
+class ExternalModelOutputBudgetTests(unittest.TestCase):
+    """A truncated answer must say it was truncated, not look like broken JSON."""
+
+    def model(self, response, *, max_output_tokens=2048):
+        self.sent = []
+
+        def transport(method, url, headers, data, timeout):
+            self.sent.append(json.loads(data))
+            return response
+
+        return ExternalModel(
+            ExternalModelConfig(provider="stub", api_key="k", model="m",
+                                api_url="https://example.invalid/v1",
+                                max_output_tokens=max_output_tokens),
+            transport=transport,
+        )
+
+    def test_an_output_budget_is_always_sent(self):
+        model = self.model({"choices": [{"message": {"content": "{\"scope\": [\"x\"]}"}}]})
+        model.json_object(instruction="do", request="thing")
+        self.assertEqual(self.sent[0]["max_tokens"], 2048)
+
+    def test_a_truncated_response_is_reported_as_truncated(self):
+        truncated = {"choices": [{"finish_reason": "length", "message": {"content": "{\"claims\": [{"}}]}
+        model = self.model(truncated)
+        with self.assertRaisesRegex(ExternalModelRejected, "truncated"):
+            model.json_object(instruction="do", request="thing")
+
+    def test_a_completed_response_is_not_treated_as_truncated(self):
+        complete = {"choices": [{"finish_reason": "stop", "message": {"content": "{\"claims\": []}"}}]}
+        self.assertEqual(self.model(complete).json_object(instruction="do", request="thing"), {"claims": []})
+
+    def test_a_non_positive_output_budget_is_refused(self):
+        with self.assertRaisesRegex(ExternalModelRejected, "max_output_tokens"):
+            ExternalModelConfig(provider="stub", api_key="k", model="m",
+                                api_url="https://example.invalid/v1", max_output_tokens=0)
+
+
 if __name__ == "__main__":
     unittest.main()
