@@ -40,5 +40,14 @@ class RemediationWavePolicyTests(unittest.TestCase):
         self.assertEqual(validate_declaration(body, ["src/bro_runtime/action_runtime.py"], POLICY), [])
 
 
+class WavePolicyTriggerTests(unittest.TestCase):
+    """The gate reads the PR body; the workflow must re-run when the body is edited."""
+
+    def test_the_contract_workflow_reruns_on_an_edited_pull_request(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/contracts.yml"
+                    ).read_text(encoding="utf-8")
+        self.assertIn("types: [opened, synchronize, reopened, edited]", workflow)
+
+
 if __name__ == "__main__":
     unittest.main()
