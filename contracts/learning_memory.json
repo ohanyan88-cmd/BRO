@@ -13,57 +13,91 @@
     {
       "id": "LEARN-ENTRY-001",
       "statement": "Every governed ACT outcome reaches learning through one boundary; no path writes lessons on its own.",
-      "enforcement": ["tests/test_learning_boundary.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py"
+      ]
     },
     {
       "id": "LEARN-EVIDENCE-001",
       "statement": "Only a success carrying external-system assurance with an independent readback may create or reinforce a lesson.",
-      "enforcement": ["tests/test_learning_boundary.py", "tests/test_learning_memory.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py",
+        "tests/test_learning_memory.py"
+      ]
     },
     {
       "id": "LEARN-FAILURE-001",
       "statement": "Failed or unverified outcomes are kept as experience, recorded as failure observations, and can never raise successful-skill confidence.",
-      "enforcement": ["tests/test_learning_boundary.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py"
+      ]
     },
     {
       "id": "LEARN-MODEL-001",
       "statement": "The model proposes guidance only: pattern identity, observations, evidence references and confidence are derived by the runtime from governed receipts.",
-      "enforcement": ["tests/test_learning_boundary.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py"
+      ]
     },
     {
       "id": "LEARN-SECRET-001",
       "statement": "Only whitelisted receipt fields reach the lesson extractor; credentials and provider payloads never do.",
-      "enforcement": ["tests/test_learning_boundary.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py"
+      ]
     },
     {
       "id": "LEARN-CONFIDENCE-001",
       "statement": "Confidence follows evidence in both directions, and a lesson can be disputed, marked stale, or retired.",
-      "enforcement": ["tests/test_learning_boundary.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py"
+      ]
     },
     {
       "id": "LEARN-TRUTH-001",
       "statement": "Current runtime truth outranks learned memory: a lesson whose binding facts are contradicted is withheld from reuse and the contradiction is recorded.",
-      "enforcement": ["tests/test_learning_boundary.py", "tests/test_learning_governance.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py",
+        "tests/test_learning_governance.py"
+      ]
     },
     {
       "id": "LEARN-PORTABLE-001",
       "statement": "Learned state belongs to BRO: model and provider identity are provenance only, and learning survives a model or provider change.",
-      "enforcement": ["tests/test_learning_provider_portability.py"]
+      "enforcement": [
+        "tests/test_learning_provider_portability.py"
+      ]
     },
     {
       "id": "LEARN-CANDIDATE-001",
       "statement": "Repeated evidenced success may create a skill candidate; approval and promotion remain separate explicit transitions with an append-only audit trail.",
-      "enforcement": ["tests/test_learning_boundary.py", "tests/test_learning_memory.py"]
+      "enforcement": [
+        "tests/test_learning_boundary.py",
+        "tests/test_learning_memory.py"
+      ]
     },
     {
       "id": "LEARN-ADVISORY-001",
       "statement": "Learned knowledge is advisory context and never bypasses scope confirmation, authority evaluation, provider restriction or independent readback.",
-      "enforcement": ["tests/test_learning_governance.py", "tests/test_final_delivery.py"]
+      "enforcement": [
+        "tests/test_learning_governance.py",
+        "tests/test_final_delivery.py"
+      ]
     },
     {
       "id": "LEARN-FAILSAFE-001",
       "statement": "A learning-subsystem failure cannot reverse or falsify an already completed governed action receipt.",
-      "enforcement": ["tests/test_learning_governance.py", "tests/test_conversation_learning.py"]
+      "enforcement": [
+        "tests/test_learning_governance.py",
+        "tests/test_conversation_learning.py"
+      ]
+    },
+    {
+      "id": "LEARN-READ-001",
+      "statement": "Retrieval is a pure read; filing a contradiction is a separate explicit write that may fail without hiding the finding or breaking the turn.",
+      "enforcement": [
+        "tests/test_learning_boundary.py"
+      ]
     }
   ],
   "truth_boundary": {

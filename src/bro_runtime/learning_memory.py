@@ -499,7 +499,13 @@ class DurableLearningMemory:
 
     # --------------------------------------------------------------- retrieval
     def retrieve(self, request: str, *, current_truth: Mapping[str, str] | None = None, limit: int = 5) -> Retrieval:
-        """Rank durable lessons for reuse and refuse the ones current truth contradicts."""
+        """Rank durable lessons for reuse and refuse the ones current truth contradicts.
+
+        This is a read. It never writes, so retrieval stays available on a read-only
+        connection and an ordinary conversational turn cannot fail because a
+        contradiction could not be filed. Contradictions are returned to the caller,
+        which decides whether to durably record them via ``record_contradictions``.
+        """
         terms = {term for term in self._text(request, "request").lower().split() if len(term) >= 3}
         rows = self.connection.execute(
             "SELECT * FROM bro_learned_lessons WHERE status != ? ORDER BY confidence DESC, successes DESC, updated_at DESC LIMIT 200",
@@ -514,7 +520,6 @@ class DurableLearningMemory:
             if found:
                 contradictions.extend(found)
                 withheld.append(lesson)
-                self._record_contradictions(found)
                 continue
             identity = f"{row['pattern_key']} {row['skill_name']} {row['trigger_text']}".lower()
             body = f"{row['lesson']} {row['procedure_json']}".lower()
@@ -559,7 +564,9 @@ class DurableLearningMemory:
                                                "learned observation contradicts current runtime truth"))
         return tuple(found)
 
-    def _record_contradictions(self, contradictions: Sequence[Contradiction]) -> None:
+    def record_contradictions(self, contradictions: Sequence[Contradiction]) -> int:
+        """Durably file contradictions a read surfaced. Explicit, and never inside a read."""
+        written = 0
         with self.connection:
             for item in contradictions:
                 existing = self.connection.execute(
@@ -573,6 +580,8 @@ class DurableLearningMemory:
                     (f"contradiction:{uuid.uuid4()}", item.pattern_key, item.field_name,
                      item.learned_value, item.current_value, item.detail, utc_now()),
                 )
+                written += 1
+        return written
 
     def contradictions(self) -> tuple[Contradiction, ...]:
         rows = self.connection.execute("SELECT * FROM bro_learning_contradictions ORDER BY created_at").fetchall()
