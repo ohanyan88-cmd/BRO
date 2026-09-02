@@ -1,13 +1,14 @@
 """Provider-neutral OpenAI-compatible external model boundary for BRO.
 
-Only bounded task text is sent to the configured model endpoint. Repository code,
-provider credentials, and effect-provider secrets are not part of model prompts.
+Only bounded task/conversation text is sent to the configured model endpoint.
+Repository code, provider credentials, and effect-provider secrets are not part of
+model prompts.
 """
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -42,7 +43,7 @@ class ExternalModelConfig:
 
 
 class ExternalModel:
-    """Minimal OpenAI-compatible chat-completions JSON model client."""
+    """Minimal OpenAI-compatible chat-completions client."""
 
     def __init__(self, config: ExternalModelConfig, *, transport: Callable[[str, str, dict[str, str], bytes, float], Mapping[str, Any]] | None = None) -> None:
         self.config = config
@@ -78,14 +79,28 @@ class ExternalModel:
             raise ExternalModelRejected("external model response did not contain output text")
         return text.strip()
 
+    def _complete(self, messages: list[dict[str, str]]) -> str:
+        payload = json.dumps({"model": self.config.model, "messages": messages, "temperature": 0}).encode("utf-8")
+        response = self.transport(
+            "POST",
+            self.config.api_url,
+            {
+                "Authorization": f"Bearer {self.config.api_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "BRO-production-intelligence",
+            },
+            payload,
+            self.config.timeout_seconds,
+        )
+        return self._output_text(response)
+
     def json_object(self, *, instruction: str, request: str) -> dict[str, Any]:
         if not instruction.strip() or not request.strip():
             raise ExternalModelRejected("instruction and request are required")
         prompt = instruction.strip() + "\n\nReturn exactly one JSON object and no markdown fences or commentary.\n\nUser request:\n" + request.strip()
-        payload = json.dumps({"model": self.config.model, "messages": [{"role": "user", "content": prompt}], "temperature": 0}).encode("utf-8")
-        response = self.transport("POST", self.config.api_url, {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "BRO-production-intelligence"}, payload, self.config.timeout_seconds)
         try:
-            parsed = json.loads(self._output_text(response))
+            parsed = json.loads(self._complete([{"role": "user", "content": prompt}]))
         except json.JSONDecodeError as exc:
             raise ExternalModelRejected("external model did not return valid JSON") from exc
         if not isinstance(parsed, dict):
@@ -101,3 +116,38 @@ class ExternalModel:
         if not specialist:
             raise ExternalModelRejected("external model specialist selection was empty")
         return specialist
+
+    def route_interaction(self, request: str, history: Sequence[Mapping[str, str]] = ()) -> dict[str, Any]:
+        bounded = list(history)[-12:]
+        context = json.dumps(bounded, ensure_ascii=False)
+        return self.json_object(
+            instruction=(
+                "Route the user's latest message for BRO. Required key: mode, exactly one of TALK, THINK, ACT. "
+                "TALK means ordinary conversation/discussion with no real-world effect. THINK means analysis/planning/read-only reasoning with no real-world effect. "
+                "ACT means the user is asking BRO to change an external system, send/write/create/delete/deploy/execute something, or otherwise cause a real-world effect. "
+                "When uncertain between TALK/THINK and ACT, choose TALK or THINK; never infer permission to act."
+            ),
+            request=f"Conversation history: {context}\nLatest user message: {request}",
+        )
+
+    def conversational_response(self, mode: str, request: str, history: Sequence[Mapping[str, str]] = ()) -> str:
+        mode = mode.strip().upper()
+        if mode not in {"TALK", "THINK"}:
+            raise ExternalModelRejected("conversational response is only valid for TALK or THINK")
+        bounded = list(history)[-12:]
+        messages: list[dict[str, str]] = [{
+            "role": "system",
+            "content": (
+                "You are BRO, Gev's AI operating partner. Converse naturally and directly. "
+                "For TALK, discuss normally. For THINK, reason, compare, plan, and challenge assumptions as useful. "
+                "Do not claim to have executed actions, changed external systems, or obtained evidence. "
+                "Do not turn ordinary discussion into an execution request."
+            ),
+        }]
+        for item in bounded:
+            role = str(item.get("role", "")).strip()
+            content = str(item.get("content", "")).strip()
+            if role in {"user", "assistant"} and content:
+                messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": f"Mode: {mode}\n{request.strip()}"})
+        return self._complete(messages)

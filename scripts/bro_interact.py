@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive CLI for the first usable BRO production interaction surface."""
+"""Interactive CLI for BRO conversation plus governed production execution."""
 from __future__ import annotations
 
 import argparse
@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from bro_runtime.anthropic_messages import AnthropicMessagesConfig, AnthropicMessagesModel
+from bro_runtime.conversation import ConversationalInteractionSurface, InteractionMode
 from bro_runtime.external_model import ExternalModel, ExternalModelConfig
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
@@ -45,17 +46,16 @@ def build_model():
     )
 
 
-def build_surface() -> InteractionSurface:
+def build_surface() -> ConversationalInteractionSurface:
     model = build_model()
-    target = GitHubAcceptanceTarget(
-        required("BRO_GITHUB_OWNER"),
-        required("BRO_GITHUB_REPOSITORY"),
-        int(required("BRO_GITHUB_ISSUE")),
-    )
-    provider = GitHubIssueCommentProvider(target)
-    token = required("BRO_GITHUB_TOKEN")
-    body = required("BRO_INTELLIGENT_COMMENT_BODY")
-    key = required("BRO_INTELLIGENT_IDEMPOTENCY_KEY")
+
+    def github_binding():
+        target = GitHubAcceptanceTarget(
+            required("BRO_GITHUB_OWNER"),
+            required("BRO_GITHUB_REPOSITORY"),
+            int(required("BRO_GITHUB_ISSUE")),
+        )
+        return target, GitHubIssueCommentProvider(target)
 
     def interpreter(request: str):
         return model.interpret(request)
@@ -64,13 +64,14 @@ def build_surface() -> InteractionSurface:
         return model.select_specialist(intent.raw_request, intent.interpreted_scope)
 
     def executor(_intent, _specialist):
+        target, provider = github_binding()
         result = provider.invoke({
-            "token": token,
+            "token": required("BRO_GITHUB_TOKEN"),
             "owner": target.owner,
             "repository": target.repository,
             "issue_number": target.issue_number,
-            "idempotency_key": key,
-            "body": body,
+            "idempotency_key": required("BRO_INTELLIGENT_IDEMPOTENCY_KEY"),
+            "body": required("BRO_INTELLIGENT_COMMENT_BODY"),
             "operation": "github.issue_comment.ensure",
         })
         state = result.result
@@ -82,13 +83,14 @@ def build_surface() -> InteractionSurface:
         }
 
     def readback(_intent, _effect):
+        target, provider = github_binding()
         result = provider.invoke({
-            "token": token,
+            "token": required("BRO_GITHUB_TOKEN"),
             "owner": target.owner,
             "repository": target.repository,
             "issue_number": target.issue_number,
-            "idempotency_key": key,
-            "body": body,
+            "idempotency_key": required("BRO_INTELLIGENT_IDEMPOTENCY_KEY"),
+            "body": required("BRO_INTELLIGENT_COMMENT_BODY"),
             "operation": "github.issue_comment.read",
         })
         state = result.result
@@ -110,34 +112,73 @@ def build_surface() -> InteractionSurface:
         readback=readback,
         model_ref=model.config.model_ref,
     )
-    return InteractionSurface(runtime)
+    action_surface = InteractionSurface(runtime)
+
+    def history_payload(history):
+        return [{"role": item.role, "content": item.content} for item in history]
+
+    def router(request, history):
+        return model.route_interaction(request, history_payload(history))
+
+    def responder(mode: InteractionMode, request: str, history):
+        return model.conversational_response(mode.value, request, history_payload(history))
+
+    return ConversationalInteractionSurface(
+        action_surface=action_surface,
+        router=router,
+        responder=responder,
+    )
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Talk to BRO through the production execution path")
-    parser.add_argument("request", nargs="*", help="Natural-language request; omit to be prompted")
-    args = parser.parse_args()
-    request = " ".join(args.request).strip() or input("You > ").strip()
-    surface = build_surface()
-    preview = surface.submit(request)
-    print("BRO interpreted scope:")
+def handle(surface: ConversationalInteractionSurface, request: str) -> None:
+    result = surface.submit(request)
+    mode = result["mode"]
+    if mode in {InteractionMode.TALK.value, InteractionMode.THINK.value}:
+        print(f"BRO [{mode}] > {result['response']}")
+        return
+
+    preview = result["action"]
+    print("BRO [ACT] interpreted scope:")
     print(json.dumps(preview, ensure_ascii=False, sort_keys=True, indent=2))
     if preview["requires_confirmation"]:
         entered = input("Confirm by pasting the exact scope_digest (or type cancel): ").strip()
         if entered.lower() == "cancel":
             print("Cancelled; no external effect was attempted.")
-            return 0
+            return
         digest = entered
     else:
         digest = preview["scope_digest"]
-    result = surface.confirm_and_execute(
+    receipt = surface.confirm_and_execute(
         preview["request_id"],
         confirmed_by=required("BRO_INTELLIGENT_CONFIRMED_BY"),
         scope_digest=digest,
     )
     print("BRO execution receipt:")
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
-    return 0
+    print(json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Talk, think, or act with BRO through the production path")
+    parser.add_argument("request", nargs="*", help="Natural-language request; omit for an interactive conversation")
+    args = parser.parse_args()
+    surface = build_surface()
+    initial = " ".join(args.request).strip()
+    if initial:
+        handle(surface, initial)
+        return 0
+
+    print("BRO ready. Talk normally; type exit or quit to leave.")
+    while True:
+        try:
+            request = input("You > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 0
+        if request.lower() in {"exit", "quit"}:
+            return 0
+        if not request:
+            continue
+        handle(surface, request)
 
 
 if __name__ == "__main__":

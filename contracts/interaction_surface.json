@@ -1,17 +1,27 @@
 {
-  "version": 1,
+  "version": 2,
   "surface": "cli",
   "entrypoint": "scripts/bro_interact.py",
   "runtime": "bro_runtime.final_delivery.IntelligentInteractionRuntime",
+  "conversation_runtime": "bro_runtime.conversation.ConversationalInteractionSurface",
   "production_path": "FINAL-1",
+  "modes": {
+    "TALK": "conversation_only_no_external_effect",
+    "THINK": "analysis_planning_no_external_effect",
+    "ACT": "existing_governed_execution_path"
+  },
   "requirements": {
     "natural_language_intake": true,
+    "automatic_talk_think_act_routing": true,
+    "conversation_history_in_session": true,
+    "talk_think_never_execute_external_effects": true,
+    "action_credentials_required_only_for_act_execution": true,
     "explicit_material_scope_confirmation": true,
     "specialist_selection": true,
     "real_provider_execution": true,
     "independent_external_readback": true,
     "parallel_demo_path_forbidden": true
   },
-  "initial_capability": "github.issue_comment.ensure",
-  "assurance_floor": "external_system"
+  "initial_action_capability": "github.issue_comment.ensure",
+  "assurance_floor_for_act": "external_system"
 }
