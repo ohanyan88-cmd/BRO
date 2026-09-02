@@ -302,6 +302,13 @@
       "enforcement": [
         "tests/test_interaction_multiline.py"
       ]
+    },
+    {
+      "id": "INV-INTERACTION-002",
+      "statement": "A throttled or unavailable model boundary is retried a bounded number of times with backoff and then reported in full to the operator; the session survives, no answer is invented, and a governance refusal is never caught by that handler",
+      "enforcement": [
+        "tests/test_provider_resilience.py"
+      ]
     }
   ]
 }
