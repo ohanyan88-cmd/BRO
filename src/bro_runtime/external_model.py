@@ -7,6 +7,7 @@ model prompts.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
@@ -15,6 +16,23 @@ from urllib.request import Request, urlopen
 
 class ExternalModelRejected(RuntimeError):
     pass
+
+
+class TransientExternalModelError(ExternalModelRejected):
+    """A failure worth one more try: throttling, a gateway hiccup, a dropped connection.
+
+    It stays an ExternalModelRejected, so a caller that does not care about the
+    distinction keeps failing exactly as before once the attempts are spent.
+    """
+
+    def __init__(self, message: str, *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+# Statuses where trying again can succeed. A 4xx that is not throttling is a
+# configuration or authorisation fact, and retrying it only hides it.
+RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 @dataclass(frozen=True)
@@ -27,6 +45,11 @@ class ExternalModelConfig:
     # Without an explicit output budget the endpoint truncates a long answer and the
     # caller sees malformed JSON instead of the real cause.
     max_output_tokens: int = 2048
+    # Bounded on purpose. A brief throttle is worth riding out; an exhausted quota is a
+    # wall, and a client that keeps knocking turns a clear failure into a long hang.
+    max_attempts: int = 3
+    retry_backoff_seconds: float = 1.0
+    max_retry_wait_seconds: float = 10.0
 
     def __post_init__(self) -> None:
         if not self.provider.strip():
@@ -41,6 +64,10 @@ class ExternalModelConfig:
             raise ExternalModelRejected("timeout_seconds must be positive")
         if self.max_output_tokens <= 0:
             raise ExternalModelRejected("max_output_tokens must be positive")
+        if self.max_attempts < 1:
+            raise ExternalModelRejected("max_attempts must be at least 1")
+        if self.retry_backoff_seconds < 0 or self.max_retry_wait_seconds < 0:
+            raise ExternalModelRejected("retry waits must not be negative")
 
     @property
     def model_ref(self) -> str:
@@ -50,9 +77,15 @@ class ExternalModelConfig:
 class ExternalModel:
     """Minimal OpenAI-compatible chat-completions client."""
 
-    def __init__(self, config: ExternalModelConfig, *, transport: Callable[[str, str, dict[str, str], bytes, float], Mapping[str, Any]] | None = None) -> None:
+    def __init__(
+        self, config: ExternalModelConfig,
+        *,
+        transport: Callable[[str, str, dict[str, str], bytes, float], Mapping[str, Any]] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self.config = config
         self.transport = transport or self._http
+        self.sleep = sleep
 
     @staticmethod
     def _http(method: str, url: str, headers: dict[str, str], data: bytes, timeout: float) -> Mapping[str, Any]:
@@ -61,9 +94,9 @@ class ExternalModel:
             with urlopen(request, timeout=timeout) as response:
                 result = json.load(response)
         except HTTPError as exc:
-            raise ExternalModelRejected(f"external model API rejected request with status {exc.code}") from None
+            ExternalModel._classify(exc)
         except URLError:
-            raise ExternalModelRejected("external model API request failed") from None
+            raise TransientExternalModelError("external model API request failed") from None
         if not isinstance(result, dict):
             raise ExternalModelRejected("external model API returned invalid response state")
         return result
@@ -88,12 +121,50 @@ class ExternalModel:
             raise ExternalModelRejected("external model response did not contain output text")
         return text.strip()
 
+    @staticmethod
+    def _classify(exc: HTTPError) -> None:
+        """Decide once whether a status is worth another attempt. Always raises."""
+        message = f"external model API rejected request with status {exc.code}"
+        if exc.code in RETRYABLE_STATUSES:
+            raise TransientExternalModelError(message, retry_after=ExternalModel._retry_after(exc)) from None
+        raise ExternalModelRejected(message) from None
+
+    @staticmethod
+    def _retry_after(exc: HTTPError) -> float | None:
+        try:
+            value = float((exc.headers or {}).get("retry-after", ""))
+        except (TypeError, ValueError):
+            return None
+        return value if value >= 0 else None
+
+    def _wait_before(self, attempt: int, failure: TransientExternalModelError) -> float:
+        requested = failure.retry_after
+        backoff = self.config.retry_backoff_seconds * (2 ** (attempt - 1))
+        chosen = backoff if requested is None else max(requested, 0.0)
+        return min(chosen, self.config.max_retry_wait_seconds)
+
+    def _send(self, method: str, url: str, headers: dict[str, str], data: bytes) -> Mapping[str, Any]:
+        """Try a bounded number of times, then fail with how many attempts were spent."""
+        last: TransientExternalModelError | None = None
+        for attempt in range(1, self.config.max_attempts + 1):
+            try:
+                return self.transport(method, url, headers, data, self.config.timeout_seconds)
+            except TransientExternalModelError as exc:
+                last = exc
+                if attempt == self.config.max_attempts:
+                    break
+                self.sleep(self._wait_before(attempt, exc))
+        raise ExternalModelRejected(
+            f"{last} (gave up after {self.config.max_attempts} attempt"
+            f"{'s' if self.config.max_attempts != 1 else ''})"
+        ) from None
+
     def _complete(self, messages: list[dict[str, str]]) -> str:
         payload = json.dumps({
             "model": self.config.model, "messages": messages, "temperature": 0,
             "max_tokens": self.config.max_output_tokens,
         }).encode("utf-8")
-        response = self.transport(
+        response = self._send(
             "POST",
             self.config.api_url,
             {
@@ -103,7 +174,6 @@ class ExternalModel:
                 "User-Agent": "BRO-production-intelligence",
             },
             payload,
-            self.config.timeout_seconds,
         )
         return self._output_text(response)
 

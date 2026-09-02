@@ -14,9 +14,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from bro_runtime.anthropic_messages import AnthropicMessagesConfig, AnthropicMessagesModel
 from bro_runtime.conversation import ConversationalInteractionSurface, InteractionMode
-from bro_runtime.external_model import ExternalModel, ExternalModelConfig
+from bro_runtime.anthropic_messages import AnthropicMessagesRejected
+from bro_runtime.external_model import ExternalModel, ExternalModelConfig, ExternalModelRejected
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
-from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
+from bro_runtime.github_provider import (
+    GitHubAcceptanceTarget,
+    GitHubIssueCommentProvider,
+    GitHubProviderRejected,
+)
 from bro_runtime.interaction_surface import InteractionSurface
 from bro_runtime.learning_boundary import ExperienceContext, GovernedLearningBoundary
 from bro_runtime.learning_memory import DurableLearningMemory
@@ -312,7 +317,24 @@ def read_request(read_line) -> str | None:
     return "\n".join(lines).strip()
 
 
-def handle(surface: ConversationalInteractionSurface, request: str) -> None:
+# A model or provider that is unavailable is an operational fact, not a bug in the
+# conversation. It is reported in full and the session stays alive; it is never softened
+# into a pretend answer, and a governance refusal is deliberately not caught here.
+BOUNDARY_FAILURES = (ExternalModelRejected, AnthropicMessagesRejected, GitHubProviderRejected)
+
+
+def handle(surface: ConversationalInteractionSurface, request: str) -> int:
+    """Run one turn. Returns 0, or 1 when a boundary was unavailable."""
+    try:
+        _dispatch(surface, request)
+    except BOUNDARY_FAILURES as exc:
+        print(f"BRO could not complete that request: {exc}", file=sys.stderr)
+        print("Nothing was executed, and nothing was recorded as an outcome.", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _dispatch(surface: ConversationalInteractionSurface, request: str) -> None:
     result = surface.submit(request)
     mode = result["mode"]
     if mode in {InteractionMode.TALK.value, InteractionMode.THINK.value}:
@@ -371,8 +393,7 @@ def main() -> int:
     surface = build_surface()
     initial = " ".join(args.request).strip()
     if initial:
-        handle(surface, initial)
-        return 0
+        return handle(surface, initial)
 
     print("BRO ready. Talk normally; type exit or quit to leave.")
     print(f'For a multiline request, put {BLOCK_DELIMITER} on its own line, paste, then {BLOCK_DELIMITER} again.')
