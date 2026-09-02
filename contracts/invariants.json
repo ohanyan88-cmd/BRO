@@ -288,6 +288,20 @@
         "tests/test_study_runtime.py",
         "tests/test_study_governance.py"
       ]
+    },
+    {
+      "id": "INV-STUDY-004",
+      "statement": "Study source hints are derived from the mission by the runtime, reorder only sources the reader already discovered, and cannot reach a path outside the study root",
+      "enforcement": [
+        "tests/test_study_targeting.py"
+      ]
+    },
+    {
+      "id": "INV-INTERACTION-001",
+      "statement": "A multiline request delimited by the block marker becomes one request, so a pasted paragraph cannot become one mission per line",
+      "enforcement": [
+        "tests/test_interaction_multiline.py"
+      ]
     }
   ]
 }

@@ -4,14 +4,35 @@
 
 ### What "BRO, go learn" does
 
-    study mission → scope and curriculum → source discovery → read → synthesis
-      → verification against source → contradiction and staleness check
-      → retained knowledge item → durable provenance → next item or a named stop
+    study mission → mission-derived source hints → scope and curriculum
+      → source discovery → read → synthesis → verification against source
+      → contradiction and staleness check → retained knowledge item
+      → durable provenance → next item or a named stop
 
 You do not choose a mode. A message like *"Study our repository and learn the
 architecture"* is routed to `STUDY` the same way an ordinary question routes to `TALK`
 and a real request routes to `ACT`. `STUDY` needs no confirmation because it changes
 nothing.
+
+### Targeting: relevance, never authority
+
+A mission is tokenised by the runtime — no model involved — into plain hints, and sources
+that answer more of those hints are offered to the planner first. This is **preference,
+not exclusion**: the rest of the discovered set is still offered behind them, and hints
+that match nothing change no ordering at all. Both the targeted list and the full list
+come from the same rooted reader, so a hint can never introduce a path the reader would
+refuse, and it can never make an unapproved root or an external source readable.
+
+When nothing available matches the mission's subject, the report says so plainly: nothing
+here can verify it, and any result should be read as being about the general sources
+rather than about the requested subject. That is the honest answer for a subject BRO has
+no authoritative material on, and it is not repaired by studying more of what it does have.
+
+### Multiline requests
+
+A pasted paragraph used to become one mission per line. A line containing only `"""` opens
+a block and the next one closes it; everything between is a single request. Ordinary
+one-line interaction is unchanged.
 
 ### Read, think, learn — and nothing else
 
@@ -91,13 +112,31 @@ is not claimed — that is exactly why unverified claims stay labelled.
 
 ### Ի՞նչ է անում «BRO, գնա սովորի»-ն
 
-    study mission → scope ու curriculum → աղբյուրների հայտնաբերում → ընթերցում
-      → սինթեզ → աղբյուրի դեմ վավերացում → հակասության ու հնացման ստուգում
-      → պահված գիտելիք → durable provenance → հաջորդ քայլ կամ անվանված կանգ
+    study mission → mission-ից բխած hint-եր → scope ու curriculum
+      → աղբյուրների հայտնաբերում → ընթերցում → սինթեզ → աղբյուրի դեմ վավերացում
+      → հակասության ու հնացման ստուգում → պահված գիտելիք → durable provenance
+      → հաջորդ քայլ կամ անվանված կանգ
 
 Ռեժիմ ընտրել պետք չէ։ «Ուսումնասիրիր մեր repository-ն» հաղորդագրությունը ինքնաբերաբար
 գնում է `STUDY`, ինչպես սովորական հարցը՝ `TALK`, իսկ իրական խնդրանքը՝ `ACT`։ `STUDY`-ն
 հաստատում չի պահանջում, որովհետև ոչինչ չի փոխում։
+
+### Թիրախավորում՝ ռելեվանտություն, ոչ իրավունք
+
+Mission-ը runtime-ն ինքն է բաժանում պարզ hint-երի, առանց model-ի, ու ավելի շատ hint
+բավարարող աղբյուրները առաջինն են առաջարկվում planner-ին։ Սա **նախապատվություն է, ոչ
+բացառում** — մնացածը մնում է հասանելի, իսկ ոչինչ չհամընկնող hint-երը ոչինչ չեն փոխում։
+Երկու ցուցակն էլ գալիս են նույն root-ով սահմանափակ reader-ից, ուստի hint-ը չի կարող ներս
+բերել ուղի, որը reader-ը կմերժեր։
+
+Երբ հասանելի ոչ մի աղբյուր չի համապատասխանում mission-ի թեմային, հաշվետվությունն ասում է
+դա ուղիղ․ այստեղ ոչինչ չի կարող դա վավերացնել։ Դա ազնիվ պատասխանն է այն թեմայի համար,
+որի վերաբերյալ BRO-ն authoritative նյութ չունի։
+
+### Multiline հարցումներ
+
+Կպցրած պարբերությունը առաջ դառնում էր մեկ mission ամեն տողի համար։ Միայն `"""` պարունակող
+տողը բացում է բլոկ, հաջորդը՝ փակում, ու արանքի ամեն ինչը մեկ հարցում է։
 
 ### Կարդալ, մտածել, սովորել — ուրիշ ոչինչ
 

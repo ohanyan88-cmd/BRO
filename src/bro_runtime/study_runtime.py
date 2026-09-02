@@ -37,6 +37,17 @@ DEFAULT_SUFFIXES = (".md", ".py", ".json", ".txt", ".toml", ".yml", ".yaml", ".s
 DEFAULT_MAX_BYTES = 200_000
 DEFAULT_ITEM_BUDGET = 8
 DEFAULT_DIMINISHING_AFTER = 2
+MIN_HINT_LENGTH = 3
+
+# Words that appear in almost every mission and would match almost every path.
+HINT_STOPWORDS = frozenset({
+    "and", "are", "but", "can", "для", "for", "from", "has", "have", "how", "its", "not",
+    "our", "out", "that", "the", "their", "them", "then", "there", "these", "they", "this",
+    "those", "using", "was", "were", "what", "when", "which", "who", "why", "with", "you",
+    "your", "study", "studying", "learn", "learning", "please", "specifically", "focus",
+    "resolve", "continue", "identify", "understand", "about", "into", "only", "also",
+    "yourself", "itself", "does", "make", "use", "used", "all", "any", "each", "more",
+})
 
 
 class StudyRejected(RuntimeError):
@@ -124,6 +135,29 @@ class StudySourceReader:
         )
 
 
+def derive_hints(mission: str) -> tuple[str, ...]:
+    """Turn a mission into plain source hints, deterministically and without a model.
+
+    Hints only reorder which existing sources are offered first. They select nothing
+    the reader would not already have discovered, so they cannot reach a path outside
+    the study root, and a hint that matches nothing simply changes no ordering.
+    """
+    tokens: list[str] = []
+    word = []
+    for character in str(mission or ""):
+        if character.isalnum():
+            word.append(character.lower())
+        elif word:
+            tokens.append("".join(word))
+            word = []
+    if word:
+        tokens.append("".join(word))
+    return tuple(dict.fromkeys(
+        token for token in tokens
+        if len(token) >= MIN_HINT_LENGTH and token not in HINT_STOPWORDS and not token.isdigit()
+    ))
+
+
 @dataclass(frozen=True)
 class StudyReport:
     mission_id: str
@@ -140,6 +174,9 @@ class StudyReport:
     uncertain_topics: tuple[str, ...] = ()
     contradictions: tuple[str, ...] = ()
     notes: tuple[str, ...] = ()
+    hints: tuple[str, ...] = ()
+    targeted_sources: int = 0
+    available_sources: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -158,6 +195,11 @@ class StudyReport:
             "uncertain_topics": list(self.uncertain_topics),
             "contradictions": list(self.contradictions),
             "notes": list(self.notes),
+            "targeting": {
+                "hints": list(self.hints),
+                "targeted_sources": self.targeted_sources,
+                "available_sources": self.available_sources,
+            },
             "external_effects": 0,
             "grants_authority": False,
         }
@@ -228,6 +270,9 @@ class GovernedStudyRuntime:
         self.item_budget = int(item_budget)
         self.diminishing_after = int(diminishing_after)
         self.last_planner_error = ""
+        self.last_hints: tuple[str, ...] = ()
+        self.last_targeted: tuple[str, ...] = ()
+        self.last_available: tuple[str, ...] = ()
 
     # ------------------------------------------------------------ verification
     @staticmethod
@@ -252,14 +297,51 @@ class GovernedStudyRuntime:
         return KnowledgeKind.UNVERIFIED_OBSERVATION, ""
 
     # ------------------------------------------------------------------- study
+    def ordered_sources(self, hints: Sequence[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Offer relevant sources first without hiding the rest.
+
+        Preference, not exclusion: a mission that mentions the context model reads the
+        context model before the alphabetically-first contract, and a mission whose
+        hints match nothing still sees everything the reader discovered. Both lists come
+        from the same rooted reader, so ordering can never introduce a path the reader
+        would refuse.
+        """
+        everything = self.reader.discover()
+        if not hints:
+            return everything, ()
+        matched = tuple(ref for ref in self.reader.discover(hints) if ref in set(everything))
+        if not matched:
+            return everything, ()
+        lowered = [hint.strip().lower() for hint in hints if str(hint).strip()]
+
+        def relevance(ref: str) -> tuple[int, str]:
+            # How many distinct hints a source answers, not merely whether it answers one:
+            # a mission about the project and context model must reach the context model
+            # before a file that happens to contain "bro".
+            return (-sum(1 for hint in lowered if hint in ref.lower()), ref)
+
+        targeted = tuple(sorted(matched, key=relevance))
+        rest = tuple(ref for ref in everything if ref not in set(targeted))
+        return (targeted + rest)[: self.reader.max_sources], targeted
+
     def study(self, mission: str, context: StudyContext, *, hints: Sequence[str] = ()) -> StudyReport:
-        available = self.reader.discover(hints)
+        resolved_hints = tuple(hints) if hints else derive_hints(mission)
+        available, targeted = self.ordered_sources(resolved_hints)
+        self.last_hints = resolved_hints
+        self.last_targeted = targeted
+        self.last_available = available
         record = self.memory.open_study_mission(
             mission, scope=context.binding_facts(), item_budget=self.item_budget,
             provenance=context.provenance(),
         )
         notes: list[str] = []
         self.last_planner_error = ""
+        if resolved_hints and not targeted:
+            notes.append(
+                "no available source matches this mission's subject; nothing here can verify it. "
+                "Studying the general discovered set instead, so treat any result as being about "
+                "those sources rather than about the requested subject."
+            )
         if not available:
             self.memory.set_study_status(record.mission_id, StudyStatus.BLOCKED, stop_reason=StudyStop.SCOPE_EXHAUSTED.value)
             return self._report(record.mission_id, mission, StudyStatus.BLOCKED, StudyStop.SCOPE_EXHAUSTED,
@@ -396,6 +478,8 @@ class GovernedStudyRuntime:
 
     def _report(self, mission_id: str, mission: str, status: StudyStatus, stop: StudyStop,
                 notes: Sequence[str] = ()) -> StudyReport:
+        # Targeting is reported, not implied: the caller can see which hints were derived
+        # and how many sources they actually matched.
         curriculum = self.memory.curriculum(mission_id)
         knowledge = self.memory.knowledge(mission_id)
         remaining = tuple(item.topic for item in curriculum if item.status is CurriculumStatus.PENDING)
@@ -412,6 +496,8 @@ class GovernedStudyRuntime:
             inferences=sum(1 for item in knowledge if item.kind is KnowledgeKind.INFERENCE),
             unverified=sum(1 for item in knowledge if item.kind is KnowledgeKind.UNVERIFIED_OBSERVATION),
             uncertain_topics=uncertain, notes=tuple(notes),
+            hints=self.last_hints, targeted_sources=len(self.last_targeted),
+            available_sources=len(self.last_available),
         )
 
     # ---------------------------------------------------------------- recall

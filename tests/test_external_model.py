@@ -70,6 +70,35 @@ class ExternalModelOutputBudgetTests(unittest.TestCase):
         complete = {"choices": [{"finish_reason": "stop", "message": {"content": "{\"claims\": []}"}}]}
         self.assertEqual(self.model(complete).json_object(instruction="do", request="thing"), {"claims": []})
 
+    def test_a_fenced_json_object_is_unwrapped_not_rejected(self):
+        # The production planner failure: a complete, correct object inside a ```json fence.
+        fenced = {"choices": [{"finish_reason": "stop",
+                               "message": {"content": "```json\n{\"topics\": [{\"topic\": \"t\"}]}\n```"}}]}
+        self.assertEqual(self.model(fenced).json_object(instruction="plan", request="mission"),
+                         {"topics": [{"topic": "t"}]})
+
+    def test_a_fence_without_a_language_tag_is_unwrapped(self):
+        fenced = {"choices": [{"finish_reason": "stop", "message": {"content": "```\n{\"a\": 1}\n```"}}]}
+        self.assertEqual(self.model(fenced).json_object(instruction="plan", request="mission"), {"a": 1})
+
+    def test_prose_around_json_is_still_a_genuine_failure(self):
+        # Unwrapping a fence must not become "find braces anywhere": a model that answered
+        # in prose has not answered, and hiding that would hide a real planner failure.
+        prose = {"choices": [{"finish_reason": "stop",
+                              "message": {"content": "Sure! Here is the plan: {\"topics\": []} hope that helps"}}]}
+        with self.assertRaisesRegex(ExternalModelRejected, "did not return valid JSON"):
+            self.model(prose).json_object(instruction="plan", request="mission")
+
+    def test_a_truncated_fenced_response_is_still_reported_as_truncated(self):
+        cut = {"choices": [{"finish_reason": "length", "message": {"content": "```json\n{\"topics\": [{"}}]}
+        with self.assertRaisesRegex(ExternalModelRejected, "truncated"):
+            self.model(cut).json_object(instruction="plan", request="mission")
+
+    def test_a_non_object_answer_is_still_refused(self):
+        listed = {"choices": [{"finish_reason": "stop", "message": {"content": "```json\n[1, 2]\n```"}}]}
+        with self.assertRaisesRegex(ExternalModelRejected, "must be a JSON object"):
+            self.model(listed).json_object(instruction="plan", request="mission")
+
     def test_a_non_positive_output_budget_is_refused(self):
         with self.assertRaisesRegex(ExternalModelRejected, "max_output_tokens"):
             ExternalModelConfig(provider="stub", api_key="k", model="m",

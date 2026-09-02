@@ -23,6 +23,12 @@ EXTERNAL_MODEL = "src/bro_runtime/external_model.py"
 SURFACE = "scripts/bro_interact.py"
 
 INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
+    "STUDY-TARGETING-001": (
+        (STUDY, "def derive_hints"),
+        (STUDY, "def ordered_sources"),
+        (STUDY, "Preference, not exclusion"),
+        (STUDY, "no available source matches this mission's subject"),
+    ),
     "STUDY-READONLY-001": (
         (STUDY, "class StudySourceReader"),
         (STUDY, "study source escapes the declared study root"),

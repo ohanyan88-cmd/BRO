@@ -41,7 +41,10 @@ class InteractionSurfaceContractGateTests(unittest.TestCase):
         for markers in REQUIREMENT_MARKERS.values():
             for relative, marker in markers:
                 if marker not in "\n".join(sources.get(relative, [])):
-                    sources.setdefault(relative, []).append(marker)
+                    # A marker is matched by substring, so carry it as a comment: a marker
+                    # such as "def read_request" is not a valid statement on its own, and
+                    # the entrypoint stub must stay parseable for the AST credential check.
+                    sources.setdefault(relative, []).append(f"# {marker}")
         if entrypoint is not None:
             sources[ENTRYPOINT] = entrypoint.splitlines()
         for relative, lines in sources.items():
