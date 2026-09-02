@@ -1,0 +1,22 @@
+{
+  "contract": "bro.durable-learning-memory.v1",
+  "status": "implemented-repository-boundary",
+  "invariants": [
+    "Conversation memory survives CLI process restarts when the same SQLite database is reused.",
+    "Only successful governed ACT outcomes carrying an external evidence_ref may update learned lessons.",
+    "Failed or unverified outcomes are retained as experience but cannot create reusable lessons.",
+    "A reusable skill candidate requires repeated evidenced success for the same learned pattern.",
+    "BRO cannot activate a candidate automatically: promotion requires a prior explicit approval actor and a separate explicit promotion actor.",
+    "Learning-hook failure cannot reverse or falsify an already completed governed action receipt.",
+    "Relevant learned lessons may inform later conversation and specialist selection but never grant authority or bypass ACT confirmation."
+  ],
+  "truth_boundary": {
+    "repository_claim": "Durable storage, retrieval, outcome accumulation, candidate creation, and guarded approval/promotion transitions are implemented and testable.",
+    "not_claimed": [
+      "Semantic quality of every model-derived lesson",
+      "Automatic production skill-code generation or installation",
+      "Authority expansion from learned content",
+      "Production deployment of this revision before host rollout and readback"
+    ]
+  }
+}
