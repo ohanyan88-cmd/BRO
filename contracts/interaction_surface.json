@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "surface": "cli",
   "entrypoint": "scripts/bro_interact.py",
   "runtime": "bro_runtime.final_delivery.IntelligentInteractionRuntime",
@@ -16,6 +16,7 @@
     "automatic_talk_think_act_routing": true,
     "study_is_read_and_learn_only": true,
     "conversation_history_in_session": true,
+    "multiline_request_is_one_request": true,
     "talk_think_never_execute_external_effects": true,
     "action_credentials_required_only_for_act_execution": true,
     "explicit_material_scope_confirmation": true,

@@ -29,6 +29,10 @@ REQUIREMENT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         ("src/bro_runtime/study_runtime.py", "never produces permission"),
     ),
     "conversation_history_in_session": ((CONVERSATION, "self._history.append(ConversationMessage(role, content))"),),
+    "multiline_request_is_one_request": (
+        (ENTRYPOINT, "def read_request"),
+        (ENTRYPOINT, "BLOCK_DELIMITER"),
+    ),
     "talk_think_never_execute_external_effects": ((CONVERSATION, "if mode is InteractionMode.ACT:"),),
     "action_credentials_required_only_for_act_execution": ((ENTRYPOINT, 'required("BRO_GITHUB_TOKEN")'),),
     "explicit_material_scope_confirmation": (

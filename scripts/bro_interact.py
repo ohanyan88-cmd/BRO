@@ -281,6 +281,37 @@ def build_surface() -> ConversationalInteractionSurface:
     )
 
 
+BLOCK_DELIMITER = '"""'
+
+
+def read_request(read_line) -> str | None:
+    """Read one request, even when the user pastes several lines.
+
+    A pasted paragraph used to become one mission per line, which is how a fragment
+    like a trailing clause became a study mission of its own. A line containing only the
+    block delimiter opens a block and the next such line closes it; everything between is
+    one request. Ordinary one-line interaction is untouched. Returns None at end of input.
+    """
+    try:
+        first = read_line("You > ")
+    except (EOFError, KeyboardInterrupt):
+        return None
+    if first is None:
+        return None
+    if first.strip() != BLOCK_DELIMITER:
+        return first.strip()
+    lines: list[str] = []
+    while True:
+        try:
+            line = read_line("... > ")
+        except (EOFError, KeyboardInterrupt):
+            break
+        if line is None or line.strip() == BLOCK_DELIMITER:
+            break
+        lines.append(line.rstrip("\n"))
+    return "\n".join(lines).strip()
+
+
 def handle(surface: ConversationalInteractionSurface, request: str) -> None:
     result = surface.submit(request)
     mode = result["mode"]
@@ -297,6 +328,11 @@ def handle(surface: ConversationalInteractionSurface, request: str) -> None:
               f" / {curriculum['blocked']} blocked")
         print(f"  knowledge  : {knowledge['verified']} verified, {knowledge['inference']} inferred,"
               f" {knowledge['unverified_observation']} unverified observation")
+        targeting = report.get("targeting", {})
+        if targeting:
+            print(f"  targeting  : {targeting['targeted_sources']} of {targeting['available_sources']}"
+                  f" discovered sources matched the mission hints"
+                  f"{': ' + ', '.join(targeting['hints'][:8]) if targeting['hints'] else ''}")
         if curriculum["remaining"]:
             print(f"  remaining  : {', '.join(curriculum['remaining'])}")
         if report["uncertain_topics"]:
@@ -339,10 +375,10 @@ def main() -> int:
         return 0
 
     print("BRO ready. Talk normally; type exit or quit to leave.")
+    print(f'For a multiline request, put {BLOCK_DELIMITER} on its own line, paste, then {BLOCK_DELIMITER} again.')
     while True:
-        try:
-            request = input("You > ").strip()
-        except (EOFError, KeyboardInterrupt):
+        request = read_request(input)
+        if request is None:
             print()
             return 0
         if request.lower() in {"exit", "quit"}:

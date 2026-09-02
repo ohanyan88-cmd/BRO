@@ -107,12 +107,34 @@ class ExternalModel:
         )
         return self._output_text(response)
 
+    @staticmethod
+    def _unfenced(text: str) -> str:
+        """Unwrap one markdown code fence, and nothing else.
+
+        Asked for bare JSON, the model sometimes returns a complete and correct object
+        inside a ```json fence. That is a wrapper, not malformed output, and the fix
+        belongs here rather than in every caller. This deliberately unwraps only a
+        response that is entirely one fenced block: it never scans prose for braces,
+        so a reply that merely mentions JSON is still rejected.
+        """
+        cleaned = text.strip()
+        if not cleaned.startswith("```") or not cleaned.endswith("```"):
+            return cleaned
+        body = cleaned[3:-3]
+        newline = body.find("\n")
+        if newline == -1:
+            return cleaned
+        language = body[:newline].strip()
+        if language and not language.isalnum():
+            return cleaned
+        return body[newline + 1:].strip()
+
     def json_object(self, *, instruction: str, request: str) -> dict[str, Any]:
         if not instruction.strip() or not request.strip():
             raise ExternalModelRejected("instruction and request are required")
         prompt = instruction.strip() + "\n\nReturn exactly one JSON object and no markdown fences or commentary.\n\nUser request:\n" + request.strip()
         try:
-            parsed = json.loads(self._complete([{"role": "user", "content": prompt}]))
+            parsed = json.loads(self._unfenced(self._complete([{"role": "user", "content": prompt}])))
         except json.JSONDecodeError as exc:
             raise ExternalModelRejected("external model did not return valid JSON") from exc
         if not isinstance(parsed, dict):
