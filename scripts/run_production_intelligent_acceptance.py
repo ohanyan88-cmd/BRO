@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Run FINAL-1 production intelligent execution against an isolated GitHub issue."""
 from __future__ import annotations
-import json, os, re
+import json, os, re, sqlite3, sys
 from pathlib import Path
 from bro_runtime.anthropic_messages import AnthropicMessagesConfig, AnthropicMessagesModel
 from bro_runtime.external_model import ExternalModel, ExternalModelConfig
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
 from bro_runtime.github_provider import GitHubAcceptanceTarget, GitHubIssueCommentProvider
+from bro_runtime.learning_boundary import ExperienceContext, GovernedLearningBoundary
+from bro_runtime.learning_memory import DurableLearningMemory
 
 def _required(name: str) -> str:
     value=os.environ.get(name,"").strip()
@@ -24,6 +26,49 @@ def _model():
     if provider == "anthropic":
         return AnthropicMessagesModel(AnthropicMessagesConfig(api_key=_required("BRO_MODEL_API_KEY"), model=_required("BRO_MODEL_NAME"), api_url=os.environ.get("BRO_MODEL_API_URL","https://api.anthropic.com/v1/messages").strip()))
     return ExternalModel(ExternalModelConfig(provider=provider, api_key=_required("BRO_MODEL_API_KEY"), model=_required("BRO_MODEL_NAME"), api_url=_required("BRO_MODEL_API_URL")))
+
+def _submit_learning(model, target, intent, result: dict) -> str:
+    """Send this governed outcome to BRO's one learning mechanism.
+
+    The acceptance path is not a second learning authority: it hands the same receipt
+    to the same GovernedLearningBoundary the conversational surface uses. Learning can
+    never change what the acceptance already proved, so every failure here is reported
+    and swallowed.
+    """
+    database = os.environ.get("BRO_MEMORY_DB_PATH", os.environ.get("BRO_DB_PATH", "/var/lib/bro/runtime.sqlite3")).strip()
+    connection = None
+    try:
+        connection = sqlite3.connect(database, timeout=10)
+        boundary = GovernedLearningBoundary(
+            DurableLearningMemory(connection),
+            extractor=lambda request, facts: model.json_object(
+                instruction=(
+                    "Extract one reusable operational lesson from a successfully verified BRO action. "
+                    "Required keys: lesson, skill_name, trigger, procedure. Optional keys: intended_outcome, "
+                    "preconditions, required_authority, failure_modes. Generalize only what the supplied "
+                    "evidence supports. Do not invent permissions, credentials, systems, or success."
+                ),
+                request=json.dumps({"request": request, "receipt": facts}, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+        context = ExperienceContext(
+            request=intent.raw_request, mode="ACT", interpreted_scope=tuple(intent.interpreted_scope),
+            source_revision=result["source_revision"], environment=os.environ.get("BRO_ENVIRONMENT", "").strip(),
+            instance_id=os.environ.get("BRO_INSTANCE_ID", "").strip(), model_ref=model.config.model_ref,
+            target_ref=target.resource_ref,
+        )
+        submission = boundary.submit_success(context, result)
+        return json.dumps({
+            "eligibility": submission.eligibility.value, "recorded": submission.recorded,
+            "pattern_key": submission.pattern_key, "lesson_created": submission.lesson_created,
+            "candidate_id": submission.candidate.candidate_id if submission.candidate else "",
+            "error": submission.error,
+        }, sort_keys=True)
+    except Exception as exc:
+        return json.dumps({"recorded": False, "error": f"{type(exc).__name__}:{exc}"}, sort_keys=True)
+    finally:
+        if connection is not None:
+            connection.close()
 
 def main() -> int:
     request=_required("BRO_INTELLIGENT_REQUEST"); token=_required("BRO_GITHUB_TOKEN"); key=_required("BRO_INTELLIGENT_IDEMPOTENCY_KEY"); body=_required("BRO_INTELLIGENT_COMMENT_BODY"); confirmed_by=_required("BRO_INTELLIGENT_CONFIRMED_BY"); source_revision=_revision()
@@ -43,5 +88,6 @@ def main() -> int:
     print("=== INTERPRETED SCOPE ==="); print(json.dumps(preview,sort_keys=True,indent=2)); entered=input("Confirm by pasting the exact scope_digest: ").strip()
     if entered != digest: raise SystemExit("scope confirmation mismatch; no external effect was attempted")
     runtime.confirm_scope(intent.request_id,confirmed_by=confirmed_by,scope_digest=entered); receipt=runtime.execute(intent.request_id)
-    result={**preview,"source_revision":source_revision,"confirmed_by":confirmed_by,"specialist_ref":receipt.specialist_ref,"provider_ref":receipt.provider_ref,"effect_ref":receipt.effect_ref,"readback_ref":receipt.readback_ref,"readback_provider_ref":receipt.readback_provider_ref,"evidence_ref":receipt.evidence_ref,"assurance":receipt.assurance.value}; out=Path(os.environ.get("BRO_INTELLIGENT_ACCEPTANCE_RECORD","/var/lib/bro/intelligent-acceptance.json")); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n",encoding="utf-8"); print("=== INTELLIGENT ACCEPTANCE RECORD ==="); print(json.dumps(result,sort_keys=True)); return 0
+    result={**preview,"source_revision":source_revision,"confirmed_by":confirmed_by,"specialist_ref":receipt.specialist_ref,"provider_ref":receipt.provider_ref,"effect_ref":receipt.effect_ref,"readback_ref":receipt.readback_ref,"readback_provider_ref":receipt.readback_provider_ref,"evidence_ref":receipt.evidence_ref,"assurance":receipt.assurance.value}; out=Path(os.environ.get("BRO_INTELLIGENT_ACCEPTANCE_RECORD","/var/lib/bro/intelligent-acceptance.json")); out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n",encoding="utf-8"); print("=== INTELLIGENT ACCEPTANCE RECORD ==="); print(json.dumps(result,sort_keys=True))
+    print("=== GOVERNED LEARNING SUBMISSION ==="); print(_submit_learning(model,target,intent,result)); return 0
 if __name__ == "__main__": raise SystemExit(main())
