@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -65,12 +65,29 @@ class AnthropicMessagesModel:
             raise AnthropicMessagesRejected("Anthropic response did not contain text")
         return text
 
+    def _complete(self, messages: list[dict[str, str]], *, system: str | None = None) -> str:
+        payload: dict[str, Any] = {"model": self.config.model, "max_tokens": self.config.max_tokens, "messages": messages}
+        if system:
+            payload["system"] = system
+        response = self.transport(
+            "POST",
+            self.config.api_url,
+            {
+                "x-api-key": self.config.api_key,
+                "anthropic-version": self.config.anthropic_version,
+                "content-type": "application/json",
+                "accept": "application/json",
+                "user-agent": "BRO-production-intelligence",
+            },
+            json.dumps(payload).encode(),
+            self.config.timeout_seconds,
+        )
+        return self._text(response)
+
     def json_object(self, *, instruction: str, request: str) -> dict[str, Any]:
         prompt = instruction.strip() + "\n\nReturn exactly one JSON object and no markdown fences or commentary.\n\nUser request:\n" + request.strip()
-        payload = json.dumps({"model": self.config.model, "max_tokens": self.config.max_tokens, "messages": [{"role": "user", "content": prompt}]}).encode()
-        response = self.transport("POST", self.config.api_url, {"x-api-key": self.config.api_key, "anthropic-version": self.config.anthropic_version, "content-type": "application/json", "accept": "application/json", "user-agent": "BRO-production-intelligence"}, payload, self.config.timeout_seconds)
         try:
-            parsed = json.loads(self._text(response))
+            parsed = json.loads(self._complete([{"role": "user", "content": prompt}]))
         except json.JSONDecodeError as exc:
             raise AnthropicMessagesRejected("Anthropic model did not return valid JSON") from exc
         if not isinstance(parsed, dict):
@@ -86,3 +103,38 @@ class AnthropicMessagesModel:
         if not specialist:
             raise AnthropicMessagesRejected("Anthropic specialist selection was empty")
         return specialist
+
+    def route_interaction(self, request: str, history: Sequence[Mapping[str, str]] = ()) -> dict[str, Any]:
+        bounded = list(history)[-12:]
+        context = json.dumps(bounded, ensure_ascii=False)
+        return self.json_object(
+            instruction=(
+                "Route the user's latest message for BRO. Required key: mode, exactly one of TALK, THINK, ACT. "
+                "TALK means ordinary conversation/discussion with no real-world effect. THINK means analysis/planning/read-only reasoning with no real-world effect. "
+                "ACT means the user is asking BRO to change an external system, send/write/create/delete/deploy/execute something, or otherwise cause a real-world effect. "
+                "When uncertain between TALK/THINK and ACT, choose TALK or THINK; never infer permission to act."
+            ),
+            request=f"Conversation history: {context}\nLatest user message: {request}",
+        )
+
+    def conversational_response(self, mode: str, request: str, history: Sequence[Mapping[str, str]] = ()) -> str:
+        mode = mode.strip().upper()
+        if mode not in {"TALK", "THINK"}:
+            raise AnthropicMessagesRejected("conversational response is only valid for TALK or THINK")
+        bounded = list(history)[-12:]
+        messages: list[dict[str, str]] = []
+        for item in bounded:
+            role = str(item.get("role", "")).strip()
+            content = str(item.get("content", "")).strip()
+            if role in {"user", "assistant"} and content:
+                messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": f"Mode: {mode}\n{request.strip()}"})
+        return self._complete(
+            messages,
+            system=(
+                "You are BRO, Gev's AI operating partner. Converse naturally and directly. "
+                "For TALK, discuss normally. For THINK, reason, compare, plan, and challenge assumptions as useful. "
+                "Do not claim to have executed actions, changed external systems, or obtained evidence. "
+                "Do not turn ordinary discussion into an execution request."
+            ),
+        )
