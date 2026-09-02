@@ -48,15 +48,14 @@ def build_model():
 
 def build_surface() -> ConversationalInteractionSurface:
     model = build_model()
-    target = GitHubAcceptanceTarget(
-        required("BRO_GITHUB_OWNER"),
-        required("BRO_GITHUB_REPOSITORY"),
-        int(required("BRO_GITHUB_ISSUE")),
-    )
-    provider = GitHubIssueCommentProvider(target)
-    token = required("BRO_GITHUB_TOKEN")
-    body = required("BRO_INTELLIGENT_COMMENT_BODY")
-    key = required("BRO_INTELLIGENT_IDEMPOTENCY_KEY")
+
+    def github_binding():
+        target = GitHubAcceptanceTarget(
+            required("BRO_GITHUB_OWNER"),
+            required("BRO_GITHUB_REPOSITORY"),
+            int(required("BRO_GITHUB_ISSUE")),
+        )
+        return target, GitHubIssueCommentProvider(target)
 
     def interpreter(request: str):
         return model.interpret(request)
@@ -65,13 +64,14 @@ def build_surface() -> ConversationalInteractionSurface:
         return model.select_specialist(intent.raw_request, intent.interpreted_scope)
 
     def executor(_intent, _specialist):
+        target, provider = github_binding()
         result = provider.invoke({
-            "token": token,
+            "token": required("BRO_GITHUB_TOKEN"),
             "owner": target.owner,
             "repository": target.repository,
             "issue_number": target.issue_number,
-            "idempotency_key": key,
-            "body": body,
+            "idempotency_key": required("BRO_INTELLIGENT_IDEMPOTENCY_KEY"),
+            "body": required("BRO_INTELLIGENT_COMMENT_BODY"),
             "operation": "github.issue_comment.ensure",
         })
         state = result.result
@@ -83,13 +83,14 @@ def build_surface() -> ConversationalInteractionSurface:
         }
 
     def readback(_intent, _effect):
+        target, provider = github_binding()
         result = provider.invoke({
-            "token": token,
+            "token": required("BRO_GITHUB_TOKEN"),
             "owner": target.owner,
             "repository": target.repository,
             "issue_number": target.issue_number,
-            "idempotency_key": key,
-            "body": body,
+            "idempotency_key": required("BRO_INTELLIGENT_IDEMPOTENCY_KEY"),
+            "body": required("BRO_INTELLIGENT_COMMENT_BODY"),
             "operation": "github.issue_comment.read",
         })
         state = result.result
