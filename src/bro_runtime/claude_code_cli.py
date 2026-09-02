@@ -20,6 +20,7 @@ command line and no shell is involved at any point.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Sequence
@@ -38,6 +39,12 @@ RETRYABLE_API_STATUSES = frozenset({"429", "500", "502", "503", "504"})
 # Text the CLI prints when it has no usable session. Retrying cannot fix it.
 UNAUTHENTICATED_MARKERS = ("not logged in", "please run /login", "authentication", "unauthorized")
 
+# The CLI keeps its own state, including its session, under HOME. A process running as the
+# right user with the wrong HOME therefore reports "not logged in" while the identity is
+# perfectly well authenticated. BRO never reads what is in here -- only whether the
+# directory the CLI would use exists at all, which is what tells the two cases apart.
+CLI_STATE_DIRECTORY = ".claude"
+
 
 @dataclass(frozen=True)
 class ClaudeCodeCLIConfig:
@@ -47,6 +54,9 @@ class ClaudeCodeCLIConfig:
     executable: str = "claude"
     timeout_seconds: float = 180.0
     working_directory: str = "/"
+    # Declared, never discovered. An operator states which HOME the CLI runs under, the
+    # same way they state its path; BRO does not go looking for a session to use.
+    home: str = ""
     max_attempts: int = 3
     retry_backoff_seconds: float = 1.0
     max_retry_wait_seconds: float = 10.0
@@ -92,6 +102,18 @@ class ClaudeCodeCLIModel(BROInference):
         self.last_model_usage: dict[str, Any] = {}
 
     # ------------------------------------------------------------------ invocation
+    def effective_home(self) -> str:
+        """The HOME the CLI will actually see: the declared one, or the inherited one."""
+        return self.config.home.strip() or os.environ.get("HOME", "")
+
+    def _environment(self) -> dict[str, str] | None:
+        """Forward the environment, overriding only HOME and only when it is declared."""
+        if not self.config.home.strip():
+            return None
+        environment = os.environ.copy()
+        environment["HOME"] = self.config.home.strip()
+        return environment
+
     def argv(self) -> list[str]:
         """The exact command. A list, never a shell string."""
         return [
@@ -127,6 +149,7 @@ class ClaudeCodeCLIModel(BROInference):
             return subprocess.run(
                 argv, input=prompt, capture_output=True, text=True,
                 timeout=timeout, cwd=self.config.working_directory, check=False,
+                env=self._environment(),
             )
         except FileNotFoundError:
             raise InferenceRejected(
@@ -161,16 +184,42 @@ class ClaudeCodeCLIModel(BROInference):
                     return cls._sanitised(value)
         return cls._sanitised(completed.stdout)
 
-    @classmethod
-    def _classify_failure(cls, completed: subprocess.CompletedProcess) -> None:
+    def session_diagnosis(self) -> str:
+        """Say which HOME was used, and whether the CLI could have found a session there.
+
+        This is the difference between an operator running the official login and an
+        operator noticing that sudo dropped HOME. It inspects nothing inside the
+        directory -- only whether it exists.
+        """
+        home = self.effective_home()
+        if not home:
+            return "no HOME was set for the process, so the CLI had nowhere to look for a session"
+        try:
+            present = os.path.isdir(os.path.join(home, CLI_STATE_DIRECTORY))
+        except OSError:
+            present = False
+        if present:
+            return (f"effective HOME={home}, where a {CLI_STATE_DIRECTORY} directory is visible, "
+                    f"so this identity most likely needs the official login")
+        # Not visible is not the same as not there: the state directory is owned by the
+        # service identity, so another user would see the same thing. Say what was
+        # observed rather than what it might mean.
+        return (f"effective HOME={home}, where no readable {CLI_STATE_DIRECTORY} directory is "
+                f"visible to this process; either the process inherited the wrong HOME or it is "
+                f"not running as the identity that owns the session")
+
+    def _no_session(self, detail: str, *, exit_status: int | None = None) -> InferenceRejected:
+        status = "" if exit_status is None else f" (exit {exit_status})"
+        return InferenceRejected(
+            f"Claude Code CLI found no usable session{status}: {detail} "
+            f"[{self.session_diagnosis()}]"
+        )
+
+    def _classify_failure(self, completed: subprocess.CompletedProcess) -> None:
         """Map a non-zero exit deterministically. Always raises."""
-        detail = cls._detail(completed)
-        lowered = detail.lower()
-        if any(marker in lowered for marker in UNAUTHENTICATED_MARKERS):
-            raise InferenceRejected(
-                f"Claude Code CLI has no usable session; authenticate it with the official "
-                f"login for this identity (exit {completed.returncode}): {detail}"
-            ) from None
+        detail = self._detail(completed)
+        if any(marker in detail.lower() for marker in UNAUTHENTICATED_MARKERS):
+            raise self._no_session(detail, exit_status=completed.returncode) from None
         raise InferenceRejected(
             f"Claude Code CLI exited with status {completed.returncode}: {detail}"
         ) from None
@@ -196,10 +245,7 @@ class ClaudeCodeCLIModel(BROInference):
         if envelope.get("is_error") or str(envelope.get("subtype", "success")) != "success":
             detail = self._detail(completed)
             if any(marker in detail.lower() for marker in UNAUTHENTICATED_MARKERS):
-                raise InferenceRejected(
-                    f"Claude Code CLI has no usable session; authenticate it with the official "
-                    f"login for this identity: {detail}"
-                )
+                raise self._no_session(detail)
             raise InferenceRejected(f"Claude Code CLI reported a failed turn: {detail}")
         if str(envelope.get("stop_reason", "")) == "max_tokens":
             raise InferenceRejected("Claude Code CLI response was truncated before it finished")
