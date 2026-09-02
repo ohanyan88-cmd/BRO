@@ -35,6 +35,23 @@ revision that follows it.
 
 The requirement to accept this candidate is closed by that decision, not by evidence.
 
+### `918c80d4…` — DEPLOYED, NOT YET ACCEPTED
+
+Night School v1: the governed knowledge library, the fifty-document corpus and
+cross-language recall. **Deployed and verified as `HOST_DEPLOYED`** — active service, exact
+configured revision, healthy heartbeat from durable state, corpus containment `PASS` on 50
+documents, and `STUDY` reading exactly those 50 and still refusing to escape its root.
+
+It is **not accepted**, and the release ledger says so itself: the `ACTIVE` acceptance still
+names `d9522ea2…` and reports `matches_configured_revision: false`. Acceptance is
+SHA-bound and is never transferred between revisions, so the accepted baseline stays where
+its evidence is until a real external governed ACT is performed on this revision and read
+back independently. That needs an authorised external write, which this work package did
+not carry.
+
+Read plainly: production runs `918c80d4…`, production's last *accepted* revision is
+`d9522ea2…`, and those are two different sentences.
+
 ## Հայերեն
 
 Այս ֆայլը գրանցում է այն, ինչ եղել է, ներառյալ այնտեղ, ուր թեկնածուն չի անցել։ Այստեղ
@@ -63,3 +80,21 @@ capacity չի գնվել։ Ընդունման թիրախը տեղափոխվել 
 revision-ին։
 
 Այս թեկնածուն ընդունելու պահանջը փակվում է որոշմամբ, ոչ թե ապացույցով։
+
+### `918c80d4…` — DEPLOYED, ԴԵՌ ՉԸՆԴՈՒՆՎԱԾ
+
+Night School v1՝ կառավարվող գիտելիքի գրադարանը, հիսուն փաստաթղթանոց corpus-ը ու
+խաչ-լեզվային recall-ը։ **Deploy արված ու ստուգված որպես `HOST_DEPLOYED`** — active
+service, ճշգրիտ configured revision, healthy heartbeat durable state-ից, corpus-ի
+պարունակման `PASS` 50 փաստաթղթի վրա, ու `STUDY`-ն կարդում է հենց այդ 50-ը ու շարունակում
+է մերժել իր արմատից դուրս գալը։
+
+**Ընդունված չէ**, ու դա ասում է հենց release ledger-ը․ `ACTIVE` acceptance-ը դեռ կրում է
+`d9522ea2…` անունը ու հայտնում `matches_configured_revision: false`։ Acceptance-ը
+SHA-կապված է ու երբեք չի փոխանցվում revision-ից revision, ուրեմն ընդունված baseline-ը
+մնում է այնտեղ, ուր իր ապացույցն է, մինչև այս revision-ի վրա կատարվի իրական արտաքին
+governed ACT ու անկախ readback։ Դրա համար պետք է թույլատրված արտաքին գրառում, որը այս
+աշխատանքային փաթեթը չի կրել։
+
+Ուղիղ՝ production-ը վազում է `918c80d4…`, production-ի վերջին **ընդունված** revision-ը
+`d9522ea2…` է, ու սրանք երկու տարբեր նախադասություն են։
