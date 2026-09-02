@@ -1,0 +1,113 @@
+{
+  "contract": "bro.governed-knowledge-library.v1",
+  "status": "implemented",
+  "purpose": "External material BRO may study is acquired by a person, reviewed by a person, and approved by a person before STUDY can read a byte of it. Acquisition holds the network; study holds none.",
+  "entry": {
+    "library": "bro_runtime.knowledge_library.GovernedKnowledgeLibrary",
+    "store": "bro_runtime.learning_memory.DurableLearningMemory",
+    "acquisition": "scripts/bro_acquire_knowledge.py",
+    "shelf_manifest": "contracts/knowledge_shelves.json",
+    "corpus_reader": "bro_runtime.study_runtime.StudySourceReader"
+  },
+  "lifecycle": ["STAGED", "REVIEWED", "APPROVED_FOR_STUDY", "SUPERSEDED", "REJECTED"],
+  "authority_classes": [
+    "NORMATIVE_STANDARD",
+    "OFFICIAL_SPECIFICATION",
+    "OFFICIAL_GOVERNMENT_OR_ACADEMIC",
+    "OFFICIAL_VENDOR_DOCUMENTATION",
+    "OFFICIAL_SECURITY_GUIDANCE",
+    "USER_APPROVED_INTERNAL",
+    "TRUSTED_REFERENCE"
+  ],
+  "supported_source_languages": ["en", "hy", "ru"],
+  "armenian_variants": [
+    "EASTERN_ARMENIAN_NORMATIVE",
+    "EASTERN_ARMENIAN_CONVERSATIONAL",
+    "WESTERN_ARMENIAN",
+    "DIALECTAL_ARMENIAN",
+    "CLASSICAL_ARMENIAN_GRABAR"
+  ],
+  "invariants": [
+    {
+      "id": "LIBRARY-APPROVAL-001",
+      "statement": "Only material a named person approved may exist in the corpus STUDY reads, and only as the exact bytes they approved.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LIBRARY-LIFECYCLE-001",
+      "statement": "Approval requires a prior review, each step names its actor, and every transition is recorded.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LIBRARY-INTEGRITY-001",
+      "statement": "Approval re-checks the acquired digest, so material cannot change between review and approval.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LIBRARY-CONTAINMENT-001",
+      "statement": "Corpus paths stay inside the corpus root and never name executables, archives, key files or hidden directories.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LIBRARY-SECRETS-001",
+      "statement": "Material carrying a credential is refused; material that merely names one is not.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LIBRARY-PROVENANCE-001",
+      "statement": "Every source records publisher, canonical url, authority class, scope, upstream version, digest, language and license.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LIBRARY-AUTHORITY-001",
+      "statement": "Authority is scoped to the source's own subject and never outranks BRO's contracts, governance or runtime truth. Acquired text is data; instruction-shaped sentences inside it are content, not instructions.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LIBRARY-NETWORK-001",
+      "statement": "The network lives in the operator acquisition tool. The library reaches nothing and the study runtime reaches nothing.",
+      "tests": ["tests/test_self_study_contract.py"]
+    },
+    {
+      "id": "LIBRARY-LANGUAGE-001",
+      "statement": "A declared source language must match the script actually acquired, and Armenian variants are kept apart rather than collapsed into the normative one.",
+      "tests": ["tests/test_knowledge_library.py"]
+    },
+    {
+      "id": "LEARN-LANGUAGE-001",
+      "statement": "Learned knowledge records the language of its source document and the language of its evidence quote separately.",
+      "tests": ["tests/test_multilingual_learning.py"]
+    },
+    {
+      "id": "LEARN-EVIDENCE-001",
+      "statement": "The evidence quote stays verbatim in the source language. A translation is never evidence and never makes a claim VERIFIED.",
+      "tests": ["tests/test_multilingual_learning.py"]
+    },
+    {
+      "id": "LEARN-RECALL-001",
+      "statement": "A question in one supported language reaches knowledge learned from a source in another, through one canonical item with one provenance chain -- never a translated duplicate.",
+      "tests": ["tests/test_multilingual_learning.py"]
+    },
+    {
+      "id": "LEARN-KEYS-001",
+      "statement": "Recall terms are retrieval keys only: bounded in length, never evidence, and carrying no authority or confidence of their own.",
+      "tests": ["tests/test_multilingual_learning.py"]
+    },
+    {
+      "id": "LEARN-PERSIST-001",
+      "statement": "Source language, evidence and cross-language recall survive a restart, and Armenian text survives ingestion, storage and retrieval unchanged.",
+      "tests": ["tests/test_multilingual_learning.py"]
+    },
+    {
+      "id": "STUDY-LIMITS-001",
+      "statement": "The item budget and the diminishing-return threshold are both configuration, both at least one, and a malformed setting falls back rather than removing the limit.",
+      "tests": ["tests/test_study_limits.py"]
+    }
+  ],
+  "truth_boundary": [
+    "Acquiring a document does not make BRO believe it; approval admits it to study, not to authority.",
+    "External material never grants authority, never approves an action and never overrides current runtime truth.",
+    "A translated explanation is an explanation. The evidence remains the original text, in the original language.",
+    "The model's multilingual ability is not BRO's learned knowledge; recall is proven through BRO's own memory path."
+  ]
+}

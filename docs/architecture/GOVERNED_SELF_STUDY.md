@@ -2,6 +2,21 @@
 
 ## English
 
+> **Night School.** Study is no longer limited to BRO's own release. External material
+> reaches the study root only through the governed library — acquired, reviewed and
+> approved by a person before `STUDY` can read a byte of it. See
+> [`GOVERNED_KNOWLEDGE_LIBRARY.md`](./GOVERNED_KNOWLEDGE_LIBRARY.md) for the lifecycle,
+> the shelves and cross-language recall, and
+> [`../operations/KNOWLEDGE_ACQUISITION.md`](../operations/KNOWLEDGE_ACQUISITION.md) for
+> the operator procedure. Nothing below changes: the study runtime still has no network,
+> no subprocess and no way to approve anything.
+>
+> **Night School.** Ուսուցումն այլևս սահմանափակ չէ BRO-ի սեփական release-ով։ Դրսի նյութը
+> study root է հասնում միայն կառավարվող գրադարանով՝ մարդու ձեռք բերած, կարդացած ու
+> հաստատած։ Ուսուցման runtime-ը շարունակում է ցանց, subprocess ու հաստատելու
+> հնարավորություն չունենալ։
+
+
 ### What "BRO, go learn" does
 
     study mission → mission-derived source hints → scope and curriculum

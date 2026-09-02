@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+    # The wave gate judges the PR body, so it must run again when the body changes --
+    # otherwise a passing verdict can outlive the declaration it was passing on.
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
