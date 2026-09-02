@@ -184,19 +184,23 @@ class StudyContext:
         )
 
     def binding_facts(self) -> tuple[str, ...]:
+        """Only facts that must still hold for a claim to be reusable.
+
+        The study root is deliberately not one of them. On this host it resolves to
+        /opt/bro/releases/<sha>, so binding on it would mark everything ever studied as
+        contradicted at the next deployment. A claim's identity is its source_ref and
+        source_digest, and a changed document is already surfaced as stale; the root is
+        kept as provenance, where a path that changes every release belongs.
+        """
         facts = []
         if self.environment:
             facts.append(f"{BINDING_PREFIX}environment={self.environment}")
-        if self.root_ref:
-            facts.append(f"{BINDING_PREFIX}study_root={self.root_ref}")
         return tuple(facts)
 
     def current_truth(self) -> dict[str, str]:
         truth = {}
         if self.environment:
             truth["environment"] = self.environment
-        if self.root_ref:
-            truth["study_root"] = self.root_ref
         return truth
 
 
