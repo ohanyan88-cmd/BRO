@@ -150,7 +150,11 @@ class BROInference:
                 "claims, an array of objects with keys claim, evidence_quote and inference. evidence_quote "
                 "MUST be copied verbatim from the source text and be long enough to locate; leave it empty "
                 "and set inference true when the claim is your reasoning rather than something the source "
-                "states. Never invent a quote. Return at most five claims and no commentary."
+                "states. Never invent a quote, and never translate one: the quote is evidence and must "
+                "stay in the language the source wrote it in. Each claim may also carry recall_terms, an "
+                "array of up to eight short search keys naming the claim's subject in English, Armenian "
+                "and Russian. Recall terms are search keys only, never evidence and never a translation "
+                "of the quote. Return at most five claims and no commentary."
             ),
             request=f"Topic: {topic.strip()}\nSource text:\n{source_text[:max_chars]}",
         )

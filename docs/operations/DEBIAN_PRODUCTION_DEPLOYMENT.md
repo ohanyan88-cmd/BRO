@@ -41,6 +41,24 @@ Production does not rely on the ambient value: `BRO_MODEL_CLI_HOME=/var/lib/bro`
 CLI. An operator invocation should set it too, so the CLI's own commands agree with what
 BRO uses:
 
+### Night School settings
+
+| Setting | Production value | What it decides |
+|---|---|---|
+| `BRO_STUDY_ROOT` | `/var/lib/bro/knowledge` | the corpus STUDY reads; unset means BRO studies its own release, not the library |
+| `BRO_STUDY_ITEM_BUDGET` | `30` | curriculum items one mission may study |
+| `BRO_STUDY_DIMINISHING_AFTER` | `6` | consecutive barren sources that end a mission |
+
+Both limits are at least one, and a malformed value falls back to the default instead of
+removing the limit. The corpus is written only by `scripts/bro_acquire_knowledge.py`, run by
+an operator — see [`KNOWLEDGE_ACQUISITION.md`](./KNOWLEDGE_ACQUISITION.md).
+
+**Night School-ի կարգավորումները։** `BRO_STUDY_ROOT`-ը ցույց է տալիս corpus-ը (առանց դրա
+BRO-ն կարդում է իր սեփական release-ը), `BRO_STUDY_ITEM_BUDGET=30`, `BRO_STUDY_DIMINISHING_AFTER=6`։
+Երկու սահմանն էլ առնվազն մեկ են, ու սխալ արժեքը վերադառնում է լռելյայնին։ Corpus-ը գրում է
+միայն օպերատորի կանչած `scripts/bro_acquire_knowledge.py`-ն։
+
+
 ```bash
 sudo bash -c 'set -a; source /etc/bro/bro.env; source /etc/bro/bro.release.env; set +a
 export HOME=/var/lib/bro

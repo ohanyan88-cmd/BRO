@@ -51,11 +51,30 @@ def study_root() -> str:
     return os.environ.get("BRO_STUDY_ROOT", str(ROOT)).strip()
 
 
-def study_item_budget() -> int:
+DEFAULT_STUDY_ITEM_BUDGET = 30
+DEFAULT_STUDY_DIMINISHING_AFTER = 6
+
+
+def _positive(name: str, default: int) -> int:
+    """A study limit is a positive count. A malformed one falls back rather than disabling the limit."""
     try:
-        return max(1, int(os.environ.get("BRO_STUDY_ITEM_BUDGET", "6")))
+        return max(1, int(os.environ.get(name, str(default))))
     except ValueError:
-        return 6
+        return default
+
+
+def study_item_budget() -> int:
+    """How many curriculum items one mission may study before it stops."""
+    return _positive("BRO_STUDY_ITEM_BUDGET", DEFAULT_STUDY_ITEM_BUDGET)
+
+
+def study_diminishing_after() -> int:
+    """How many consecutive barren sources end a mission for diminishing returns.
+
+    A wide corpus is uneven: a run over many shelves passes through stretches that teach
+    nothing without being finished. Ending on the second such source is right for a small
+    repository read and wrong for a library."""
+    return _positive("BRO_STUDY_DIMINISHING_AFTER", DEFAULT_STUDY_DIMINISHING_AFTER)
 
 
 def current_truth() -> dict[str, str]:
@@ -111,6 +130,7 @@ def build_surface() -> ConversationalInteractionSurface:
             planner=lambda mission, sources: model.study_plan(mission, sources),
             extractor=lambda topic, text: model.study_extract(topic, text),
             item_budget=study_item_budget(),
+            diminishing_after=study_diminishing_after(),
         )
         return runtime.study(request, study_context()).as_dict()
 

@@ -1,0 +1,81 @@
+# Acquiring Knowledge Sources / Գիտելիքի աղբյուրների ձեռքբերում
+
+## English
+
+Acquisition is an **operator** procedure. BRO never runs it, and nothing in the runtime can.
+Run it as the service identity so the registry and the corpus are owned by `bro`:
+
+```bash
+sudo -u bro env HOME=/var/lib/bro PYTHONPATH=/opt/bro/current/src \
+  python3 /opt/bro/current/scripts/bro_acquire_knowledge.py <command> [options]
+```
+
+| Command | What it does |
+|---|---|
+| `acquire` | fetches every document in the shelf manifest, converts it to text, hashes it, records it as `STAGED` and writes the bytes to the **staging** tree |
+| `review --actor <person>` | marks staged sources `REVIEWED` — do this after reading them |
+| `publish --actor <person>` | approves reviewed sources, writes exactly the approved bytes into the **corpus**, and removes anything in the corpus that is not approved |
+| `verify` | re-reads the corpus and reports any file that is unapproved, altered or missing |
+| `status` | lists every source and its lifecycle state |
+| `probe --url <url>` | fetches one address and prints what the extractor would see; changes nothing |
+
+Defaults: registry `/var/lib/bro/runtime.sqlite3`, staging `/var/lib/bro/knowledge-staging`,
+corpus `/var/lib/bro/knowledge`. **Staging and corpus are different directories on purpose.**
+Acquiring something must not make it readable by `STUDY`; only `publish` moves bytes across
+that line, and only for a source a named person approved.
+
+### Pointing STUDY at the corpus
+
+`BRO_STUDY_ROOT=/var/lib/bro/knowledge` in `/etc/bro/bro.env`. The default is the deployed
+release, so an unset variable means BRO studies its own code — not the library.
+
+### What acquisition refuses
+
+- anything that is not `https`
+- a document over 2 MB, or one that yields too little text to be the document
+- a corpus path that escapes the root, hides in a dot-directory, or names an executable,
+  archive, key file or image
+- material carrying an actual credential — a private key with a body, a real token. Material
+  that merely *names* one is accepted, because security documentation is full of those and
+  rejecting it would empty the shelf it exists to fill.
+
+### Re-acquiring
+
+Running `acquire` again re-fetches. Unchanged documents are reported `unchanged` and nothing
+moves. A changed document supersedes its predecessor — which stays on the record, with the
+reason — and is staged afresh, so it needs a new review and a new approval before study sees
+it. `verify` after every `publish`; a `FAIL` there means the corpus no longer matches what
+anyone approved.
+
+---
+
+## Հայերեն
+
+Ձեռքբերումը **օպերատորի** ընթացակարգ է։ BRO-ն այն երբեք չի կանչում, ու runtime-ից ոչինչ չի
+կարող։ Աշխատեցրու ծառայության ինքնությամբ, որ registry-ն ու corpus-ը պատկանեն `bro`-ին
+(տես վերևի հրամանը)։
+
+| Հրաման | Ի՞նչ է անում |
+|---|---|
+| `acquire` | բերում է manifest-ի ամեն փաստաթուղթ, դարձնում տեքստ, hash անում, գրանցում `STAGED` ու գրում **staging**-ում |
+| `review --actor <անուն>` | կարդալուց հետո նշում է `REVIEWED` |
+| `publish --actor <անուն>` | հաստատում է ու գրում հենց հաստատված բայթերը **corpus**-ում, ու հանում այնտեղից չհաստատված ամեն ինչ |
+| `verify` | վերընթերցում է corpus-ը ու հայտնում չհաստատված, փոփոխված կամ բացակայող ֆայլերը |
+| `status` | ցույց է տալիս ամեն աղբյուր ու իր վիճակը |
+| `probe --url <url>` | բերում է մեկ հասցե ու տպում՝ ինչ կտեսներ extractor-ը. ոչինչ չի փոխում |
+
+**Staging-ը և corpus-ը դիտավորյալ տարբեր թղթապանակներ են։** Բերելը չպիտի նյութը դարձնի
+`STUDY`-ի համար ընթեռնելի. միայն `publish`-ն է գիծը հատում, ու միայն անուն կրող մարդու
+հաստատած աղբյուրի համար։
+
+`BRO_STUDY_ROOT=/var/lib/bro/knowledge` — առանց դրա BRO-ն ուսումնասիրում է իր սեփական
+կոդը, ոչ գրադարանը։
+
+**Ձեռքբերումը մերժում է** ոչ-`https` հասցեն, 2 ՄԲ-ից մեծ փաստաթուղթը, արմատից դուրս եկող
+կամ գործարկելի/արխիվ/բանալի ուղին, ու **իրական** credential կրող նյութը։ Credential-ի
+անունը պարզապես **հիշատակող** նյութն ընդունվում է — անվտանգության փաստաթղթերը լի են
+դրանով, ու մերժելը կդատարկեր հենց այն դարակը, որի համար այս ամենը կա։
+
+Կրկնակի `acquire`-ը՝ չփոխված փաստաթուղթը `unchanged` է, փոխվածը՝ հին տարբերակը դառնում է
+`SUPERSEDED` (մնում է գրառման մեջ) ու նորը կրկին անցնում է review-ի ու հաստատման միջով։
+Ամեն `publish`-ից հետո՝ `verify`։

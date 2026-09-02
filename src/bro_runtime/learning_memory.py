@@ -20,6 +20,32 @@ from enum import StrEnum
 from typing import Any, Mapping, Sequence
 
 
+ARMENIAN_RANGE = (0x0530, 0x058F)
+CYRILLIC_RANGE = (0x0400, 0x04FF)
+SUPPORTED_LANGUAGES = ("en", "hy", "ru")
+
+
+def detect_language(text: str) -> str:
+    """Name the language of source text from its script. The runtime decides this, not the model.
+
+    Script is the part of the question that can be settled by counting, so it is settled by
+    counting: a claim's language is a fact about the bytes, and a model that misreports it
+    would quietly detach evidence from its own provenance.
+    """
+    armenian = cyrillic = latin = 0
+    for character in str(text or ""):
+        code = ord(character)
+        if ARMENIAN_RANGE[0] <= code <= ARMENIAN_RANGE[1]:
+            armenian += 1
+        elif CYRILLIC_RANGE[0] <= code <= CYRILLIC_RANGE[1]:
+            cyrillic += 1
+        elif character.isalpha() and code < 0x0250:
+            latin += 1
+    if not (armenian or cyrillic or latin):
+        return ""
+    return {armenian: "hy", cyrillic: "ru", latin: "en"}[max(armenian, cyrillic, latin)]
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -197,10 +223,21 @@ class KnowledgeItem:
     scope: tuple[str, ...] = ()
     created_at: str = ""
     provenance: Provenance = field(default_factory=Provenance)
+    source_language: str = ""
+    recall_terms: tuple[str, ...] = ()
 
     @property
     def is_usable(self) -> bool:
         return self.verification_state is VerificationState.VERIFIED
+
+    @property
+    def evidence_language(self) -> str:
+        """The language of the quote itself, which is not always the document's.
+
+        An Armenian page may quote an English standard verbatim. The document is Armenian
+        and the evidence is English, and collapsing the two would attribute a quote to a
+        language it was never written in."""
+        return detect_language(self.evidence_quote)
 
 
 @dataclass(frozen=True)
@@ -251,6 +288,11 @@ _EXPERIENCE_COLUMNS = (
     ("lesson_ref", "lesson_ref TEXT NOT NULL DEFAULT ''"),
     ("candidate_ref", "candidate_ref TEXT NOT NULL DEFAULT ''"),
 )
+_KNOWLEDGE_COLUMNS = (
+    ("source_language", "source_language TEXT NOT NULL DEFAULT ''"),
+    ("recall_terms_json", "recall_terms_json TEXT NOT NULL DEFAULT '[]'"),
+)
+
 _CANDIDATE_COLUMNS = (
     ("intended_outcome", "intended_outcome TEXT NOT NULL DEFAULT ''"),
     ("preconditions_json", "preconditions_json TEXT NOT NULL DEFAULT '[]'"),
@@ -383,7 +425,9 @@ class DurableLearningMemory:
               confidence REAL NOT NULL,
               scope_json TEXT NOT NULL,
               created_at TEXT NOT NULL,
-              provenance_json TEXT NOT NULL
+              provenance_json TEXT NOT NULL,
+              source_language TEXT NOT NULL DEFAULT '',
+              recall_terms_json TEXT NOT NULL DEFAULT '[]'
             );
             CREATE UNIQUE INDEX IF NOT EXISTS bro_study_knowledge_identity
               ON bro_study_knowledge(mission_id, claim);
@@ -406,6 +450,7 @@ class DurableLearningMemory:
             ("bro_learned_lessons", _LESSON_COLUMNS),
             ("bro_learning_experience", _EXPERIENCE_COLUMNS),
             ("bro_skill_candidates", _CANDIDATE_COLUMNS),
+            ("bro_study_knowledge", _KNOWLEDGE_COLUMNS),
         ):
             present = {row[1] for row in self.connection.execute(f"PRAGMA table_info({table})")}
             for name, ddl in columns:
@@ -868,8 +913,16 @@ class DurableLearningMemory:
         self, *, mission_id: str, item_id: str, topic: str, claim: str, kind: KnowledgeKind,
         source_ref: str, source_type: SourceType, source_digest: str, evidence_quote: str,
         scope: Sequence[str] = (), provenance: Provenance | None = None,
+        source_language: str = "", recall_terms: Sequence[str] = (),
     ) -> KnowledgeItem | None:
-        """Retain one study claim. The runtime decides its kind, state and confidence."""
+        """Retain one study claim. The runtime decides its kind, state and confidence.
+
+        ``recall_terms`` are retrieval keys and nothing else. They let a question asked in
+        one language reach a claim learned from a source written in another, and they are
+        never evidence: they cannot satisfy the evidence requirement, cannot change the
+        verification state, and are not quoted back as if the source had said them. The
+        evidence quote stays exactly as the source wrote it, in the source's own language.
+        """
         row = self._mission_row(mission_id)
         kind = KnowledgeKind(kind)
         claim = self._text(claim, "claim")
@@ -878,21 +931,27 @@ class DurableLearningMemory:
         if kind is KnowledgeKind.VERIFIED_KNOWLEDGE and not source_digest.strip():
             raise LearningMemoryRejected("verified study knowledge requires a source digest")
         state = VerificationState.VERIFIED if kind is KnowledgeKind.VERIFIED_KNOWLEDGE else VerificationState.UNVERIFIED
+        language = str(source_language or '').strip().lower() or detect_language(evidence_quote or claim)
         item = KnowledgeItem(
             f"study-knowledge:{uuid.uuid4()}", row["mission_id"], item_id.strip(),
             self._text(topic, "topic"), claim, kind, source_ref.strip(), SourceType(source_type),
             source_digest.strip(), evidence_quote.strip(), state, KIND_CONFIDENCE[kind],
             self._sequence(scope), utc_now(), provenance or Provenance(),
+            language, self._recall_terms(recall_terms),
         )
         try:
             with self.connection:
                 self.connection.execute(
-                    "INSERT INTO bro_study_knowledge VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO bro_study_knowledge(knowledge_id,mission_id,item_id,topic,claim,"
+                    "kind,source_ref,source_type,source_digest,evidence_quote,verification_state,"
+                    "confidence,scope_json,created_at,provenance_json,source_language,recall_terms_json)"
+                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (item.knowledge_id, item.mission_id, item.item_id, item.topic, item.claim,
                      item.kind.value, item.source_ref, item.source_type.value, item.source_digest,
                      item.evidence_quote, item.verification_state.value, item.confidence,
                      json.dumps(item.scope, ensure_ascii=False), item.created_at,
-                     json.dumps(item.provenance.as_dict(), ensure_ascii=False)),
+                     json.dumps(item.provenance.as_dict(), ensure_ascii=False), item.source_language,
+                     json.dumps(item.recall_terms, ensure_ascii=False)),
                 )
         except sqlite3.IntegrityError:
             return None  # the same claim is already retained for this mission
@@ -943,7 +1002,9 @@ class DurableLearningMemory:
                 stale.append(item)
                 continue
             haystack = f"{row['topic']} {row['claim']} {row['source_ref']}".lower()
+            keys = " ".join(item.recall_terms)
             score = sum(1 for term in terms if term in haystack)
+            score += sum(1 for term in terms if term not in haystack and term in keys)
             if score <= 0:
                 continue
             scored.append((score + float(row["confidence"]), row))
@@ -993,9 +1054,27 @@ class DurableLearningMemory:
             row["source_digest"], row["evidence_quote"], VerificationState(row["verification_state"]),
             float(row["confidence"]), cls._json_tuple(row["scope_json"]), row["created_at"],
             Provenance.from_json(row["provenance_json"]),
+            cls._column(row, "source_language", ""),
+            cls._json_tuple(cls._column(row, "recall_terms_json", "[]")),
         )
 
     # ----------------------------------------------------------------- mapping
+    @staticmethod
+    def _column(row: sqlite3.Row, name: str, default: Any) -> Any:
+        """Read a column an older database may not have."""
+        return row[name] if name in row.keys() else default
+
+    @classmethod
+    def _recall_terms(cls, terms: Sequence[str]) -> tuple[str, ...]:
+        """Normalise retrieval keys. Bounded, deduplicated, and never long enough to be a quote."""
+        cleaned: list[str] = []
+        for term in terms or ():
+            value = " ".join(str(term or "").split()).lower()
+            if len(value) < 2 or len(value) > 60 or value in cleaned:
+                continue
+            cleaned.append(value)
+        return tuple(cleaned[:24])
+
     @staticmethod
     def _json_tuple(raw: Any) -> tuple[str, ...]:
         try:

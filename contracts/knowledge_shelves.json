@@ -1,0 +1,355 @@
+{
+  "manifest_version": 1,
+  "description": "Night School v1. Seven shelves of external reference material BRO may study. Every entry is a named document at a named address with a declared authority and scope; acquisition fetches exactly these and nothing they link to.",
+  "verified_on": "2026-09-03",
+  "shelves": [
+    {
+      "shelf": "mcp-protocol",
+      "title": "Model Context Protocol specification",
+      "publisher": "Model Context Protocol project",
+      "authority_class": "OFFICIAL_SPECIFICATION",
+      "source_scope": "the Model Context Protocol: its architecture, lifecycle, transports, authorization and server/client features",
+      "upstream_version": "2026-07-28",
+      "source_language": "en",
+      "language_variant": "NOT_APPLICABLE",
+      "license": "MIT (specification repository)",
+      "pinned_revision": "1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40",
+      "documents": [
+        {
+          "slug": "specification-index",
+          "title": "MCP specification 2026-07-28",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/index.mdx"
+        },
+        {
+          "slug": "changelog",
+          "title": "MCP 2026-07-28 changelog",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/changelog.mdx"
+        },
+        {
+          "slug": "schema",
+          "title": "MCP schema reference",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/schema.mdx"
+        },
+        {
+          "slug": "architecture",
+          "title": "MCP architecture",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/architecture/index.mdx"
+        },
+        {
+          "slug": "base-protocol",
+          "title": "MCP base protocol",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/basic/index.mdx"
+        },
+        {
+          "slug": "versioning",
+          "title": "MCP versioning",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/basic/versioning.mdx"
+        },
+        {
+          "slug": "server-overview",
+          "title": "MCP server features",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/server/index.mdx"
+        },
+        {
+          "slug": "server-tools",
+          "title": "MCP tools",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/server/tools.mdx"
+        },
+        {
+          "slug": "server-resources",
+          "title": "MCP resources",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/server/resources.mdx"
+        },
+        {
+          "slug": "server-prompts",
+          "title": "MCP prompts",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/server/prompts.mdx"
+        },
+        {
+          "slug": "client-sampling",
+          "title": "MCP sampling",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/client/sampling.mdx"
+        },
+        {
+          "slug": "client-roots",
+          "title": "MCP roots",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/client/roots.mdx"
+        },
+        {
+          "slug": "client-elicitation",
+          "title": "MCP elicitation",
+          "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/1dc2c7265c98c4fa23f44827b20ebe5fbe16fc40/docs/specification/2026-07-28/client/elicitation.mdx"
+        }
+      ]
+    },
+    {
+      "shelf": "claude-code",
+      "title": "Claude Code and Agent SDK documentation",
+      "publisher": "Anthropic",
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION",
+      "source_scope": "Claude Code: its agentic loop, configuration, hooks, skills, subagents, MCP wiring, headless use and the Agent SDK",
+      "upstream_version": "live documentation, acquired 2026-09-03",
+      "source_language": "en",
+      "language_variant": "NOT_APPLICABLE",
+      "license": "Anthropic documentation, referenced for study",
+      "documents": [
+        {
+          "slug": "overview",
+          "title": "Claude Code overview",
+          "url": "https://code.claude.com/docs/en/overview.md"
+        },
+        {
+          "slug": "how-claude-code-works",
+          "title": "How Claude Code works",
+          "url": "https://code.claude.com/docs/en/how-claude-code-works.md"
+        },
+        {
+          "slug": "features-overview",
+          "title": "Extend Claude Code",
+          "url": "https://code.claude.com/docs/en/features-overview.md"
+        },
+        {
+          "slug": "memory",
+          "title": "How Claude remembers your project",
+          "url": "https://code.claude.com/docs/en/memory.md"
+        },
+        {
+          "slug": "settings",
+          "title": "Claude Code settings",
+          "url": "https://code.claude.com/docs/en/settings.md"
+        },
+        {
+          "slug": "hooks",
+          "title": "Claude Code hooks",
+          "url": "https://code.claude.com/docs/en/hooks.md"
+        },
+        {
+          "slug": "skills",
+          "title": "Agent skills",
+          "url": "https://code.claude.com/docs/en/skills.md"
+        },
+        {
+          "slug": "sub-agents",
+          "title": "Subagents",
+          "url": "https://code.claude.com/docs/en/sub-agents.md"
+        },
+        {
+          "slug": "mcp",
+          "title": "Claude Code and MCP",
+          "url": "https://code.claude.com/docs/en/mcp.md"
+        },
+        {
+          "slug": "cli-reference",
+          "title": "CLI reference",
+          "url": "https://code.claude.com/docs/en/cli-reference.md"
+        },
+        {
+          "slug": "headless",
+          "title": "Headless and programmatic use",
+          "url": "https://code.claude.com/docs/en/headless.md"
+        },
+        {
+          "slug": "security",
+          "title": "Claude Code security",
+          "url": "https://code.claude.com/docs/en/security.md"
+        }
+      ]
+    },
+    {
+      "shelf": "github-platform",
+      "title": "GitHub platform documentation",
+      "publisher": "GitHub",
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION",
+      "source_scope": "the GitHub REST and GraphQL APIs, authentication, rate limits and GitHub Actions workflow syntax",
+      "upstream_version": "github/docs main, acquired 2026-09-03",
+      "source_language": "en",
+      "language_variant": "NOT_APPLICABLE",
+      "license": "CC BY 4.0 (github/docs content)",
+      "documents": [
+        {
+          "slug": "rest-quickstart",
+          "title": "REST API quickstart",
+          "url": "https://raw.githubusercontent.com/github/docs/main/content/rest/quickstart.md"
+        },
+        {
+          "slug": "rest-rate-limits",
+          "title": "Rate limits for the REST API",
+          "url": "https://raw.githubusercontent.com/github/docs/main/content/rest/using-the-rest-api/rate-limits-for-the-rest-api.md"
+        },
+        {
+          "slug": "rest-authentication",
+          "title": "Authenticating to the REST API",
+          "url": "https://raw.githubusercontent.com/github/docs/main/content/rest/authentication/authenticating-to-the-rest-api.md"
+        },
+        {
+          "slug": "rest-pagination",
+          "title": "Using pagination in the REST API",
+          "url": "https://raw.githubusercontent.com/github/docs/main/content/rest/using-the-rest-api/using-pagination-in-the-rest-api.md"
+        },
+        {
+          "slug": "graphql-forming-calls",
+          "title": "Forming calls with GraphQL",
+          "url": "https://raw.githubusercontent.com/github/docs/main/content/graphql/guides/forming-calls-with-graphql.md"
+        },
+        {
+          "slug": "actions-workflow-syntax",
+          "title": "Workflow syntax for GitHub Actions",
+          "url": "https://raw.githubusercontent.com/github/docs/main/content/actions/reference/workflows-and-actions/workflow-syntax.md"
+        },
+        {
+          "slug": "actions-security-hardening",
+          "title": "Security hardening for GitHub Actions",
+          "url": "https://raw.githubusercontent.com/github/docs/main/content/actions/reference/security/secure-use.md"
+        }
+      ]
+    },
+    {
+      "shelf": "nist-ai-rmf",
+      "title": "NIST AI Risk Management Framework",
+      "publisher": "National Institute of Standards and Technology (US)",
+      "authority_class": "OFFICIAL_GOVERNMENT_OR_ACADEMIC",
+      "source_scope": "AI risk management framing: the GOVERN/MAP/MEASURE/MANAGE functions and generative-AI risk profiles",
+      "upstream_version": "AI RMF 1.0 (NIST AI 100-1), acquired 2026-09-03",
+      "source_language": "en",
+      "language_variant": "NOT_APPLICABLE",
+      "license": "US Government work, public domain",
+      "documents": [
+        {
+          "slug": "ai-rmf-overview",
+          "title": "NIST AI Risk Management Framework",
+          "url": "https://www.nist.gov/itl/ai-risk-management-framework"
+        },
+        {
+          "slug": "ai-rmf-knowledge-base",
+          "title": "AI RMF knowledge base",
+          "url": "https://airc.nist.gov/AI_RMF_Knowledge_Base/AI_RMF"
+        },
+        {
+          "slug": "ai-rmf-playbook",
+          "title": "AI RMF playbook",
+          "url": "https://airc.nist.gov/AI_RMF_Knowledge_Base/Playbook"
+        }
+      ]
+    },
+    {
+      "shelf": "owasp-genai",
+      "title": "OWASP GenAI security guidance",
+      "publisher": "OWASP GenAI Security Project",
+      "authority_class": "OFFICIAL_SECURITY_GUIDANCE",
+      "source_scope": "security risks specific to LLM and generative-AI applications",
+      "upstream_version": "OWASP Top 10 for LLM Applications 2025",
+      "source_language": "en",
+      "language_variant": "NOT_APPLICABLE",
+      "license": "CC BY-SA 4.0 (OWASP)",
+      "documents": [
+        {
+          "slug": "llm-top-10",
+          "title": "OWASP Top 10 for LLM Applications",
+          "url": "https://genai.owasp.org/llm-top-10/",
+          "notes": "Acquired 2026-09-03. The page publishes identifiers LLM01:2025 through LLM10:2025; no 2026 release was reachable. Recorded as 2025 on the evidence, not on the brief."
+        },
+        {
+          "slug": "llm01-prompt-injection",
+          "title": "LLM01 Prompt Injection",
+          "url": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+          "notes": "The per-risk pages carry the year in their own addresses (llm022025-...), which is the third independent confirmation that 2025 is the current release."
+        },
+        {
+          "slug": "llm02-sensitive-information-disclosure",
+          "title": "LLM02:2025 Sensitive Information Disclosure",
+          "url": "https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/"
+        },
+        {
+          "slug": "llm03-supply-chain",
+          "title": "LLM03:2025 Supply Chain",
+          "url": "https://genai.owasp.org/llmrisk/llm032025-supply-chain/"
+        },
+        {
+          "slug": "llm04-data-and-model-poisoning",
+          "title": "LLM04:2025 Data and Model Poisoning",
+          "url": "https://genai.owasp.org/llmrisk/llm042025-data-and-model-poisoning/"
+        },
+        {
+          "slug": "llm05-improper-output-handling",
+          "title": "LLM05:2025 Improper Output Handling",
+          "url": "https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/"
+        },
+        {
+          "slug": "llm06-excessive-agency",
+          "title": "LLM06:2025 Excessive Agency",
+          "url": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/"
+        },
+        {
+          "slug": "llm07-system-prompt-leakage",
+          "title": "LLM07:2025 System Prompt Leakage",
+          "url": "https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/"
+        },
+        {
+          "slug": "llm08-vector-and-embedding-weaknesses",
+          "title": "LLM08:2025 Vector and Embedding Weaknesses",
+          "url": "https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/"
+        }
+      ]
+    },
+    {
+      "shelf": "ietf-rfc",
+      "title": "IETF standards-track references",
+      "publisher": "RFC Editor / IETF",
+      "authority_class": "NORMATIVE_STANDARD",
+      "source_scope": "each RFC is authoritative for the protocol it defines and for nothing else",
+      "upstream_version": "published RFCs, immutable",
+      "source_language": "en",
+      "language_variant": "NOT_APPLICABLE",
+      "license": "IETF Trust, BCP 78",
+      "documents": [
+        {
+          "slug": "rfc9110-http-semantics",
+          "title": "RFC 9110: HTTP Semantics",
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+          "upstream_version": "RFC 9110 (STD 97)"
+        },
+        {
+          "slug": "rfc9700-oauth-bcp",
+          "title": "RFC 9700: Best Current Practice for OAuth 2.0 Security",
+          "url": "https://www.rfc-editor.org/rfc/rfc9700.txt",
+          "upstream_version": "RFC 9700 (BCP 240)"
+        },
+        {
+          "slug": "rfc8259-json",
+          "title": "RFC 8259: The JavaScript Object Notation (JSON) Data Interchange Format",
+          "url": "https://www.rfc-editor.org/rfc/rfc8259.txt",
+          "upstream_version": "RFC 8259 (STD 90)"
+        }
+      ]
+    },
+    {
+      "shelf": "armenian-language",
+      "title": "Armenian language authorities",
+      "publisher": "RA Language Committee (MESCS) and the Institute of Language, NAS RA",
+      "authority_class": "OFFICIAL_GOVERNMENT_OR_ACADEMIC",
+      "source_scope": "Armenian language policy, the institutions that set it, and their published activity; NOT a grammar or orthography rulebook",
+      "upstream_version": "live sites, acquired 2026-09-03",
+      "source_language": "hy",
+      "language_variant": "EASTERN_ARMENIAN_NORMATIVE",
+      "license": "public institutional publications",
+      "documents": [
+        {
+          "slug": "lezvi-komite-gortsuneutyun",
+          "title": "Լեզվի կոմիտե — գործունեություն",
+          "url": "https://langcom.am/gortsuneutyun/"
+        },
+        {
+          "slug": "lezvi-komite-karucvacq",
+          "title": "Լեզվի կոմիտե — կառուցվածք",
+          "url": "https://langcom.am/karucvacq/",
+          "min_characters": 900
+        },
+        {
+          "slug": "lezvi-instituti-aknark",
+          "title": "Հ. Աճառյանի անվան լեզվի ինստիտուտ — համառոտ ակնարկ",
+          "url": "https://language.sci.am/hy/brief/hamarhot-aknark.html"
+        }
+      ]
+    }
+  ]
+}

@@ -29,6 +29,7 @@ from .learning_memory import (
     Provenance,
     SourceType,
     StudyStatus,
+    detect_language,
 )
 
 # A quote shorter than this proves nothing: "the" appears in every file.
@@ -456,6 +457,8 @@ class GovernedStudyRuntime:
                 source_type=document.source_type if kind is not KnowledgeKind.INFERENCE else SourceType.MODEL_INFERENCE,
                 source_digest=document.digest, evidence_quote=quote,
                 scope=context.binding_facts(), provenance=context.provenance(),
+                source_language=detect_language(document.text),
+                recall_terms=self._recall_terms(claim, text),
             )
             if stored is None:
                 continue
@@ -466,6 +469,26 @@ class GovernedStudyRuntime:
             else:
                 counts["unverified"] += 1
         return counts
+
+    @staticmethod
+    def _recall_terms(claim: Mapping[str, Any], text: str) -> tuple[str, ...]:
+        """Retrieval keys the model suggested, kept as keys and nothing more.
+
+        A question asked in Armenian must be able to reach a claim learned from an English
+        source, and the model is the only thing here that can name the same subject in another
+        language. That makes these guidance, so they are bounded and they carry no authority:
+        they never become the evidence quote, never raise a verification state, and a claim
+        with none of them is still retrievable in its own language."""
+        offered = claim.get("recall_terms") or ()
+        if isinstance(offered, str) or not isinstance(offered, Sequence):
+            return ()
+        keys: list[str] = []
+        for term in offered:
+            value = " ".join(str(term or "").split())
+            # A key long enough to pass for a quotation is not a key.
+            if 1 < len(value) <= 60 and value.lower() != text.strip().lower():
+                keys.append(value)
+        return tuple(keys[:8])
 
     def _mission_contradiction(self, mission_id: str, current_truth: Mapping[str, str]) -> str:
         record = self.memory.study_mission(mission_id)
@@ -528,6 +551,9 @@ class GovernedStudyRuntime:
             "source_type": item.source_type.value,
             "source_digest": item.source_digest,
             "evidence_quote": item.evidence_quote,
+            "evidence_language": item.evidence_language,
+            "source_language": item.source_language,
+            "evidence_note": "quoted verbatim in the source language; explain it in any language, but never present a translation as the evidence",
             "recorded_at": item.created_at,
             "provenance": item.provenance.as_dict(),
         }
