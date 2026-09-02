@@ -267,6 +267,29 @@ class StudyRuntimeTests(unittest.TestCase):
         self.assertTrue(recalled["knowledge"])
         self.assertEqual(recalled["knowledge"][0]["provenance"]["model_ref"], "vendor-a:model-1")
 
+    def test_a_redeploy_does_not_invalidate_everything_studied(self):
+        # On the host the study root resolves to /opt/bro/releases/<sha>, so binding on it
+        # would contradict every retained claim at the next deployment.
+        report = self.runtime().study("Study our deployment and governance",
+                                      context(root_ref="/opt/bro/releases/aaaa"))
+        self.assertTrue(self.memory.knowledge(report.mission_id))
+        recalled = self.runtime().recall("deployment installer revision",
+                                         context(root_ref="/opt/bro/releases/bbbb"))
+        self.assertTrue(recalled["knowledge"], "a new release must not contradict what was studied")
+        self.assertEqual(recalled["withheld_for_contradiction"], [])
+
+    def test_a_different_environment_still_withholds(self):
+        self.runtime().study("Study our deployment and governance", context())
+        recalled = self.runtime().recall("deployment installer revision",
+                                         StudyContext(environment="staging", root_ref="/study/root"))
+        self.assertEqual(recalled["knowledge"], [])
+        self.assertTrue(recalled["withheld_for_contradiction"])
+
+    def test_the_study_root_is_kept_as_provenance_not_as_a_binding_fact(self):
+        facts = context(root_ref="/opt/bro/releases/aaaa").binding_facts()
+        self.assertIn("binding:environment=production", facts)
+        self.assertFalse(any("study_root" in fact for fact in facts))
+
     def test_stale_knowledge_is_surfaced_not_offered(self):
         report = self.runtime().study("Study our deployment and governance", context())
         item = next(i for i in self.memory.knowledge(report.mission_id) if i.kind is KnowledgeKind.VERIFIED_KNOWLEDGE)
