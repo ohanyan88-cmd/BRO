@@ -163,11 +163,11 @@ def build_surface() -> ConversationalInteractionSurface:
         return model.route_interaction(request, history_payload(history))
 
     def responder(mode: InteractionMode, request: str, history):
-        enriched_history = history_payload(history)
-        context = lesson_context(request)
-        if context:
-            enriched_history.append({"role": "assistant", "content": context.strip()})
-        return model.conversational_response(mode.value, request, enriched_history)
+        # The durable record goes in the system position, not into the chat, so a prior
+        # conversational reply cannot outrank what BRO has actually written down.
+        return model.conversational_response(
+            mode.value, request, history_payload(history), record=lesson_context(request)
+        )
 
     def record_message(role: str, content: str, mode: str) -> None:
         memory.append_message(role, content, mode=mode)

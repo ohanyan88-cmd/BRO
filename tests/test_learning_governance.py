@@ -177,6 +177,37 @@ class ConversationalReusePromptTests(unittest.TestCase):
         self.assertIn("independent readback", prompt)
         self.assertIn("Do not turn ordinary discussion into an execution request", prompt)
 
+    def test_the_durable_record_is_supplied_above_the_chat(self):
+        model = self.model()
+        model.conversational_response(
+            "THINK", "do you have prior verified experience?",
+            [{"role": "assistant", "content": "I have no prior verified experience."}],
+            record='{"lessons": [{"skill_name": "github-issue-comment"}]}',
+        )
+        messages = self.sent[0]["messages"]
+        roles = [item["role"] for item in messages]
+        self.assertEqual(roles[0], "system")
+        self.assertEqual(roles[1], "system", "the record must be system content, not a chat turn")
+        self.assertIn("github-issue-comment", messages[1]["content"])
+        self.assertIn("outranks anything said earlier in this conversation", messages[1]["content"])
+        self.assertIn("including your own previous replies", messages[1]["content"])
+        self.assertLess(roles.index("assistant"), len(roles))
+        self.assertGreater(roles.index("assistant"), 1, "history follows the record, never precedes it")
+
+    def test_no_record_adds_no_second_system_message(self):
+        model = self.model()
+        model.conversational_response("TALK", "hello", [{"role": "user", "content": "hi"}])
+        roles = [item["role"] for item in self.sent[0]["messages"]]
+        self.assertEqual(roles.count("system"), 1)
+
+    def test_the_supplied_record_still_grants_nothing(self):
+        model = self.model()
+        model.conversational_response("THINK", "anything", [], record='{"lessons": []}')
+        record_message = self.sent[0]["messages"][1]["content"]
+        self.assertIn("grants", record_message)
+        self.assertIn("no authority", record_message)
+        self.assertIn("independent readback", record_message)
+
     def test_advisory_payload_the_cli_supplies_declares_its_own_limits(self):
         connection = sqlite3.connect(":memory:")
         self.addCleanup(connection.close)
