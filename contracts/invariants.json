@@ -330,6 +330,13 @@
       "enforcement": [
         "tests/test_inference_boundary.py"
       ]
+    },
+    {
+      "id": "INV-PROVIDER-004",
+      "statement": "The model backend's HOME is declared by configuration rather than inherited by accident, and a failed session lookup reports the effective HOME and whether a readable state directory was visible there, so a wrong-HOME process is not mistaken for an unauthenticated identity",
+      "enforcement": [
+        "tests/test_claude_code_cli_provider.py"
+      ]
     }
   ]
 }

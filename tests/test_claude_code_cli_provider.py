@@ -81,9 +81,94 @@ class ClaudeCodeCLIAdapterTests(unittest.TestCase):
         for forbidden in ("shell=True", "ANTHROPIC_API_KEY", "api_key", "apiKey",
                           "access_token", "auth_token", "session_token", "bearer",
                           ".credentials", "credentials.json", "keychain", "oauth",
-                          "os.environ[", "getenv", "--bare", "--allow-dangerously"):
+                          "--bare", "--allow-dangerously"):
             self.assertNotIn(forbidden, source, f"the adapter must not reference {forbidden}")
         self.assertIn("max_tokens", source, "the protocol field itself is expected")
+
+    def test_the_only_environment_variable_the_adapter_names_is_home(self):
+        # Stronger than a blocklist: whatever the adapter reads from or writes to the
+        # environment, HOME is the whole of it.
+        import re
+
+        source = MODULE.read_text(encoding="utf-8")
+        named = set(re.findall(r'environ(?:ment)?(?:\.get)?\(?\s*\["\']([A-Z_]+)["\']', source))
+        named |= set(re.findall(r'environ(?:ment)?\.get\(\s*["\']([A-Z_]+)["\']', source))
+        self.assertEqual(named, {"HOME"}, f"unexpected environment access: {named}")
+
+    def test_a_declared_home_is_forwarded_to_the_cli(self):
+        model = self.model([completed(envelope())], home="/var/lib/bro")
+        model.json_object(instruction="i", request="r")
+        self.assertEqual(model.effective_home(), "/var/lib/bro")
+
+    def test_no_declared_home_forwards_the_inherited_environment_untouched(self):
+        model = self.model([completed(envelope())])
+        self.assertIsNone(model._environment(), "an undeclared HOME must not rewrite the environment")
+
+    def test_the_declared_home_actually_reaches_the_child_process(self):
+        # The stub runner cannot prove this: run the real _run against a command that
+        # reports the HOME it was given.
+        import os
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as home:
+            model = ClaudeCodeCLIModel(ClaudeCodeCLIConfig(model="sonnet", home=home))
+            model.argv = lambda: [sys.executable, "-c", "import os;print(os.environ.get('HOME',''))"]
+            completed_run = model._run(model.argv(), "", 30)
+            self.assertEqual(completed_run.stdout.strip(), home)
+            self.assertEqual(completed_run.returncode, 0)
+
+    def test_without_a_declared_home_the_child_keeps_the_inherited_one(self):
+        import os
+        import sys
+
+        model = ClaudeCodeCLIModel(ClaudeCodeCLIConfig(model="sonnet"))
+        model.argv = lambda: [sys.executable, "-c", "import os;print(os.environ.get('HOME',''))"]
+        completed_run = model._run(model.argv(), "", 30)
+        self.assertEqual(completed_run.stdout.strip(), os.environ.get("HOME", ""))
+
+    def test_declaring_a_home_preserves_the_rest_of_the_environment(self):
+        import os
+
+        model = ClaudeCodeCLIModel(ClaudeCodeCLIConfig(model="sonnet", home="/var/lib/bro"))
+        environment = model._environment()
+        self.assertEqual(environment["HOME"], "/var/lib/bro")
+        for key in list(os.environ)[:5]:
+            if key != "HOME":
+                self.assertEqual(environment[key], os.environ[key],
+                                 "the environment is forwarded, not replaced")
+
+    def test_a_missing_session_reports_the_effective_home(self):
+        model = self.model([completed(envelope(result="Not logged in", is_error=True))],
+                           home="/definitely/not/here")
+        with self.assertRaises(InferenceRejected) as caught:
+            model.json_object(instruction="i", request="r")
+        message = str(caught.exception)
+        self.assertIn("found no usable session", message)
+        self.assertIn("effective HOME=/definitely/not/here", message)
+
+    def test_a_wrong_home_is_distinguished_from_an_unauthenticated_identity(self):
+        import tempfile
+        from pathlib import Path as _Path
+
+        with tempfile.TemporaryDirectory() as home:
+            _Path(home, ".claude").mkdir()
+            with_state = self.model([completed(envelope(result="Not logged in", is_error=True))], home=home)
+            with self.assertRaises(InferenceRejected) as caught:
+                with_state.json_object(instruction="i", request="r")
+            self.assertIn("most likely needs the official login", str(caught.exception))
+
+        without_state = self.model([completed(envelope(result="Not logged in", is_error=True))],
+                                   home="/definitely/not/here")
+        with self.assertRaises(InferenceRejected) as caught:
+            without_state.json_object(instruction="i", request="r")
+        self.assertIn("inherited the wrong HOME", str(caught.exception))
+
+    def test_an_absent_home_says_so_rather_than_guessing(self):
+        model = self.model([completed(envelope(result="Not logged in", is_error=True))])
+        model.effective_home = lambda: ""
+        with self.assertRaisesRegex(InferenceRejected, "nowhere to look for a session"):
+            model.json_object(instruction="i", request="r")
 
     def test_the_configuration_has_no_credential_field(self):
         fields = set(ClaudeCodeCLIConfig().__dataclass_fields__)

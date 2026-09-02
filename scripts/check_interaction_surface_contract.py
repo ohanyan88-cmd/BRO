@@ -34,6 +34,12 @@ REQUIREMENT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         ("src/bro_runtime/model_provider.py", "KNOWN_PROVIDERS"),
         (ENTRYPOINT, "build_configured_model"),
     ),
+    "model_session_lookup_is_diagnosable": (
+        ("src/bro_runtime/claude_code_cli.py", "def session_diagnosis"),
+        ("src/bro_runtime/claude_code_cli.py", "CLI_STATE_DIRECTORY"),
+        ("src/bro_runtime/claude_code_cli.py", "effective HOME="),
+        ("src/bro_runtime/model_provider.py", "BRO_MODEL_CLI_HOME"),
+    ),
     "model_backend_never_holds_credentials": (
         ("src/bro_runtime/claude_code_cli.py", "Deliberately no credential field of any kind"),
         ("src/bro_runtime/claude_code_cli.py", "--restricted"),

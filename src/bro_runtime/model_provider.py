@@ -51,4 +51,7 @@ def build_model(env: Mapping[str, str]) -> Any:
         executable=_value(env, "BRO_MODEL_CLI_PATH") or "claude",
         timeout_seconds=_float(env, "BRO_MODEL_TIMEOUT_SECONDS", 180.0),
         working_directory=_value(env, "BRO_MODEL_CLI_WORKDIR") or "/",
+        # Declared so production does not depend on whatever HOME an invocation happened
+        # to inherit: the CLI keeps its session under HOME, and sudo drops it by default.
+        home=_value(env, "BRO_MODEL_CLI_HOME"),
     ))
