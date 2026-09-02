@@ -1,0 +1,18 @@
+{
+  "name": "durable-learning-memory-readiness",
+  "repository_ready_when": [
+    "durable conversation history is persisted and restored",
+    "governed ACT outcomes are recorded",
+    "only externally evidenced success can update reusable lessons",
+    "repeated success can create a skill candidate",
+    "candidate promotion requires explicit prior approval",
+    "learning failure cannot rewrite successful action truth"
+  ],
+  "production_ready_when": [
+    "revision is deployed to the Debian production host",
+    "the production CLI can write/read the durable memory database",
+    "real successful ACT evidence produces a durable learning record",
+    "subsequent interaction reuses a relevant durable lesson"
+  ],
+  "current_claim": "repository implementation only; production deployment and live learning evidence are not yet claimed"
+}
