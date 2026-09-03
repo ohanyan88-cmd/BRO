@@ -25,7 +25,7 @@ SCRIPTS = "scripts"
 BRO_BEHAVIOUR = (
     "def json_object", "def interpret", "def select_specialist", "def route_interaction",
     "def conversational_response", "def study_plan", "def study_extract", "def _unfenced",
-    "def _with_retries", "def _wait_before",
+    "def _with_retries", "def _wait_before", "def complete", "def _require_unicode_scalars",
 )
 
 # Sentences that are BRO's voice. Exactly one file may contain each.
@@ -86,12 +86,28 @@ def validate(root: Path = ROOT) -> list[str]:
         if token in boundary:
             errors.append(f"{INFERENCE}: the boundary must stay transport-free ({token!r})")
 
+    # One transport boundary. Every prompt crosses complete(); nothing crosses _complete
+    # directly, or the Unicode-scalar check becomes a thing a caller can walk around.
+    for marker in ("def complete", "def _require_unicode_scalars", "def first_lone_surrogate",
+                   "lone UTF-16 surrogate",
+                   # defining the check is not running it
+                   "self._require_unicode_scalars(messages)"):
+        if marker not in boundary:
+            errors.append(f"{INFERENCE}: the transport boundary lost {marker!r}")
+    if boundary.count("self._complete(") != 1:
+        errors.append(
+            f"{INFERENCE}: _complete must be called from exactly one place, complete(); "
+            f"found {boundary.count('self._complete(')}"
+        )
+
     backend = _read(root, BACKEND)
     if backend is None:
         errors.append(f"missing the active backend: {BACKEND}")
     else:
         if "def _complete" not in backend:
             errors.append(f"{BACKEND}: a backend must implement _complete")
+        if "self._complete(" in backend:
+            errors.append(f"{BACKEND}: a backend must not call _complete itself")
         for method in BRO_BEHAVIOUR:
             if method in backend:
                 errors.append(f"{BACKEND}: a backend must not redefine BRO behaviour ({method})")
@@ -131,7 +147,8 @@ def main() -> int:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print("PASS: one inference boundary, one behaviour owner, one active backend")
+    print("PASS: one inference boundary, one behaviour owner, one active backend, "
+          "one Unicode-scalar transport check")
     return 0
 
 

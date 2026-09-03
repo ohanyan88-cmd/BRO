@@ -70,6 +70,36 @@ Automatic fallback between backends is **not** implemented. It remains the next 
 step, and it is deliberately separate: falling back mid-request has ambiguous semantics
 for an ACT whose interpretation and specialist selection would come from different models.
 
+### One Unicode-scalar boundary before transport
+
+A lone UTF-16 surrogate is not a character. It exists in a Python string only because
+something decoded bytes that were not valid UTF-8 — and Python decodes **argv, the
+environment and the standard streams with `surrogateescape`**, so a truncated paste or a
+terminal that is not sending UTF-8 produces one without anyone doing anything wrong.
+Handed to `subprocess.run(..., text=True)`, it raises `UnicodeEncodeError` **inside
+subprocess**, before the model call starts.
+
+Every prompt therefore crosses `BROInference.complete()`, which refuses a message carrying
+lone surrogates and names which one carried it — the role, the message index, the code
+point and the position — so a future occurrence is diagnosable rather than mysterious.
+A backend still implements only `_complete` and never calls it itself; the gate holds
+`_complete` to exactly one caller, because a second one is a way around the check.
+
+**It rejects rather than substituting `U+FFFD`.** BRO acts on the scope it was given, and
+quietly rewriting a character of a request is quietly changing what it was asked to do —
+the same reason materiality is owned by the runtime and never lowered downstream.
+`InferenceRejected` is already a reported, non-fatal boundary failure, so the person sees a
+sentence and no traceback. Every valid character passes through untouched: Armenian,
+Cyrillic and emoji are carried byte-for-byte.
+
+**Մեկ Unicode-ի սահման փոխադրումից առաջ։** Միայնակ UTF-16 surrogate-ը նիշ չէ. այն
+հայտնվում է միայն այն ժամանակ, երբ ինչ-որ բան ապակոդավորել է բայթեր, որոնք վավեր UTF-8 չեն
+— իսկ Python-ը argv-ն, միջավայրն ու ստանդարտ հոսքերը ապակոդավորում է `surrogateescape`-ով։
+`subprocess`-ին տալիս՝ սա տապալվում է հենց subprocess-ի ներսում, մոդելի կանչից առաջ։ Ամեն
+prompt անցնում է `BROInference.complete()`-ով, որը մերժում է ու անվանում, թե որ մասն էր
+կրում սխալը։ **Մերժում է, ոչ թե փոխարինում** — օգտվողի բառը լուռ վերաշարադրելը նշանակում է
+լուռ փոխել այն, ինչ խնդրված է։ Բոլոր վավեր նիշերն անցնում են անփոփոխ։
+
 ## Հայերեն
 
 ### Մեկ սահման, մեկ սեփականատեր, մեկ ակտիվ backend

@@ -17,6 +17,24 @@ import json
 from typing import Any, Callable, Mapping, Sequence
 
 
+SURROGATE_FIRST = 0xD800
+SURROGATE_LAST = 0xDFFF
+
+
+def first_lone_surrogate(text: str) -> int:
+    """Position of the first UTF-16 surrogate code point in the text, or -1.
+
+    A lone surrogate is not a character. It only exists in a Python string because
+    something decoded bytes that were not valid UTF-8 -- and Python decodes argv, the
+    environment and the standard streams with ``surrogateescape``, which is exactly how
+    a truncated paste or a terminal that is not sending UTF-8 becomes one of these.
+    """
+    for index, character in enumerate(text):
+        if SURROGATE_FIRST <= ord(character) <= SURROGATE_LAST:
+            return index
+    return -1
+
+
 class InferenceRejected(RuntimeError):
     pass
 
@@ -43,6 +61,43 @@ class BROInference:
     # ------------------------------------------------------------ backend contract
     def _complete(self, messages: list[dict[str, str]]) -> str:
         raise NotImplementedError("an inference backend must implement _complete")
+
+    # ------------------------------------------------------- the transport boundary
+    def complete(self, messages: list[dict[str, str]]) -> str:
+        """Every prompt crosses here on its way to a backend, and nothing crosses twice.
+
+        One canonical place, because the alternative is each backend checking its own
+        transport and one of them forgetting. A backend still implements only ``_complete``
+        and never calls it itself.
+        """
+        self._require_unicode_scalars(messages)
+        return self._complete(messages)
+
+    @staticmethod
+    def _require_unicode_scalars(messages: list[dict[str, str]]) -> None:
+        """Refuse a prompt carrying lone surrogates, and say which part carried them.
+
+        Rejecting rather than substituting U+FFFD is deliberate. BRO acts on the scope it
+        was given, and quietly rewriting a character of a request is quietly changing what
+        it was asked to do -- the same reason materiality is owned by the runtime and never
+        lowered by anything downstream. The caller reports InferenceRejected cleanly, so the
+        person sees a sentence rather than a traceback, and no model call is made.
+        """
+        for position, message in enumerate(messages):
+            for field in ("role", "content"):
+                value = str(message.get(field, ""))
+                index = first_lone_surrogate(value)
+                if index < 0:
+                    continue
+                role = str(message.get("role", "?"))
+                raise InferenceRejected(
+                    f"invalid Unicode in the {field} of message {position} (role {role!r}): "
+                    f"U+{ord(value[index]):04X} at position {index} is a lone UTF-16 surrogate, "
+                    "not a character. Nothing was sent to the model. Text reaches BRO through "
+                    "argv, the environment and the standard streams, all of which Python decodes "
+                    "with surrogateescape, so this is a byte sequence that was not valid UTF-8 -- "
+                    "usually a truncated paste or a terminal not sending UTF-8."
+                )
 
     # --------------------------------------------------------------- bounded retry
     def _wait_before(self, attempt: int, failure: TransientInferenceError) -> float:
@@ -99,7 +154,7 @@ class BROInference:
             raise InferenceRejected("instruction and request are required")
         prompt = instruction.strip() + "\n\nReturn exactly one JSON object and no markdown fences or commentary.\n\nUser request:\n" + request.strip()
         try:
-            parsed = json.loads(self._unfenced(self._complete([{"role": "user", "content": prompt}])))
+            parsed = json.loads(self._unfenced(self.complete([{"role": "user", "content": prompt}])))
         except json.JSONDecodeError as exc:
             raise InferenceRejected("model did not return valid JSON") from exc
         if not isinstance(parsed, dict):
@@ -205,4 +260,4 @@ class BROInference:
             if role in {"user", "assistant"} and content:
                 messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": f"Mode: {mode}\n{request.strip()}"})
-        return self._complete(messages)
+        return self.complete(messages)
