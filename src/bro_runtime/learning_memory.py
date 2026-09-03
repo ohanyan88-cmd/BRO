@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
@@ -23,6 +24,25 @@ from typing import Any, Mapping, Sequence
 ARMENIAN_RANGE = (0x0530, 0x058F)
 CYRILLIC_RANGE = (0x0400, 0x04FF)
 SUPPORTED_LANGUAGES = ("en", "hy", "ru")
+
+
+MIN_TERM_LENGTH = 3
+# A word boundary is not a space. Armenian glues its suffixes and punctuation straight onto
+# the word -- "OWASP-ից", "tools-ի", "մասին։" -- so splitting a question on whitespace hands
+# the retriever tokens that can never match anything. Measured on the live corpus: the
+# question "Ի՞նչ սովորեցիր OWASP-ից prompt injection-ի մասին" reached no OWASP document at
+# all, and returned an unrelated mission instead.
+_WORD = re.compile(r"[^\W_]+", re.UNICODE)
+
+
+def query_terms(text: str) -> set[str]:
+    """The searchable words in a question, in any supported language.
+
+    One owner for the rule, because two copies of a tokeniser drift and only one of them
+    gets fixed.
+    """
+    return {word for word in _WORD.findall(str(text or "").lower())
+            if len(word) >= MIN_TERM_LENGTH}
 
 
 def detect_language(text: str) -> str:
@@ -689,7 +709,7 @@ class DurableLearningMemory:
         contradiction could not be filed. Contradictions are returned to the caller,
         which decides whether to durably record them via ``record_contradictions``.
         """
-        terms = {term for term in self._text(request, "request").lower().split() if len(term) >= 3}
+        terms = query_terms(self._text(request, "request"))
         rows = self.connection.execute(
             "SELECT * FROM bro_learned_lessons WHERE status != ? ORDER BY confidence DESC, successes DESC, updated_at DESC LIMIT 200",
             (LessonStatus.RETIRED.value,),
@@ -982,7 +1002,7 @@ class DurableLearningMemory:
         current_digests: Mapping[str, str] | None = None, limit: int = 5,
     ) -> KnowledgeRetrieval:
         """Rank retained study knowledge. Current truth outranks it; this never writes."""
-        terms = {term for term in self._text(topic, "topic").lower().split() if len(term) >= 3}
+        terms = query_terms(self._text(topic, "topic"))
         rows = self.connection.execute(
             "SELECT * FROM bro_study_knowledge ORDER BY confidence DESC, created_at DESC LIMIT 500"
         ).fetchall()

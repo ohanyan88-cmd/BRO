@@ -163,6 +163,14 @@
       "tests": [
         "tests/test_knowledge_library.py"
       ]
+    },
+    {
+      "id": "LEARN-TOKENS-001",
+      "statement": "Query tokenisation has one owner and splits on word boundaries rather than whitespace, so a keyword carrying an Armenian case ending or trailing punctuation still searches.",
+      "tests": [
+        "tests/test_multilingual_learning.py",
+        "tests/test_learning_memory.py"
+      ]
     }
   ],
   "truth_boundary": [

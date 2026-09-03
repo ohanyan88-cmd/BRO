@@ -114,6 +114,14 @@ Armenian — **but the evidence stays the original English sentence, in English.
 translation is an explanation. It is never evidence, and a claim whose "quote" is a
 translation is not `VERIFIED`, because the quote is not in the source.
 
+A question is split on **word boundaries, not spaces**. Armenian glues its case endings
+and punctuation straight onto the word — `OWASP-ից`, `tools-ի`, `մասին։` — so splitting on
+whitespace hands the retriever tokens that can never match anything. Measured on the live
+corpus before the fix: *«Ի՞նչ սովորեցիր OWASP-ից prompt injection-ի մասին»* reached no OWASP
+document at all and returned an unrelated mission instead; after it, the same question
+returns `llm01-prompt-injection.md`. One tokeniser owns this for both lessons and knowledge,
+because two copies drift and only one of them gets fixed.
+
 Retrieval stays deterministic and read-only. No model call happens on the recall path, so
 recall still works on a read-only connection, and cross-language reach costs one extra term
 comparison — not a second knowledge store.
@@ -225,6 +233,12 @@ BRO-ն սովորում է անգլերեն, հայերեն ու ռուսերե�
 **բայց ապացույցը մնում է բնագիր անգլերեն նախադասությունը՝ անգլերեն**։ Թարգմանությունը
 բացատրություն է, ոչ ապացույց. claim, որի «մեջբերումը» թարգմանություն է, `VERIFIED` չի
 դառնում, որովհետև այդ մեջբերումը աղբյուրում չկա։
+
+Հարցը բաժանվում է **բառի սահմաններով, ոչ բացատներով**։ Հայերենը հոլովական վերջավորությունն
+ու կետադրությունը կպցնում է բառին — `OWASP-ից`, `tools-ի`, `մասին։` — ուրեմն բացատով
+բաժանելը retriever-ին տալիս է token-ներ, որոնք ոչնչի չեն կարող համընկնել։ Չափված է կենդանի
+corpus-ի վրա՝ մինչև ուղղումը «Ի՞նչ սովորեցիր OWASP-ից prompt injection-ի մասին» հարցը ոչ մի
+OWASP փաստաթղթի չէր հասնում, հետո՝ բերում է `llm01-prompt-injection.md`։
 
 Retrieval-ը մնում է դետերմինիստիկ ու միայն-կարդալ. recall-ի ուղում մոդելի կանչ չկա։
 

@@ -94,5 +94,38 @@ class DurableLearningMemoryTests(unittest.TestCase):
         self.assertEqual(lessons[0].successes, 2)
 
 
+
+class QueryTokenisationTests(unittest.TestCase):
+    """Lesson retrieval tokenises the same way knowledge retrieval does, from one owner."""
+
+    def setUp(self):
+        self.connection = sqlite3.connect(":memory:")
+        self.addCleanup(self.connection.close)
+        self.memory = DurableLearningMemory(self.connection)
+        learning = {
+            "pattern_key": "github:issue-comment",
+            "lesson": "Use the governed GitHub issue-comment provider and verify by independent readback.",
+            "skill_name": "github-issue-comment",
+            "trigger": "When a request needs a governed GitHub issue comment",
+            "procedure": ["interpret scope", "confirm material scope", "execute provider", "read back externally"],
+        }
+        for index in range(4):
+            self.memory.record_outcome(
+                request=f"comment on github issue {index}", success=True,
+                specialist_ref="specialist:github", evidence_ref=f"github-readback:{index}",
+                learning=learning,
+            )
+
+    def test_a_suffixed_keyword_still_reaches_the_lesson(self):
+        """A question glued to its case ending -- "github-ից" -- used to match nothing."""
+        self.assertTrue(self.memory.retrieve("Ի՞նչ սովորեցիր github-ից։").lessons)
+
+    def test_a_punctuated_keyword_still_reaches_the_lesson(self):
+        self.assertTrue(self.memory.retrieve("what did you learn about github?").lessons)
+
+    def test_an_unrelated_question_still_matches_nothing(self):
+        """Broader tokenisation must not turn retrieval into a firehose."""
+        self.assertEqual(self.memory.retrieve("որքա՞ն է եղանակի ջերմաստիճանը").lessons, ())
+
 if __name__ == "__main__":
     unittest.main()
