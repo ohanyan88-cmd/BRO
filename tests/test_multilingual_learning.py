@@ -16,6 +16,7 @@ from bro_runtime.learning_memory import (
     KnowledgeKind,
     VerificationState,
     detect_language,
+    query_terms,
 )
 from bro_runtime.study_runtime import (
     GovernedStudyRuntime,
@@ -215,6 +216,30 @@ class MultilingualLearningTests(unittest.TestCase):
         stored = self.all_items(memory)[0]
         self.assertEqual(stored.recall_terms, ("pkce",))
         self.assertNotIn(claim.lower(), stored.recall_terms)
+
+    # ------------------------------------------------- a word boundary is not a space
+    def test_a_suffixed_or_punctuated_keyword_still_searches(self):
+        """Armenian glues suffixes and punctuation onto the word; the retriever must not
+        be handed tokens like "OWASP-ից" that can never match anything."""
+        terms = query_terms("Ի՞նչ սովորեցիր OWASP-ից prompt injection-ի մասին։")
+        self.assertIn("owasp", terms)
+        self.assertIn("injection", terms)
+        self.assertIn("մասին", terms)
+        self.assertNotIn("owasp-ից", terms)
+        self.assertNotIn("մասին։", terms)
+        self.assertNotIn("ի", terms, "one-letter suffix fragments are not search terms")
+
+    def test_an_armenian_question_with_a_suffixed_keyword_reaches_the_claim(self):
+        """The live failure, isolated: the ONLY searchable signal here is a keyword glued
+        to its Armenian case ending, so nothing else can carry the match."""
+        item = self.pick("PKCE-ն պարտադի՞ր է։", "en")
+        self.assertIn("PKCE", item["claim"])
+        self.assertEqual(item["evidence_quote"], CLAIMS["en"]["evidence_quote"])
+        self.assertEqual(item["evidence_language"], "en")
+
+    def test_a_russian_question_with_punctuation_reaches_the_claim(self):
+        item = self.pick("Что обязаны серверы авторизации, PKCE?", "ru")
+        self.assertEqual(item["evidence_quote"], CLAIMS["ru"]["evidence_quote"])
 
     # ------------------------------------------------------------ persistence
     def test_source_language_and_cross_language_recall_survive_a_restart(self):

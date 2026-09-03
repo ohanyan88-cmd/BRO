@@ -115,6 +115,11 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         (MEMORY, "never long enough to be a quote"),
         (STUDY, "they never become the evidence quote"),
     ),
+    "LEARN-TOKENS-001": (
+        (MEMORY, "def query_terms"),
+        (MEMORY, "A word boundary is not a space"),
+        (MEMORY, "MIN_TERM_LENGTH"),
+    ),
     "LEARN-PERSIST-001": (
         (MEMORY, "_KNOWLEDGE_COLUMNS"),
         (MEMORY, "def _column"),
