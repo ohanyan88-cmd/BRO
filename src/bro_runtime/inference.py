@@ -205,11 +205,21 @@ class BROInference:
             request=f"Subject: {subject.strip()}",
         )
 
-    def study_plan(self, mission: str, available_sources: Sequence[str]) -> dict[str, Any]:
-        """Choose an ordered curriculum from sources that already exist."""
+    def study_plan(self, mission: str, available_sources: Sequence[str],
+                   coverage: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        """Choose an ordered curriculum from sources that already exist.
+
+        ``coverage`` is the bounded view of the long programme: what is covered, what is
+        partial, what has never been studied, and which sources may legitimately be read
+        again. It is guidance -- the runtime has already withheld the sources it does not
+        want re-read, so a plan cannot repeat covered material even if this is ignored.
+        """
         return self.json_object(
             instruction=(
                 "Plan a small BRO study curriculum. Required key: topics, an array of objects with keys "
+                "topic and source_ref. When durable curriculum state is supplied, choose topics that "
+                "advance domains it lists as unstudied or partially covered, and do not re-plan a "
+                "domain it lists as covered unless the state names a reason to revisit. "
                 "topic and source_ref. Every source_ref MUST be copied exactly from the supplied available "
                 "sources list; never invent a path. Order the topics so the most foundational source is first. "
                 "Return at most eight topics and no commentary."

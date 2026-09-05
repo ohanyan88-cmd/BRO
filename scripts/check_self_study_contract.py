@@ -18,11 +18,40 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = "contracts/self_study.json"
 STUDY = "src/bro_runtime/study_runtime.py"
 MEMORY = "src/bro_runtime/learning_memory.py"
+CURRICULUM = "src/bro_runtime/curriculum.py"
 CONVERSATION = "src/bro_runtime/conversation.py"
 INFERENCE = "src/bro_runtime/inference.py"
 SURFACE = "scripts/bro_interact.py"
 
 INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
+    "STUDY-CURRICULUM-STATE-001": (
+        (CURRICULUM, "class MasterCurriculum"),
+        (CURRICULUM, "def master_complete"),
+        (STUDY, "master_complete=bool("),
+        (STUDY, "master_curriculum"),
+    ),
+    "STUDY-COVERAGE-EVIDENCE-001": (
+        (CURRICULUM, "min_distinct_keywords"),
+        (CURRICULUM, "def _sufficient_sources"),
+        (CURRICULUM, "def _stale_sources"),
+        (CURRICULUM, "class DomainState"),
+    ),
+    "STUDY-ANTI-REPETITION-001": (
+        (STUDY, "def _offer"),
+        (STUDY, "def _record_revisits"),
+        (STUDY, "def _revisit_reasons"),
+        (MEMORY, "def record_revisit"),
+        (CURRICULUM, "class RevisitReason"),
+    ),
+    "STUDY-PLANNING-CONTEXT-001": (
+        (CURRICULUM, "class PlanningContext"),
+        (CURRICULUM, "PLANNING_SOURCE_LIMIT"),
+        (STUDY, "def _planning_context"),
+    ),
+    "STUDY-ACQUISITION-OUTCOME-001": (
+        (MEMORY, "def record_acquisition_outcome"),
+        (MEMORY, "def acquisition_outcomes"),
+    ),
     "STUDY-TARGETING-001": (
         (STUDY, "def derive_hints"),
         (STUDY, "def ordered_sources"),
@@ -181,6 +210,16 @@ def validate(root: Path = ROOT) -> list[str]:
         for phrase in ("model-weight training", "self-modifying code", "authority"):
             if phrase not in joined:
                 errors.append(f"truth boundary must explicitly disclaim {phrase}")
+
+    # Coverage is derived from the one memory. A writer here would make it a second store
+    # that drifts from the knowledge it claims to summarise.
+    curriculum_source = _read(root, CURRICULUM)
+    if curriculum_source is None:
+        errors.append(f"missing the curriculum runtime: {CURRICULUM}")
+    else:
+        for token in ("INSERT INTO", "UPDATE ", "DELETE ", "CREATE TABLE", "commit()"):
+            if token in curriculum_source:
+                errors.append(f"{CURRICULUM}: coverage is derived, never stored ({token!r})")
 
     study_source = _read(root, STUDY)
     if study_source is None:

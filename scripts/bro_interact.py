@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from bro_runtime.conversation import ConversationalInteractionSurface, InteractionMode
+from bro_runtime.curriculum import CurriculumRejected, MasterCurriculum
 from bro_runtime.inference import InferenceRejected
 from bro_runtime.model_provider import build_model as build_configured_model
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
@@ -29,6 +30,7 @@ from bro_runtime.knowledge_library import GovernedKnowledgeLibrary, KnowledgeLib
 from bro_runtime.source_policy import SourcePolicy, SourcePolicyRejected
 from bro_runtime.study_acquisition import (
     AcquisitionRejected,
+    AcquisitionResult,
     GovernedStudyAcquisition,
     LinkFrontier,
 )
@@ -82,8 +84,30 @@ def acquisition_enabled() -> bool:
     return os.environ.get("BRO_STUDY_ACQUISITION", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def master_curriculum_path() -> str:
+    return os.environ.get("BRO_MASTER_CURRICULUM",
+                          str(ROOT / "contracts" / "master_curriculum.json")).strip()
+
+
+def load_master_curriculum():
+    """The long programme, or None. Without it a mission is bounded and has no memory of
+    territory, which is exactly how it behaved before."""
+    try:
+        return MasterCurriculum.load(master_curriculum_path())
+    except CurriculumRejected as exc:
+        print(f"BRO master curriculum unavailable: {exc}", file=sys.stderr)
+        return None
+
+
 def source_policy_path() -> str:
     return os.environ.get("BRO_SOURCE_POLICY", str(ROOT / "contracts" / "source_policy.json")).strip()
+
+
+def study_refresh_requested(request: str) -> bool:
+    """An operator asking for a refresh is the one case where covered ground is re-read."""
+    lowered = str(request or "").lower()
+    return any(phrase in lowered for phrase in
+               ("refresh mission", "explicit refresh", "re-study", "restudy", "study again"))
 
 
 def acquisition_budget() -> int:
@@ -149,11 +173,14 @@ def build_surface() -> ConversationalInteractionSurface:
             }
         runtime = GovernedStudyRuntime(
             memory, reader,
-            planner=lambda mission, sources: model.study_plan(mission, sources),
+            planner=lambda mission, sources, coverage=None: model.study_plan(
+                mission, sources, coverage),
             extractor=lambda topic, text: model.study_extract(topic, text),
             item_budget=study_item_budget(),
             diminishing_after=study_diminishing_after(),
             acquirer=build_acquirer(model, memory),
+            curriculum=load_master_curriculum(),
+            refresh=study_refresh_requested(request),
         )
         return runtime.study(request, study_context()).as_dict()
 
@@ -274,7 +301,11 @@ def build_surface() -> ConversationalInteractionSurface:
         acquisition = GovernedStudyAcquisition(policy, library, study_root())
         frontier_budget = acquisition_budget()
 
-        def acquire(subject: str, hints) -> tuple[str, ...]:
+        def acquire(subject: str, hints, record=None) -> tuple[str, ...]:
+            def note(url: str, host: str, outcome, detail: str = "") -> None:
+                if record is not None:
+                    record(url, host, getattr(outcome, "value", str(outcome)), detail)
+
             frontier = LinkFrontier(policy, mission_budget=frontier_budget)
             proposed: list[str] = []
             try:
@@ -285,15 +316,23 @@ def build_surface() -> ConversationalInteractionSurface:
             except (InferenceRejected, AttributeError, TypeError):
                 proposed = []
             candidates = list(acquisition.propose(proposed, topic=subject))
+            if not candidates:
+                note("", "", AcquisitionResult.NOT_PROPOSED,
+                     "the model proposed no source the policy could classify")
             admitted: list[str] = []
             depth_one: list[tuple[str, tuple[str, ...], Mapping[str, str]]] = []
             for candidate in candidates:
                 if len(admitted) >= frontier_budget or not frontier.admit(candidate.url):
+                    note(candidate.url, candidate.host, AcquisitionResult.BUDGET_EXHAUSTED,
+                         "the mission's acquisition budget was already spent")
                     continue
                 try:
                     outcome = acquisition.acquire(candidate)
-                except (AcquisitionRejected, KnowledgeLibraryRejected):
+                except (AcquisitionRejected, KnowledgeLibraryRejected) as exc:
+                    note(candidate.url, candidate.host, AcquisitionResult.ACQUISITION_FAILED,
+                         str(exc)[:200])
                     continue
+                note(candidate.url, candidate.host, outcome.result, outcome.reason[:200])
                 if outcome.admitted:
                     admitted.append(outcome.local_path)
                     depth_one.append((candidate.url, outcome.links, outcome.link_texts))
@@ -308,8 +347,11 @@ def build_surface() -> ConversationalInteractionSurface:
                                                       discovered_from=source_url):
                         try:
                             outcome = acquisition.acquire(follow)
-                        except (AcquisitionRejected, KnowledgeLibraryRejected):
+                        except (AcquisitionRejected, KnowledgeLibraryRejected) as exc:
+                            note(follow.url, follow.host, AcquisitionResult.ACQUISITION_FAILED,
+                                 str(exc)[:200])
                             continue
+                        note(follow.url, follow.host, outcome.result, outcome.reason[:200])
                         if outcome.admitted:
                             admitted.append(outcome.local_path)
             return tuple(admitted)

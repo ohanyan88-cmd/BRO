@@ -1,0 +1,665 @@
+{
+  "curriculum": "bro.master-engineering-and-ai-curriculum.v1",
+  "purpose": "The long-lived study programme. A mission's CURRICULUM_COMPLETE means one bounded plan finished; this file is what says whether the programme is finished, and it answers from evidence rather than from a mission having mentioned a subject.",
+  "coverage_rule": {
+    "source_sufficiently_studied": {
+      "min_verified_rows": 3,
+      "statement": "A source counts as studied when it produced at least this many VERIFIED rows. Fewer than that is a document that was opened, not one that was learned from."
+    },
+    "domain_states": [
+      "COVERED",
+      "PARTIAL",
+      "UNSTUDIED"
+    ],
+    "default_min_verified_rows": 12,
+    "default_min_sources": 2,
+    "statement": "A domain is COVERED only when enough distinct sufficiently-studied sources carry enough verified rows about it. One document, one mission or a pile of rows from a single source is PARTIAL, never COVERED.",
+    "min_distinct_keywords": 2,
+    "keyword_rule": "A row counts toward a domain only when it matches at least min_distinct_keywords of that domain's phrases. One keyword is not evidence: ordinary technical English -- model, layer, state, component -- appears in every document, and matching on one made 27 of 32 domains look covered by BRO's own architecture notes."
+  },
+  "revisit_reasons": [
+    "CONTRADICTION",
+    "STALE_SOURCE",
+    "MISSING_VERIFICATION",
+    "DEPENDENCY_DEPTH",
+    "INSUFFICIENT_COVERAGE",
+    "EXPLICIT_REFRESH"
+  ],
+  "domains": [
+    {
+      "domain": "software-engineering-fundamentals",
+      "title": "Software engineering fundamentals",
+      "depends_on": [],
+      "keywords": [
+        "software engineering",
+        "code review",
+        "maintainability",
+        "technical debt",
+        "refactoring",
+        "cohesion",
+        "coupling",
+        "modularity",
+        "naming convention",
+        "separation of concerns"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "software-architecture",
+      "title": "Software architecture and design",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "keywords": [
+        "software architecture",
+        "architectural",
+        "design pattern",
+        "layered architecture",
+        "architectural decision",
+        "system decomposition",
+        "bounded context",
+        "hexagonal",
+        "microservice architecture"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "computer-systems",
+      "title": "Computer systems and operating systems",
+      "depends_on": [],
+      "keywords": [
+        "operating system",
+        "virtual memory",
+        "system call",
+        "scheduler",
+        "process isolation",
+        "page table",
+        "context switch",
+        "interrupt handler",
+        "kernel space",
+        "user space"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "linux-systems",
+      "title": "Linux systems engineering",
+      "depends_on": [
+        "computer-systems"
+      ],
+      "keywords": [
+        "linux",
+        "systemd",
+        "cgroup",
+        "namespace isolation",
+        "file descriptor",
+        "unix permission",
+        "posix",
+        "daemon process",
+        "unit file",
+        "signal handling"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "networking",
+      "title": "Networking and Internet protocols",
+      "depends_on": [],
+      "keywords": [
+        "http",
+        "tcp",
+        "dns",
+        "tls",
+        "uri",
+        "protocol semantics",
+        "request header",
+        "response status",
+        "transport layer",
+        "internet protocol"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "databases-storage",
+      "title": "Databases and storage",
+      "depends_on": [],
+      "keywords": [
+        "database",
+        "sql",
+        "query planner",
+        "btree",
+        "write-ahead",
+        "index scan",
+        "relational",
+        "storage engine",
+        "schema migration",
+        "durability"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "transactions-consistency",
+      "title": "Transactions, concurrency and consistency",
+      "depends_on": [
+        "databases-storage"
+      ],
+      "keywords": [
+        "transaction",
+        "isolation level",
+        "serializable",
+        "concurrency control",
+        "read committed",
+        "snapshot isolation",
+        "atomicity",
+        "phantom read",
+        "deadlock",
+        "rollback"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "distributed-systems",
+      "title": "Distributed systems",
+      "depends_on": [
+        "networking",
+        "transactions-consistency"
+      ],
+      "keywords": [
+        "distributed system",
+        "consensus",
+        "replication",
+        "network partition",
+        "quorum",
+        "eventual consistency",
+        "leader election",
+        "clock skew",
+        "split brain",
+        "raft"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "reliability-sre",
+      "title": "Reliability engineering and SRE",
+      "depends_on": [
+        "distributed-systems"
+      ],
+      "keywords": [
+        "site reliability",
+        "error budget",
+        "service level objective",
+        "availability target",
+        "toil",
+        "capacity planning",
+        "graceful degradation",
+        "blast radius",
+        "failure domain"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "observability-incident",
+      "title": "Observability and incident response",
+      "depends_on": [
+        "reliability-sre"
+      ],
+      "keywords": [
+        "observability",
+        "structured logging",
+        "distributed trace",
+        "metric cardinality",
+        "alerting",
+        "incident response",
+        "postmortem",
+        "telemetry",
+        "on-call",
+        "root cause analysis"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "security-engineering",
+      "title": "Security engineering",
+      "depends_on": [],
+      "keywords": [
+        "threat model",
+        "least privilege",
+        "defense in depth",
+        "attack surface",
+        "security control",
+        "cryptographic",
+        "hardening",
+        "privilege escalation",
+        "trust boundary",
+        "zero trust"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "secure-development",
+      "title": "Secure software development",
+      "depends_on": [
+        "security-engineering",
+        "software-engineering-fundamentals"
+      ],
+      "keywords": [
+        "secure software development",
+        "ssdf",
+        "software supply chain",
+        "vulnerability disclosure",
+        "dependency confusion",
+        "sbom",
+        "code signing",
+        "secure coding practice",
+        "provenance attestation"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "identity-authorization",
+      "title": "Identity, authentication and authorization",
+      "depends_on": [
+        "security-engineering"
+      ],
+      "keywords": [
+        "oauth",
+        "authentication",
+        "authorization",
+        "access token",
+        "refresh token",
+        "pkce",
+        "openid",
+        "credential",
+        "identity provider",
+        "bearer token"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "web-application-security",
+      "title": "Web and application security",
+      "depends_on": [
+        "security-engineering",
+        "networking"
+      ],
+      "keywords": [
+        "prompt injection",
+        "cross-site scripting",
+        "injection attack",
+        "output handling",
+        "untrusted input",
+        "owasp",
+        "excessive agency",
+        "system prompt leakage",
+        "sensitive information disclosure"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "containers-deployment",
+      "title": "Containers and deployment systems",
+      "depends_on": [
+        "linux-systems"
+      ],
+      "keywords": [
+        "container image",
+        "kubernetes",
+        "pod",
+        "docker",
+        "container runtime",
+        "orchestration",
+        "deployment manifest",
+        "container registry",
+        "rolling update",
+        "sidecar"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "delivery-cicd",
+      "title": "Git, CI/CD and software delivery",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "keywords": [
+        "git",
+        "continuous integration",
+        "pull request",
+        "merge commit",
+        "build pipeline",
+        "release artifact",
+        "semantic version",
+        "branch protection",
+        "workflow syntax"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "python-engineering",
+      "title": "Python engineering",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "keywords": [
+        "python",
+        "asyncio",
+        "cpython",
+        "standard library module",
+        "virtual environment",
+        "package index",
+        "type hint",
+        "context manager",
+        "generator function"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "rust-engineering",
+      "title": "Rust engineering",
+      "depends_on": [
+        "software-engineering-fundamentals",
+        "computer-systems"
+      ],
+      "keywords": [
+        "rust language",
+        "ownership rule",
+        "borrow checker",
+        "lifetime annotation",
+        "cargo",
+        "crate",
+        "trait bound",
+        "unsafe block",
+        "pattern matching"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "web-frontend",
+      "title": "Web/frontend engineering",
+      "depends_on": [
+        "networking"
+      ],
+      "keywords": [
+        "react",
+        "typescript",
+        "document object model",
+        "browser rendering",
+        "javascript bundle",
+        "css",
+        "frontend component",
+        "client-side state",
+        "hydration"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "desktop-application",
+      "title": "Desktop application engineering",
+      "depends_on": [
+        "web-frontend"
+      ],
+      "keywords": [
+        "tauri",
+        "desktop application",
+        "native window",
+        "webview",
+        "application packaging",
+        "installer bundle",
+        "inter-process communication"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "ml-foundations",
+      "title": "AI and machine-learning foundations",
+      "depends_on": [],
+      "keywords": [
+        "machine learning",
+        "training data",
+        "supervised learning",
+        "overfitting",
+        "generalization",
+        "feature engineering",
+        "model evaluation",
+        "loss function",
+        "validation set"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "neural-networks",
+      "title": "Neural networks and modern ML",
+      "depends_on": [
+        "ml-foundations"
+      ],
+      "keywords": [
+        "neural network",
+        "backpropagation",
+        "gradient descent",
+        "transformer architecture",
+        "self-attention",
+        "embedding vector",
+        "activation function",
+        "hidden layer",
+        "weight matrix"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "llm-architecture",
+      "title": "LLM architecture and operation",
+      "depends_on": [
+        "neural-networks"
+      ],
+      "keywords": [
+        "large language model",
+        "context window",
+        "tokenization",
+        "sampling temperature",
+        "fine-tuning",
+        "decoding strategy",
+        "instruction tuning",
+        "autoregressive",
+        "perplexity"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "retrieval-knowledge",
+      "title": "Retrieval and knowledge systems",
+      "depends_on": [
+        "llm-architecture",
+        "databases-storage"
+      ],
+      "keywords": [
+        "retrieval augmented",
+        "vector database",
+        "semantic search",
+        "embedding index",
+        "reranking",
+        "chunking strategy",
+        "knowledge base retrieval",
+        "nearest neighbour"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "agentic-systems",
+      "title": "Tool-using and agentic AI systems",
+      "depends_on": [
+        "llm-architecture"
+      ],
+      "keywords": [
+        "model context protocol",
+        "tool use",
+        "function calling",
+        "agent loop",
+        "mcp server",
+        "mcp client",
+        "tool invocation",
+        "elicitation",
+        "sampling request"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "agent-evaluation",
+      "title": "Agent evaluation and reliability",
+      "depends_on": [
+        "agentic-systems"
+      ],
+      "keywords": [
+        "agent evaluation",
+        "benchmark suite",
+        "evaluation harness",
+        "regression suite",
+        "reproducibility",
+        "failure analysis",
+        "eval score",
+        "task success rate"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "ai-safety-governance",
+      "title": "AI safety, governance and risk management",
+      "depends_on": [
+        "ml-foundations"
+      ],
+      "keywords": [
+        "ai risk management",
+        "trustworthy ai",
+        "govern function",
+        "map function",
+        "measure function",
+        "manage function",
+        "impact assessment",
+        "ai governance",
+        "socio-technical"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "automation-integration",
+      "title": "Automation and integration architecture",
+      "depends_on": [
+        "software-architecture",
+        "networking"
+      ],
+      "keywords": [
+        "rest api",
+        "webhook",
+        "rate limit",
+        "pagination",
+        "idempotency key",
+        "api integration",
+        "connector adapter",
+        "retry policy",
+        "backoff"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "testing-verification",
+      "title": "Testing, verification and evidence",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "keywords": [
+        "unit test",
+        "mutation testing",
+        "test coverage",
+        "regression test",
+        "assertion",
+        "test fixture",
+        "verification evidence",
+        "property-based"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "research-methodology",
+      "title": "Research and source-verification methodology",
+      "depends_on": [],
+      "keywords": [
+        "primary source",
+        "normative requirement",
+        "standards body",
+        "corroboration",
+        "citation",
+        "authoritative source",
+        "superseded specification",
+        "best current practice"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "product-maintainability",
+      "title": "Product engineering and maintainability",
+      "depends_on": [
+        "software-architecture"
+      ],
+      "keywords": [
+        "deprecation policy",
+        "backward compatibility",
+        "migration guide",
+        "product lifecycle",
+        "documentation standard",
+        "breaking change",
+        "support window"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    },
+    {
+      "domain": "production-operations",
+      "title": "Production system design and operations",
+      "depends_on": [
+        "reliability-sre",
+        "containers-deployment"
+      ],
+      "keywords": [
+        "production deployment",
+        "rollback procedure",
+        "runbook",
+        "health check",
+        "configuration management",
+        "secret management",
+        "operational readiness",
+        "blue-green"
+      ],
+      "min_verified_rows": 12,
+      "min_sources": 2
+    }
+  ]
+}
