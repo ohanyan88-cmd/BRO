@@ -15,9 +15,9 @@ from pathlib import Path
 from bro_runtime.curriculum import (
     CurriculumRejected,
     DomainState,
-    MasterCurriculum,
     RevisitReason,
 )
+from bro_runtime.curriculum_manifest import CurriculumManifest, normalise_url
 from bro_runtime.learning_memory import (
     DurableLearningMemory,
     KnowledgeKind,
@@ -31,22 +31,59 @@ from bro_runtime.study_runtime import (
     StudyStop,
 )
 
+ISOLATION_URL = "https://www.sqlite.org/isolation.html"
+CONSENSUS_URL = "https://pdos.csail.mit.edu/6.824/papers/raft-extended.pdf"
+RUST_URL = "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html"
+
 CURRICULUM = {
-    "curriculum": "test.v1",
-    "coverage_rule": {"source_sufficiently_studied": {"min_verified_rows": 2},
-                      "min_distinct_keywords": 2},
+    "manifest": "test.v1",
+    "evidence_rule": {"default_min_verified_rows": 2, "default_min_sources": 1},
     "domains": [
-        {"domain": "transactions", "title": "Transactions", "depends_on": [],
-         "keywords": ["transaction", "isolation level", "serializable"],
-         "min_verified_rows": 4, "min_sources": 1},
-        {"domain": "rust", "title": "Rust engineering", "depends_on": [],
-         "keywords": ["rust language", "borrow checker", "ownership rule"],
-         "min_verified_rows": 4, "min_sources": 1},
-        {"domain": "distributed", "title": "Distributed systems", "depends_on": ["transactions"],
-         "keywords": ["consensus", "quorum", "network partition"],
-         "min_verified_rows": 4, "min_sources": 1},
+        {"domain": "transactions", "title": "Transactions", "depends_on": [], "requirements": [
+            {"requirement": "tx.isolation", "competency": "Isolation levels",
+             "basis": "publisher-structure", "min_verified_rows": 2, "min_sources": 1,
+             "sources": [{"url": ISOLATION_URL, "family": "sqlite",
+                          "publisher": "SQLite project", "authority_tier": "A"}]}]},
+        {"domain": "rust", "title": "Rust engineering", "depends_on": [], "requirements": [
+            {"requirement": "rs.ownership", "competency": "Ownership and borrowing",
+             "basis": "publisher-structure", "min_verified_rows": 2, "min_sources": 1,
+             "sources": [{"url": RUST_URL, "family": "rust", "publisher": "Rust project",
+                          "authority_tier": "A"}]}]},
+        {"domain": "distributed", "title": "Distributed systems",
+         "depends_on": ["transactions"], "requirements": [
+            {"requirement": "dist.consensus", "competency": "Replication and consensus",
+             "basis": "publisher-structure", "min_verified_rows": 2, "min_sources": 1,
+             "sources": [{"url": CONSENSUS_URL, "family": "mit",
+                          "publisher": "Massachusetts Institute of Technology",
+                          "authority_tier": "B"}]}]},
     ],
 }
+
+# The corpus documents these tests seed are the local form of those declared documents.
+CORPUS_INDEX = {
+    normalise_url(ISOLATION_URL): {"isolation.md"},
+    normalise_url(CONSENSUS_URL): {"consensus.md"},
+    normalise_url(RUST_URL): {"ownership.md"},
+}
+
+
+class IndexedManifest(CurriculumManifest):
+    """The manifest with the test corpus's url-to-path join wired in.
+
+    Production reads that join from the knowledge registry, which these tests do not populate
+    because what they are about is the runtime's behaviour, not the registry's schema. The
+    registry path has its own test in test_curriculum_manifest.py.
+    """
+
+    def coverage(self, memory, *, index=None, current_digests=None):
+        return super().coverage(memory, index=index or CORPUS_INDEX,
+                                current_digests=current_digests)
+
+    def planning_context(self, memory, *, index=None, current_digests=None,
+                         revisit_allowed=None):
+        return super().planning_context(memory, index=index or CORPUS_INDEX,
+                                        current_digests=current_digests,
+                                        revisit_allowed=revisit_allowed)
 
 ISOLATION = """# Isolation
 A transaction running at the serializable isolation level behaves as if it ran alone.
@@ -70,7 +107,7 @@ class Base(unittest.TestCase):
         self.addCleanup(self.connection.close)
         self.memory = DurableLearningMemory(self.connection)
         self.reader = StudySourceReader(self.root)
-        self.curriculum = MasterCurriculum(CURRICULUM)
+        self.curriculum = IndexedManifest(CURRICULUM)
         self.planned_with: list[dict] = []
 
     def context(self):
@@ -132,9 +169,9 @@ class CoverageTests(Base):
         coverage = {item.domain: item for item in self.curriculum.coverage(self.memory)}
         self.assertIs(coverage["rust"].state, DomainState.UNSTUDIED)
 
-    def test_one_document_does_not_cover_a_domain(self):
+    def test_evidence_below_the_threshold_leaves_a_domain_partial(self):
         """Coverage is evidence-based: rows existing is not the same as a domain being learned."""
-        self.seed("isolation.md", "transaction isolation level", rows=2)
+        self.seed("isolation.md", "transaction isolation level", rows=1)
         coverage = {item.domain: item for item in self.curriculum.coverage(self.memory)}
         self.assertIs(coverage["transactions"].state, DomainState.PARTIAL)
 
@@ -143,9 +180,11 @@ class CoverageTests(Base):
         coverage = {item.domain: item for item in self.curriculum.coverage(self.memory)}
         self.assertIs(coverage["transactions"].state, DomainState.COVERED)
 
-    def test_a_single_keyword_is_not_evidence(self):
-        """Ordinary technical English appears everywhere; one word covered 27 of 32 domains."""
-        self.seed("isolation.md", "transaction", rows=9)
+    def test_a_source_the_curriculum_never_declared_is_not_evidence(self):
+        """What replaced the keyword rule. Ordinary technical English appears in every
+        document, and matching on it covered 27 of 32 domains from BRO's own notes; the
+        answer is not a better word list but not reading the words at all."""
+        self.seed("consensus.md", "transaction isolation level serializable", rows=9)
         coverage = {item.domain: item for item in self.curriculum.coverage(self.memory)}
         self.assertIs(coverage["transactions"].state, DomainState.UNSTUDIED)
 
@@ -155,7 +194,7 @@ class CoverageTests(Base):
         fresh = self.curriculum.coverage(self.memory,
                                          current_digests={"isolation.md": "new" + "0" * 61})
         self.assertIs({item.domain: item for item in fresh}["transactions"].state,
-                      DomainState.PARTIAL)
+                      DomainState.UNSTUDIED)
 
     def test_dependencies_are_reported_as_unmet(self):
         coverage = {item.domain: item for item in self.curriculum.coverage(self.memory)}
@@ -165,7 +204,7 @@ class CoverageTests(Base):
         broken = dict(CURRICULUM)
         broken["domains"] = [dict(CURRICULUM["domains"][0], depends_on=["nowhere"])]
         with self.assertRaises(CurriculumRejected):
-            MasterCurriculum(broken)
+            CurriculumManifest(broken)
 
 
 class PlanningContextTests(Base):
@@ -185,7 +224,7 @@ class PlanningContextTests(Base):
         context = self.curriculum.planning_context(self.memory)
         rendered = json.dumps(context.as_dict())
         self.assertLess(len(rendered), 8000, "the planning context must stay small")
-        self.assertLessEqual(len(context.as_dict()["already_studied_sources"]), 40)
+        self.assertLessEqual(len(context.as_dict()["next_uncovered_domains"]), 10)
 
     def test_a_sufficiently_studied_source_is_withheld_from_planning(self):
         self.seed("isolation.md", "transaction isolation level serializable", rows=5)
@@ -204,11 +243,19 @@ class PlanningContextTests(Base):
         self.runtime(curriculum=self.curriculum).study("learn", self.context())
         self.assertIn("isolation.md", self.planned_with[-1]["sources"])
 
-    def test_everything_covered_still_leaves_a_mission_something_to_read(self):
+    def test_an_exhausted_corpus_stops_the_mission_rather_than_being_read_again(self):
+        """This asserted the opposite until the curriculum manifest landed.
+
+        Handing every already-studied source back kept missions running and kept them
+        producing reports, and what they were doing was reading the same shelf again. A
+        corpus with nothing new in it is a fact about the corpus; the answer is the declared
+        canonical document, not a second pass.
+        """
         self.seed("isolation.md", "transaction isolation level serializable", rows=5)
         self.seed("consensus.md", "consensus quorum network partition", rows=5)
         report = self.runtime(curriculum=self.curriculum).study("learn", self.context()).as_dict()
-        self.assertNotEqual(report["stop_reason"], StudyStop.SCOPE_EXHAUSTED.value)
+        self.assertEqual(report["stop_reason"], StudyStop.SCOPE_EXHAUSTED.value)
+        self.assertEqual(report["curriculum"]["studied"], 0)
 
 
 class RevisitTests(Base):
@@ -431,158 +478,21 @@ class GapRoundExclusionTests(Base):
 class ExhaustedCorpusReportTests(Base):
     """When everything is studied, say that -- not that everything was withheld."""
 
-    def test_an_exhausted_corpus_is_reported_as_exhausted_not_as_withholding(self):
-        """Live acceptance printed "withheld 72" while handing all 72 back."""
+    def test_an_exhausted_corpus_is_reported_as_exhausted_and_nothing_is_offered_back(self):
+        """Live acceptance printed "withheld 72" while handing all 72 back.
+
+        Both halves of that were wrong and only one was fixed at the time. The count is now
+        the real count, and the sources are genuinely withheld.
+        """
         self.seed("isolation.md", "transaction isolation level serializable", 5)
         self.seed("consensus.md", "consensus quorum network partition", 5)
         report = self.runtime(curriculum=self.curriculum).study("continue", self.context()).as_dict()
-        self.assertEqual(report["repetition"]["withheld_sufficiently_studied_sources"], 0)
-        self.assertTrue(any("already sufficiently studied" in note and "offered back" in note
-                            for note in report["notes"]))
-        self.assertFalse(any("withheld" in note for note in report["notes"]))
+        self.assertEqual(report["repetition"]["withheld_sufficiently_studied_sources"], 2)
+        self.assertTrue(any("none was offered again" in note for note in report["notes"]))
+        self.assertEqual(report["stop_reason"], StudyStop.SCOPE_EXHAUSTED.value)
 
     def test_a_partly_studied_corpus_still_reports_a_real_withholding(self):
         self.seed("isolation.md", "transaction isolation level serializable", 5)
         report = self.runtime(curriculum=self.curriculum).study("continue", self.context()).as_dict()
         self.assertEqual(report["repetition"]["withheld_sufficiently_studied_sources"], 1)
         self.assertTrue(any("withheld 1" in note for note in report["notes"]))
-
-
-class CoverageVocabularyTests(unittest.TestCase):
-    """The signal model has been wrong in both directions, so it is tested in both.
-
-    First it demanded phrases nobody writes -- "ownership rule", "borrow checker" -- while
-    the Rust Book says "ownership" and "borrowing", and thirty verified rows counted as one.
-    Before that it accepted a single generic word and reported 27 of 32 domains covered.
-    Realistic terminology plus two independent signals is the line between the two.
-    """
-
-    REAL = Path(__file__).resolve().parents[1] / "contracts" / "master_curriculum.json"
-
-    def setUp(self):
-        self.connection = sqlite3.connect(":memory:")
-        self.addCleanup(self.connection.close)
-        self.memory = DurableLearningMemory(self.connection)
-        self.curriculum = MasterCurriculum.load(self.REAL)
-
-    def learn(self, source_ref: str, claims, topic="study"):
-        mission = self.memory.open_study_mission(mission=topic, scope=(), item_budget=20)
-        item = self.memory.add_curriculum_item(mission.mission_id, topic=topic,
-                                               source_ref=source_ref, sequence=0)
-        for index, claim in enumerate(claims):
-            self.memory.record_knowledge(
-                mission_id=mission.mission_id, item_id=item.item_id, topic=topic, claim=claim,
-                kind=KnowledgeKind.VERIFIED_KNOWLEDGE, source_ref=source_ref,
-                source_type=SourceType.REPOSITORY_FILE, source_digest="d" * 64,
-                evidence_quote=claim, provenance=Provenance(source_revision="a" * 40))
-
-    def state(self, domain):
-        return {item.domain: item for item in self.curriculum.coverage(self.memory)}[domain].state
-
-    # ------------------------------------------------------- realistic terminology counts
-    def test_rust_terminology_as_upstream_writes_it_counts(self):
-        rust = ["Ownership is Rust's central feature and the borrow checker enforces it.",
-                "A reference borrows a value without taking ownership of it.",
-                "Every reference in Rust has a lifetime, the scope for which it is valid.",
-                "Cargo is the Rust build system and package manager for a crate.",
-                "The Rustonomicon documents unsafe Rust and its invariants.",
-                "A trait defines shared behaviour that a Rust type can implement."]
-        for index in range(3):
-            self.learn(f"acquired-rust/book-{index}.md", rust)
-        self.assertIs(self.state("rust-engineering"), DomainState.COVERED)
-
-    def test_python_terminology_as_upstream_writes_it_counts(self):
-        python = ["The Python data model defines how objects respond to the interpreter.",
-                  "asyncio provides a coroutine-based concurrency model for Python.",
-                  "A context manager defines runtime setup and teardown for a block.",
-                  "The typing module supports gradual typing in CPython.",
-                  "A generator is a function that yields values lazily.",
-                  "An exception propagates until a handler in some enclosing module catches it."]
-        for index in range(3):
-            self.learn(f"acquired-python/doc-{index}.md", python)
-        self.assertIs(self.state("python-engineering"), DomainState.COVERED)
-
-    # ------------------------------------------------------------------- and does not leak
-    def test_unrelated_knowledge_does_not_cover_rust_or_python(self):
-        unrelated = ["Zero trust assumes no implicit trust is granted to any asset.",
-                     "The authorization server must use exact string matching for redirect URIs.",
-                     "A quorum is the smallest set of nodes that must agree.",
-                     "Prompt injection alters model behaviour through untrusted input."]
-        for index in range(6):
-            self.learn(f"acquired-nist/doc-{index}.md", unrelated)
-        self.assertIs(self.state("rust-engineering"), DomainState.UNSTUDIED)
-        self.assertIs(self.state("python-engineering"), DomainState.UNSTUDIED)
-
-    def test_one_signal_is_never_enough_however_often_it_appears(self):
-        """The over-counting failure: a single generic word covering a domain."""
-        for index in range(8):
-            self.learn(f"src/module{index}.py",
-                       ["The container of this value is opaque."] * 6)
-        self.assertIs(self.state("containers-deployment"), DomainState.UNSTUDIED)
-
-    def test_a_word_cannot_satisfy_two_signals_by_containing_one(self):
-        """"evaluation" satisfied both "evaluation" and "eval", and that pair was the whole
-        evidence that made agent-evaluation look covered by BRO's own authority notes."""
-        for index in range(8):
-            self.learn(f"docs/authority{index}.md",
-                       ["No implicit allow outcome exists for authority evaluation."] * 6)
-        self.assertIs(self.state("agent-evaluation"), DomainState.UNSTUDIED)
-
-    def test_generic_engineering_words_do_not_cover_many_domains_at_once(self):
-        generic = ["The system component handles the request and returns a response.",
-                   "This module defines the interface used by the layer above it.",
-                   "State is managed by the runtime and reported to the caller."]
-        for index in range(10):
-            self.learn(f"src/generic{index}.py", generic)
-        covered = [item.domain for item in self.curriculum.coverage(self.memory)
-                   if item.state is DomainState.COVERED]
-        self.assertEqual(covered, [], f"generic prose covered {covered}")
-
-    # ---------------------------------------------------------------- the model is complete
-    def test_every_master_domain_has_a_calibrated_signal_set(self):
-        document = json.loads(self.REAL.read_text(encoding="utf-8"))
-        self.assertEqual(len(document["domains"]), 32)
-        for entry in document["domains"]:
-            signals = entry["keywords"]
-            self.assertGreaterEqual(len(signals), 8, entry["domain"])
-            self.assertEqual(len(signals), len(set(signals)), entry["domain"])
-            for signal in signals:
-                self.assertEqual(signal, signal.lower().strip(), entry["domain"])
-                self.assertGreaterEqual(len(signal), 3, f"{entry['domain']}: {signal!r}")
-
-    def test_no_domain_relies_on_a_pair_of_words_sharing_a_root(self):
-        """architecture plus architectural is one word twice, not two signals."""
-        document = json.loads(self.REAL.read_text(encoding="utf-8"))
-        for entry in document["domains"]:
-            signals = [s.lower() for s in entry["keywords"]]
-            for first in signals:
-                for second in signals:
-                    if first != second and len(first) > 5 and second.startswith(first[:-1]):
-                        self.assertNotEqual(
-                            first.rstrip("e"), second[:len(first) - 1].rstrip("e"),
-                            f"{entry['domain']}: {first!r} and {second!r} share a root")
-
-    def test_coverage_survives_a_restart(self):
-        rust = ["Ownership is Rust's central feature and the borrow checker enforces it.",
-                "Cargo is the Rust build system and package manager for a crate.",
-                "The Rustonomicon documents unsafe Rust and its invariants."]
-        for index in range(3):
-            self.learn(f"acquired-rust/book-{index}.md", rust)
-        before = self.state("rust-engineering")
-        rows = self.connection.execute("SELECT COUNT(*) FROM bro_study_knowledge").fetchone()[0]
-        reopened = DurableLearningMemory(self.connection)
-        after = {item.domain: item.state
-                 for item in self.curriculum.coverage(reopened)}["rust-engineering"]
-        self.assertIs(before, after)
-        self.assertEqual(rows, self.connection.execute(
-            "SELECT COUNT(*) FROM bro_study_knowledge").fetchone()[0])
-
-    def test_the_independent_signal_rule_is_tested_where_it_still_fires(self):
-        """The calibrated vocabulary contains no substring pair, so the contract can no
-        longer exercise this rule -- deleting it left every other test green. It is kept as
-        the defence for the next vocabulary edit, and so it is tested directly."""
-        row = {"topic": "authority", "claim": "No implicit allow exists for authority evaluation.",
-               "source_ref": "docs/authority.md"}
-        self.assertFalse(MasterCurriculum._matches(row, {"eval", "evaluation"}, 2),
-                         "one word satisfied two signals by containing one of them")
-        self.assertTrue(MasterCurriculum._matches(row, {"authority", "evaluation"}, 2))

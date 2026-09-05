@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from bro_runtime.conversation import ConversationalInteractionSurface, InteractionMode
-from bro_runtime.curriculum import CurriculumRejected, MasterCurriculum
+from bro_runtime.curriculum import CurriculumRejected
+from bro_runtime.curriculum_manifest import CurriculumManifest
 from bro_runtime.inference import InferenceRejected
 from bro_runtime.model_provider import build_model as build_configured_model
 from bro_runtime.final_delivery import IntelligentInteractionRuntime
@@ -85,17 +86,22 @@ def acquisition_enabled() -> bool:
 
 
 def master_curriculum_path() -> str:
-    return os.environ.get("BRO_MASTER_CURRICULUM",
-                          str(ROOT / "contracts" / "master_curriculum.json")).strip()
+    return os.environ.get("BRO_CURRICULUM_MANIFEST",
+                          str(ROOT / "contracts" / "curriculum_manifest.json")).strip()
 
 
 def load_master_curriculum():
     """The long programme, or None. Without it a mission is bounded and has no memory of
-    territory, which is exactly how it behaved before."""
+    territory, which is exactly how it behaved before.
+
+    This is the curriculum manifest: where each domain is studied and what evidence settles
+    a requirement. It replaced a keyword model whose authoritative answer to "has BRO
+    learned this" was decided by which strings someone guessed into a contract.
+    """
     try:
-        return MasterCurriculum.load(master_curriculum_path())
+        return CurriculumManifest.load(master_curriculum_path())
     except CurriculumRejected as exc:
-        print(f"BRO master curriculum unavailable: {exc}", file=sys.stderr)
+        print(f"BRO curriculum manifest unavailable: {exc}", file=sys.stderr)
         return None
 
 
@@ -306,13 +312,22 @@ def build_surface() -> ConversationalInteractionSurface:
         acquisition = GovernedStudyAcquisition(policy, library, study_root())
         frontier_budget = acquisition_budget()
 
-        def acquire(subject: str, hints, record=None) -> tuple[str, ...]:
+        def acquire(subject: str, hints, record=None, entry_points=()) -> tuple[str, ...]:
+            """Fetch what the curriculum declares first, and only then ask the model.
+
+            Every acquired document in the corpus carries ``discovered_from: model-proposed``,
+            because until now the question "where is this studied" was answered by whichever
+            urls a model produced and the policy happened to admit. The policy checks the
+            host; it has never checked that the url is the right document. A declared entry
+            point is that missing half, and it goes first.
+            """
             def note(url: str, host: str, outcome, detail: str = "") -> None:
                 if record is not None:
                     record(url, host, getattr(outcome, "value", str(outcome)), detail)
 
             frontier = LinkFrontier(policy, mission_budget=frontier_budget)
-            proposed: list[str] = []
+            proposed: list[str] = [str(url) for url in (entry_points or ())]
+            declared = set(proposed)
             try:
                 answer = model.propose_sources(subject)
                 for entry in answer.get("sources", []) or []:
@@ -323,7 +338,11 @@ def build_surface() -> ConversationalInteractionSurface:
             candidates = list(acquisition.propose(proposed, topic=subject))
             if not candidates:
                 note("", "", AcquisitionResult.NOT_PROPOSED,
-                     "the model proposed no source the policy could classify")
+                     "neither the curriculum manifest nor the model named a source the "
+                     "policy could classify")
+            # A declared document is what the curriculum says this domain is studied from,
+            # so it is fetched before anything a model suggested for the same mission.
+            candidates.sort(key=lambda candidate: candidate.url not in declared)
             admitted: list[str] = []
             depth_one: list[tuple[str, tuple[str, ...], Mapping[str, str]]] = []
             for candidate in candidates:
@@ -494,6 +513,17 @@ def _dispatch(surface: ConversationalInteractionSurface, request: str) -> None:
                   f"{': ' + ', '.join(targeting['hints'][:8]) if targeting['hints'] else ''}")
         if curriculum["remaining"]:
             print(f"  remaining  : {', '.join(curriculum['remaining'])}")
+        master = report.get("master_curriculum", {})
+        selected = master.get("selected") or {}
+        if selected:
+            print(f"  requirement: {selected['domain']} / {selected['requirement']}"
+                  f" -- {selected['competency']}")
+            if selected.get("entry_point"):
+                print(f"  entry point: {selected['entry_point']}")
+        if master.get("source_gaps"):
+            for gap in master["source_gaps"][:6]:
+                print(f"  SOURCE_GAP : {gap['domain']} / {gap['requirement']}"
+                      f" needs {gap['source_gap']['needed_publisher']}")
         if report["uncertain_topics"]:
             print(f"  uncertain  : {', '.join(report['uncertain_topics'])}")
         for note in report["notes"]:

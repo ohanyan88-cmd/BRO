@@ -35,19 +35,32 @@ nothing.
 
 `CURRICULUM_COMPLETE` means **one bounded plan finished**. It has never meant the long study
 programme finished, and the two were easy to confuse because nothing held the second answer.
-`contracts/master_curriculum.json` holds it now — 32 domains with dependencies — and
-`MasterCurriculum` answers *how far through* by **deriving** coverage from the one durable
-memory rather than keeping a table beside it. A coverage table maintained next to the
-knowledge it summarises drifts from it, and then two things claim to know the same fact.
+`contracts/curriculum_manifest.json` holds it now — 32 domains, 97 requirements, and for
+each requirement the canonical documents it is studied from — and `CurriculumManifest`
+answers *how far through* by **deriving** coverage from the one durable memory rather than
+keeping a table beside it. A coverage table maintained next to the knowledge it summarises
+drifts from it, and then two things claim to know the same fact.
 
-**Coverage is evidence-based.** A domain is `COVERED` only when enough distinct
-sufficiently-studied sources carry enough verified rows matching **at least two** of its
-distinct keywords. One keyword is not evidence: ordinary technical English — *model*,
-*layer*, *state*, *component* — appears in every document, and matching on one made **27 of
-32 domains look covered** by BRO's own architecture notes, Rust included, which it has never
-studied. With two, the same store reads 3 covered, 9 partial, 20 unstudied — which matches
-what was independently observed. A source whose bytes changed since it was studied stops
-counting.
+**Coverage is settled by where evidence came from, not by what it says.** A requirement is
+satisfied when enough VERIFIED rows have been retained from the documents the manifest
+declares for it; a domain is `COVERED` when every requirement it has a source path for is
+satisfied. Reading one canonical document well does not cover a domain, and an unrelated
+source cannot advance one at all.
+
+This replaced a keyword rule that was authoritative here and was wrong twice in opposite
+directions. Matching a single ordinary word reported **27 of 32** domains covered on BRO's
+own architecture notes, including Rust, which had never been opened. Narrowed to specific
+phrases, it then scored **thirty verified rows from seven Rust sources as one row from one
+source**, stranding the domain in `PARTIAL` while every source that could have advanced it
+was already withheld as sufficiently studied. A keyword set is a guess about how a document
+will phrase itself, and a guess cannot be the record of what a system has learned.
+
+**A requirement whose publisher no admitted family claims is a `SOURCE_GAP`** — reported by
+publisher and host, never satisfied, never given an invented source, never resolved by BRO
+admitting the publisher itself, and never quietly dropped from the curriculum. Six of the 97
+requirements are gaps today: the Linux kernel and man-pages projects, Google SRE,
+OpenTelemetry, and Anthropic's documentation, which now redirects to a host the policy does
+not admit.
 
 **Repetition is prevented by the runtime, not by the prompt.** Sufficiently studied sources
 are *withheld* from planning. The planner is also shown a bounded view of the programme —
@@ -71,14 +84,21 @@ exactly what could not be done when one continuation acquired zero sources.
 
 `CURRICULUM_COMPLETE`-ը նշանակում է **մեկ սահմանափակ պլան ավարտվեց**։ Երբեք չի նշանակել, որ
 երկար ուսուցման ծրագիրն ավարտվեց, ու երկուսը շփոթելը հեշտ էր, որովհետև երկրորդ պատասխանը ոչ
-մի տեղ չէր պահվում։ Հիմա պահվում է `contracts/master_curriculum.json`-ում՝ 32 դոմեյն
-կախվածություններով, ու ծածկույթը **բխեցվում** է մեկ հիշողությունից, ոչ թե պահվում կողքին։
+մի տեղ չէր պահվում։ Հիմա պահվում է `contracts/curriculum_manifest.json`-ում՝ 32 դոմեյն, 97 պահանջ, ու ամեն
+պահանջի համար այն կանոնական փաստաթղթերը, որոնցից այն ուսումնասիրվում է։
 
-**Ծածկույթը ապացույցի վրա է։** Դոմեյնը `COVERED` է միայն այն դեպքում, երբ բավական տարբեր,
-իրապես ուսումնասիրված աղբյուրներ կրում են բավական verified տող, որոնք համընկնում են դոմեյնի
-**առնվազն երկու** տարբեր բանալու հետ։ Մեկ բանալին ապացույց չէ. սովորական տեխնիկական
-անգլերենը կա ամեն փաստաթղթում, ու մեկով համընկնելը **32 դոմեյնից 27-ը** ցույց էր տալիս
-ծածկված՝ BRO-ի սեփական ճարտարապետության գրառումներով։
+**Ծածկույթը որոշվում է նրանով, թե ապացույցը որտեղից է եկել, ոչ թե ինչ է ասում։** Պահանջը
+բավարարված է, երբ manifest-ի հայտարարած փաստաթղթերից բավական verified տող է պահվել. դոմեյնը
+`COVERED` է, երբ իր բոլոր պահանջները, որոնք աղբյուրի ուղի ունեն, բավարարված են։
+
+Սա փոխարինեց բանալիների կանոնին, որը երկու անգամ սխալ էր՝ հակառակ ուղղություններով։ Մեկ
+սովորական բառով համընկնելը **32-ից 27 դոմեյն** ցույց էր տալիս ծածկված՝ BRO-ի սեփական
+նշումներով։ Նեղացնելուց հետո՝ **յոթ Rust աղբյուրից երեսուն verified տողը** հաշվում էր
+որպես մեկ։
+
+**Պահանջը, որի հրատարակչին ոչ մի թույլատրված ընտանիք չի հավակնում, `SOURCE_GAP` է** — նշվում
+է անունով, երբեք չի բավարարվում, երբեք հորինված աղբյուր չի ստանում, ու երբեք լուռ չի հանվում
+ծրագրից։ Այսօր 97-ից վեցն են այդպիսին։
 
 **Կրկնությունը կանխում է runtime-ը, ոչ prompt-ը։** Բավարար ուսումնասիրված աղբյուրները
 **հանվում են** պլանավորումից։ Վերադարձը լինում է միայն **անվանված պատճառով**, ու ամեն

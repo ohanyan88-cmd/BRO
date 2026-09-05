@@ -51,7 +51,7 @@ BRO uses:
 | `BRO_STUDY_ACQUISITION` | unset (off) | whether STUDY may reach the Internet at all; unset means it cannot |
 | `BRO_SOURCE_POLICY` | release `contracts/source_policy.json` | the governed allowlist of host families and tiers |
 | `BRO_STUDY_ACQUISITION_BUDGET` | `8` | pages one mission may acquire |
-| `BRO_MASTER_CURRICULUM` | release `contracts/master_curriculum.json` | the long programme and its coverage rules |
+| `BRO_CURRICULUM_MANIFEST` | release `contracts/curriculum_manifest.json` | the long programme: each domain's requirements, the canonical documents each is studied from, and the evidence that satisfies it |
 | `BRO_STUDY_REFRESH` | unset (off) | permits re-reading sufficiently covered material; an operator setting, never mission prose |
 
 Both limits are at least one, and a malformed value falls back to the default instead of

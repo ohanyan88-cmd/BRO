@@ -188,6 +188,11 @@ class StudyReport:
     master_covered: tuple[str, ...] = ()
     master_partial: tuple[str, ...] = ()
     master_remaining: tuple[str, ...] = ()
+    # Which requirement the curriculum put in front, and every requirement whose publisher
+    # no admitted family claims. A gap that is only known inside the derivation is a gap
+    # nobody can act on.
+    master_selected: Mapping[str, Any] | None = None
+    master_source_gaps: tuple[Mapping[str, Any], ...] = ()
     revisited: tuple[str, ...] = ()
     withheld_sources: int = 0
 
@@ -222,6 +227,8 @@ class StudyReport:
                 "covered": list(self.master_covered),
                 "partial": list(self.master_partial),
                 "remaining": list(self.master_remaining),
+                "selected": dict(self.master_selected) if self.master_selected else None,
+                "source_gaps": [dict(gap) for gap in self.master_source_gaps],
             },
             "repetition": {
                 "revisited": list(self.revisited),
@@ -320,10 +327,16 @@ class GovernedStudyRuntime:
         except (TypeError, ValueError):
             self._planner_takes_coverage = False
         try:
-            self._acquirer_takes_recorder = self.acquirer is not None and len(
-                inspect.signature(self.acquirer).parameters) >= 3
+            arity = len(inspect.signature(self.acquirer).parameters) if self.acquirer else 0
+            self._acquirer_takes_recorder = self.acquirer is not None and arity >= 3
+            # A fourth parameter is where the declared canonical entry points go. An
+            # acquirer without one still works and still acquires; it simply has to find
+            # its own way to a document, which is what every acquisition did before the
+            # manifest existed and is exactly the guessing the manifest replaces.
+            self._acquirer_takes_entry_points = self.acquirer is not None and arity >= 4
         except (TypeError, ValueError):
             self._acquirer_takes_recorder = False
+            self._acquirer_takes_entry_points = False
         self.last_planner_error = ""
         self.last_hints: tuple[str, ...] = ()
         self.last_targeted: tuple[str, ...] = ()
@@ -395,7 +408,8 @@ class GovernedStudyRuntime:
         # precisely the case a mission needs to go looking, and checking first would make
         # the bootstrap impossible: nothing new could ever be the first thing studied.
         acquired = self._acquire(mission, resolved_hints, notes, rounds_used=0,
-                                 mission_id=record.mission_id)
+                                 mission_id=record.mission_id,
+                                 entry_points=self._entry_points())
         if acquired:
             available, targeted = self.ordered_sources(resolved_hints)
             # A source acquired for this mission is targeted at it by construction: the
@@ -430,8 +444,13 @@ class GovernedStudyRuntime:
             notes.append(f"curriculum planning failed, fell back to discovered sources: {self.last_planner_error}")
         if not planned:
             self.memory.set_study_status(record.mission_id, StudyStatus.BLOCKED, stop_reason=StudyStop.SCOPE_EXHAUSTED.value)
+            # The accumulated notes carry why there was nothing to plan -- the corpus was
+            # exhausted, the sources were withheld, acquisition brought nothing back. This
+            # returned only the last sentence, so a mission that stopped for a good reason
+            # reported no reason at all.
             return self._report(record.mission_id, mission, StudyStatus.BLOCKED, StudyStop.SCOPE_EXHAUSTED,
-                                notes=("the study planner produced no curriculum item inside the declared scope",))
+                                notes=("the study planner produced no curriculum item inside the declared scope",)
+                                      + tuple(notes))
 
         self.memory.set_study_status(record.mission_id, StudyStatus.IN_PROGRESS)
         items = [
@@ -515,6 +534,19 @@ class GovernedStudyRuntime:
         self.last_planning_context = context
         return context
 
+    def _entry_points(self) -> tuple[str, ...]:
+        """The canonical documents the manifest declares for the domain now in front.
+
+        A curriculum that cannot answer this is not an error here: acquisition still runs,
+        it simply runs without a declared target, which is what it did before there was one.
+        """
+        if self.curriculum is None or not hasattr(self.curriculum, "entry_points"):
+            return ()
+        try:
+            return tuple(self.curriculum.entry_points(self.memory))
+        except Exception:
+            return ()
+
     def _revisit_reasons(self) -> dict[str, str]:
         """Studied sources that may legitimately be planned again, and on what grounds."""
         if self.curriculum is None:
@@ -554,13 +586,16 @@ class GovernedStudyRuntime:
                          if ref in set(context.studied_sources) and ref not in allowed)
         offered = tuple(ref for ref in available if ref not in excluded)
         if not offered:
-            # Everything readable here is already studied. Offering it back is the honest
-            # move -- an empty scope would be a worse answer -- but nothing was withheld,
-            # and saying "withheld 72" when all 72 were handed over is a false report of the
-            # very boundary this exists to demonstrate.
-            self.last_excluded = ()
+            # Everything readable here is already studied, and handing it back was the old
+            # answer. It produced missions that re-read an exhausted corpus and reported
+            # progress, which is the one thing a study programme must never do: the corpus
+            # being empty of new material is a fact about the corpus, not a reason to
+            # believe the same documents twice. Nothing is offered, the exhaustion is
+            # reported, and what advances the curriculum is the declared entry point that
+            # acquisition is given -- not another pass over this shelf.
+            self.last_excluded = excluded
             self.last_corpus_exhausted = True
-            return tuple(available), ()
+            return (), excluded
         self.last_excluded = excluded
         self.last_corpus_exhausted = False
         return offered, excluded
@@ -585,14 +620,18 @@ class GovernedStudyRuntime:
             notes.append("revisited " + ", ".join(f"{ref} ({why})" for ref, why in recorded[:4]))
         if excluded:
             notes.append(f"withheld {len(excluded)} sufficiently-studied source(s) from planning")
-        elif self.last_corpus_exhausted:
+        # Two separate facts, and reporting only one of them is how "withheld 72" came to be
+        # printed by a mission that had handed all 72 back: some sources were withheld, and
+        # separately there was nothing else left here to read.
+        if self.last_corpus_exhausted:
             notes.append(
-                "every readable source here is already sufficiently studied, so all of them "
-                "were offered back rather than reporting an empty scope; further progress "
-                "needs newly acquired material, not another pass over this corpus")
+                "every readable source here is already sufficiently studied and none was "
+                "offered again; further progress needs the canonical document the curriculum "
+                "declares for the requirement in front, not another pass over this corpus")
 
     def _acquire(self, subject: str, hints: Sequence[str], notes: list[str],
-                 *, rounds_used: int, mission_id: str = "") -> tuple[str, ...]:
+                 *, rounds_used: int, mission_id: str = "",
+                 entry_points: Sequence[str] = ()) -> tuple[str, ...]:
         """Ask the wired acquirer for new material. No acquirer means no network, silently."""
         self.last_acquired = ()
         if self.acquirer is None or rounds_used >= self.acquisition_rounds:
@@ -602,7 +641,11 @@ class GovernedStudyRuntime:
                 mission_id, url=url, host=host, outcome=outcome, detail=detail)
 
         try:
-            if self._acquirer_takes_recorder:
+            if self._acquirer_takes_entry_points:
+                acquired = tuple(str(path) for path in
+                                 (self.acquirer(subject, tuple(hints), record,
+                                                tuple(entry_points)) or ()))
+            elif self._acquirer_takes_recorder:
                 acquired = tuple(str(path) for path in
                                  (self.acquirer(subject, tuple(hints), record) or ()))
             else:
@@ -789,6 +832,17 @@ class GovernedStudyRuntime:
             master_covered=tuple(item.domain for item in context.covered) if context else (),
             master_partial=tuple(item.domain for item in context.partial) if context else (),
             master_remaining=tuple(item.domain for item in context.unstudied) if context else (),
+            master_selected=(
+                {"domain": context.selected_domain,
+                 "requirement": context.selected_requirement.requirement,
+                 "competency": context.selected_requirement.competency,
+                 "entry_point": context.selected_entry_point}
+                if getattr(context, "selected_requirement", None) else None),
+            master_source_gaps=tuple(
+                {"domain": domain, "requirement": requirement.requirement,
+                 "competency": requirement.competency,
+                 "source_gap": requirement.source_gap.as_dict()}
+                for domain, requirement in getattr(context, "source_gaps", ())),
             revisited=tuple(f"{ref} ({why})" for ref, why in self.last_revisits),
             withheld_sources=len(self.last_excluded),
         )

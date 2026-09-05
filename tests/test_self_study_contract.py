@@ -18,6 +18,7 @@ COPIED = (
     "src/bro_runtime/study_runtime.py",
     "src/bro_runtime/learning_memory.py",
     "src/bro_runtime/curriculum.py",
+    "src/bro_runtime/curriculum_manifest.py",
     "src/bro_runtime/conversation.py",
     "src/bro_runtime/inference.py",
     "scripts/bro_interact.py",

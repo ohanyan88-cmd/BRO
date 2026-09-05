@@ -7,8 +7,8 @@
     "store": "bro_runtime.learning_memory.DurableLearningMemory",
     "surface": "scripts/bro_interact.py",
     "mode": "STUDY",
-    "master_curriculum": "contracts/master_curriculum.json",
-    "curriculum_runtime": "bro_runtime.curriculum.MasterCurriculum"
+    "curriculum_manifest": "contracts/curriculum_manifest.json",
+    "curriculum_runtime": "bro_runtime.curriculum_manifest.CurriculumManifest"
   },
   "cycle": [
     "study mission",
@@ -112,9 +112,9 @@
     },
     {
       "id": "STUDY-COVERAGE-EVIDENCE-001",
-      "statement": "Coverage is evidence-based: a domain is COVERED only when enough distinct sufficiently-studied sources carry enough verified rows matching at least two of its distinct keywords. One document, one mission, one keyword or a pile of rows from a single source is PARTIAL. A source whose bytes changed since it was studied stops counting.",
+      "statement": "Master-curriculum coverage is derived from satisfied curriculum requirements, and a requirement is satisfied only by VERIFIED knowledge retained from the canonical documents the manifest declares for it. Which words a claim contains decides nothing.",
       "enforcement": [
-        "tests/test_curriculum_planning.py"
+        "tests/test_curriculum_manifest.py"
       ]
     },
     {
@@ -126,9 +126,10 @@
     },
     {
       "id": "STUDY-PLANNING-CONTEXT-001",
-      "statement": "The planner receives a bounded structured view of durable state: covered, partial and unstudied domains, already-studied sources and permitted revisits. The knowledge base itself is never handed to the model.",
+      "statement": "The planner receives a bounded structured view of durable state: covered, partial and unstudied domains, the unsatisfied requirement in front and the canonical entry point that would close it, already-studied sources and permitted revisits. The knowledge base itself is never handed to the model.",
       "enforcement": [
-        "tests/test_curriculum_planning.py"
+        "tests/test_curriculum_planning.py",
+        "tests/test_curriculum_manifest.py"
       ]
     },
     {
@@ -136,6 +137,13 @@
       "statement": "Every acquisition candidate's outcome is durably recorded and named, so a mission that acquired nothing can be explained from evidence rather than guessed at.",
       "enforcement": [
         "tests/test_curriculum_planning.py"
+      ]
+    },
+    {
+      "id": "STUDY-SOURCE-GAP-001",
+      "statement": "A curriculum requirement whose authoritative publisher is claimed by no admitted source family is reported as SOURCE_GAP, by publisher and host. It is never satisfied, never given a fabricated source, never resolved by BRO admitting the publisher itself, and never silently removed from the curriculum: admitting a publisher is a governance decision.",
+      "enforcement": [
+        "tests/test_curriculum_manifest.py"
       ]
     }
   ],

@@ -1,0 +1,2024 @@
+{
+  "manifest": "bro.curriculum-manifest.v1",
+  "purpose": "Where each master-curriculum domain is studied, what counts as progress in it, and what evidence settles that. Coverage is derived from satisfied requirements backed by VERIFIED knowledge retained from the declared canonical sources -- not from words appearing in a claim, and not from how many documents were read.",
+  "evidence_rule": {
+    "requirement_satisfied_when": "at least min_verified_rows VERIFIED rows retained from at least min_sources of the requirement's declared canonical sources",
+    "default_min_verified_rows": 3,
+    "default_min_sources": 1,
+    "domain_covered_when": "every requirement that has an admitted source path is satisfied, and the domain has no unsatisfied requirement left with a source path",
+    "source_gap": "a requirement whose canonical publisher is claimed by no admitted source family. It is reported, never fabricated, never silently dropped, and never satisfied.",
+    "basis_field": "publisher-structure means the requirement name is taken from the publisher's own document structure; judgement means the decomposition is the builder's own and is not a measurement."
+  },
+  "domains": [
+    {
+      "domain": "software-engineering-fundamentals",
+      "title": "Software engineering fundamentals",
+      "depends_on": [],
+      "requirements": [
+        {
+          "requirement": "se.specifications",
+          "competency": "Specifications and designing specs",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/06-specifications/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/07-designing-specs/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "se.testing",
+          "competency": "Systematic testing",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/03-testing/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "se.immutability",
+          "competency": "Immutability",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/08-immutability/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "se.abstract-data-types",
+          "competency": "Abstract data types and rep invariants",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/10-abstract-data-types/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/11-abstraction-functions-rep-invariants/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "software-architecture",
+      "title": "Software architecture and design",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "requirements": [
+        {
+          "requirement": "arch.web-architecture",
+          "competency": "Architecture of the World Wide Web",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.w3.org/TR/webarch/",
+              "family": "w3c",
+              "publisher": "World Wide Web Consortium",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "arch.interfaces",
+          "competency": "Interfaces, generics and module boundaries",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/12-interfaces-generics-enums/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "arch.recursive-structure",
+          "competency": "Recursive data types and structural design",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/17-recursive-data-types/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "computer-systems",
+      "title": "Computer systems and operating systems",
+      "depends_on": [],
+      "requirements": [
+        {
+          "requirement": "sys.kernel",
+          "competency": "Operating-system kernel structure",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://pdos.csail.mit.edu/6.828/2023/xv6.html",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "sys.course-material",
+          "competency": "System-level engineering curriculum",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://pdos.csail.mit.edu/6.828/2023/schedule.html",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "sys.virtual-memory",
+          "competency": "Virtual memory and address spaces",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://pdos.csail.mit.edu/6.828/2023/lec/l-vm.txt",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "linux-systems",
+      "title": "Linux systems engineering",
+      "depends_on": [
+        "computer-systems"
+      ],
+      "requirements": [
+        {
+          "requirement": "linux.kernel-documentation",
+          "competency": "Linux kernel subsystems and interfaces",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [],
+          "source_gap": {
+            "needed_publisher": "Linux kernel organisation",
+            "hosts": [
+              "kernel.org",
+              "www.kernel.org"
+            ],
+            "reason": "no admitted source family claims this publisher"
+          }
+        },
+        {
+          "requirement": "linux.syscall-interface",
+          "competency": "Linux system-call and userspace interface",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [],
+          "source_gap": {
+            "needed_publisher": "Linux man-pages project",
+            "hosts": [
+              "man7.org"
+            ],
+            "reason": "no admitted source family claims this publisher"
+          }
+        }
+      ]
+    },
+    {
+      "domain": "networking",
+      "title": "Networking and Internet protocols",
+      "depends_on": [],
+      "requirements": [
+        {
+          "requirement": "net.ip",
+          "competency": "Internet Protocol",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc791.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc791.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "net.tcp",
+          "competency": "Transmission Control Protocol",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9293.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9293.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "net.http",
+          "competency": "HTTP semantics",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "net.tls",
+          "competency": "Transport Layer Security 1.3",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc8446.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc8446.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "net.dns",
+          "competency": "Domain Name System",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc1035.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc1035.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "databases-storage",
+      "title": "Databases and storage",
+      "depends_on": [],
+      "requirements": [
+        {
+          "requirement": "db.sql",
+          "competency": "The relational model and SQL",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.postgresql.org/docs/current/sql.html",
+              "family": "postgresql",
+              "publisher": "PostgreSQL Global Development Group",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "db.indexes",
+          "competency": "Indexes and query planning",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.postgresql.org/docs/current/indexes.html",
+              "family": "postgresql",
+              "publisher": "PostgreSQL Global Development Group",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "db.storage-format",
+          "competency": "Storage architecture and file format",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.sqlite.org/arch.html",
+              "family": "sqlite",
+              "publisher": "SQLite project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.sqlite.org/fileformat2.html",
+              "family": "sqlite",
+              "publisher": "SQLite project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "db.write-ahead-log",
+          "competency": "Write-ahead logging and durability",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.sqlite.org/wal.html",
+              "family": "sqlite",
+              "publisher": "SQLite project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.postgresql.org/docs/current/wal-intro.html",
+              "family": "postgresql",
+              "publisher": "PostgreSQL Global Development Group",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "transactions-consistency",
+      "title": "Transactions, concurrency and consistency",
+      "depends_on": [
+        "databases-storage"
+      ],
+      "requirements": [
+        {
+          "requirement": "tx.isolation",
+          "competency": "Transaction isolation levels",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.postgresql.org/docs/current/transaction-iso.html",
+              "family": "postgresql",
+              "publisher": "PostgreSQL Global Development Group",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.sqlite.org/isolation.html",
+              "family": "sqlite",
+              "publisher": "SQLite project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "tx.locking",
+          "competency": "Explicit locking and concurrency control",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.postgresql.org/docs/current/explicit-locking.html",
+              "family": "postgresql",
+              "publisher": "PostgreSQL Global Development Group",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "tx.statements",
+          "competency": "Transaction statements and semantics",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.sqlite.org/lang_transaction.html",
+              "family": "sqlite",
+              "publisher": "SQLite project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "distributed-systems",
+      "title": "Distributed systems",
+      "depends_on": [
+        "networking",
+        "transactions-consistency"
+      ],
+      "requirements": [
+        {
+          "requirement": "dist.consensus",
+          "competency": "Replication and consensus",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://pdos.csail.mit.edu/6.824/papers/raft-extended.pdf",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://pdos.csail.mit.edu/6.824/papers/paxos-simple.pdf",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "dist.distributed-storage",
+          "competency": "Distributed storage systems",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://pdos.csail.mit.edu/6.824/papers/gfs.pdf",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "dist.parallel-computation",
+          "competency": "Distributed computation models",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://pdos.csail.mit.edu/6.824/papers/mapreduce.pdf",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "reliability-sre",
+      "title": "Reliability engineering and SRE",
+      "depends_on": [
+        "distributed-systems"
+      ],
+      "requirements": [
+        {
+          "requirement": "sre.service-objectives",
+          "competency": "Service level objectives and error budgets",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [],
+          "source_gap": {
+            "needed_publisher": "Google SRE",
+            "hosts": [
+              "sre.google"
+            ],
+            "reason": "no admitted source family claims this publisher"
+          }
+        },
+        {
+          "requirement": "sre.disruption-budgets",
+          "competency": "Planned and unplanned disruption of workloads",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://kubernetes.io/docs/concepts/workloads/pods/disruptions/",
+              "family": "kubernetes",
+              "publisher": "Cloud Native Computing Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "observability-incident",
+      "title": "Observability and incident response",
+      "depends_on": [
+        "reliability-sre"
+      ],
+      "requirements": [
+        {
+          "requirement": "obs.telemetry-signals",
+          "competency": "Telemetry signals: traces, metrics, logs",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [],
+          "source_gap": {
+            "needed_publisher": "OpenTelemetry (CNCF)",
+            "hosts": [
+              "opentelemetry.io"
+            ],
+            "reason": "no admitted source family claims this publisher"
+          }
+        },
+        {
+          "requirement": "obs.debug-running-systems",
+          "competency": "Debugging a running application",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://kubernetes.io/docs/tasks/debug/debug-application/",
+              "family": "kubernetes",
+              "publisher": "Cloud Native Computing Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "security-engineering",
+      "title": "Security engineering",
+      "depends_on": [],
+      "requirements": [
+        {
+          "requirement": "sec.controls",
+          "competency": "Security and privacy controls",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "sec.zero-trust",
+          "competency": "Zero trust architecture",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-207.pdf",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "sec.risk-framework",
+          "competency": "Risk management framework",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://csrc.nist.gov/pubs/sp/800/37/r2/final",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "secure-development",
+      "title": "Secure software development",
+      "depends_on": [
+        "security-engineering",
+        "software-engineering-fundamentals"
+      ],
+      "requirements": [
+        {
+          "requirement": "sdev.ssdf",
+          "competency": "Secure Software Development Framework",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-218.pdf",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "sdev.injection",
+          "competency": "Injection prevention",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html",
+              "family": "owasp",
+              "publisher": "OWASP Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "sdev.secrets",
+          "competency": "Secrets management",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+              "family": "owasp",
+              "publisher": "OWASP Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "identity-authorization",
+      "title": "Identity, authentication and authorization",
+      "depends_on": [
+        "security-engineering"
+      ],
+      "requirements": [
+        {
+          "requirement": "iam.oauth2",
+          "competency": "OAuth 2.0 authorization framework",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc6749.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc6749.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "iam.oauth-bcp",
+          "competency": "OAuth 2.0 security best current practice",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9700.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9700.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "iam.jwt",
+          "competency": "JSON Web Tokens",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc7519.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc7519.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "iam.identity-assurance",
+          "competency": "Digital identity assurance",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63-3.pdf",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "web-application-security",
+      "title": "Web and application security",
+      "depends_on": [
+        "security-engineering",
+        "networking"
+      ],
+      "requirements": [
+        {
+          "requirement": "web.top-ten",
+          "competency": "The most critical web application risks",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://owasp.org/www-project-top-ten/",
+              "family": "owasp",
+              "publisher": "OWASP Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "web.content-security-policy",
+          "competency": "Content Security Policy",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.w3.org/TR/CSP3/",
+              "family": "w3c",
+              "publisher": "World Wide Web Consortium",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "web.xss",
+          "competency": "Cross-site scripting prevention",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+              "family": "owasp",
+              "publisher": "OWASP Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "web.csrf",
+          "competency": "Cross-site request forgery prevention",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+              "family": "owasp",
+              "publisher": "OWASP Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "containers-deployment",
+      "title": "Containers and deployment systems",
+      "depends_on": [
+        "linux-systems"
+      ],
+      "requirements": [
+        {
+          "requirement": "cnt.container-model",
+          "competency": "The container model and images",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.docker.com/get-started/docker-overview/",
+              "family": "docker",
+              "publisher": "Docker Inc.",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "cnt.orchestration",
+          "competency": "Orchestration concepts",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://kubernetes.io/docs/concepts/overview/",
+              "family": "kubernetes",
+              "publisher": "Cloud Native Computing Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "cnt.deployments",
+          "competency": "Deployments and rollouts",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
+              "family": "kubernetes",
+              "publisher": "Cloud Native Computing Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "cnt.container-security",
+          "competency": "Application container security",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-190.pdf",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "delivery-cicd",
+      "title": "Git, CI/CD and software delivery",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "requirements": [
+        {
+          "requirement": "cd.git-objects",
+          "competency": "The Git object model",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://git-scm.com/book/en/v2/Git-Internals-Git-Objects",
+              "family": "git",
+              "publisher": "Git project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "cd.git-branching",
+          "competency": "Branching",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell",
+              "family": "git",
+              "publisher": "Git project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "cd.workflows",
+          "competency": "Automated workflows",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.github.com/en/actions/writing-workflows/about-workflows",
+              "family": "github",
+              "publisher": "GitHub",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "cd.branch-protection",
+          "competency": "Protected branches and required checks",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches",
+              "family": "github",
+              "publisher": "GitHub",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "python-engineering",
+      "title": "Python engineering",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "requirements": [
+        {
+          "requirement": "py.data-model",
+          "competency": "The Python data model",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.python.org/3/reference/datamodel.html",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "py.asyncio",
+          "competency": "Asynchronous concurrency",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.python.org/3/library/asyncio.html",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "py.typing",
+          "competency": "Static typing",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.python.org/3/library/typing.html",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://peps.python.org/pep-0484/",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "py.execution-model",
+          "competency": "Execution and import model",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.python.org/3/reference/executionmodel.html",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://docs.python.org/3/reference/import.html",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "py.style",
+          "competency": "Style guide for Python code",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://peps.python.org/pep-0008/",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "rust-engineering",
+      "title": "Rust engineering",
+      "depends_on": [
+        "software-engineering-fundamentals",
+        "computer-systems"
+      ],
+      "requirements": [
+        {
+          "requirement": "rs.ownership",
+          "competency": "Ownership, moves and borrowing",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "rs.lifetimes",
+          "competency": "Lifetimes and generic validation",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "rs.traits",
+          "competency": "Traits and generics",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://doc.rust-lang.org/book/ch10-02-traits.html",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "rs.unsafe",
+          "competency": "Unsafe Rust and its invariants",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://doc.rust-lang.org/nomicon/",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://doc.rust-lang.org/nomicon/ownership.html",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://doc.rust-lang.org/book/ch20-01-unsafe-rust.html",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "rs.cargo",
+          "competency": "Cargo, crates and the build system",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://doc.rust-lang.org/cargo/",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://doc.rust-lang.org/cargo/guide/index.html",
+              "family": "rust",
+              "publisher": "Rust project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "web-frontend",
+      "title": "Web/frontend engineering",
+      "depends_on": [
+        "networking"
+      ],
+      "requirements": [
+        {
+          "requirement": "fe.component-model",
+          "competency": "Component model and state",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://react.dev/learn/thinking-in-react",
+              "family": "react",
+              "publisher": "React project (Meta)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "fe.typescript",
+          "competency": "Typed JavaScript",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.typescriptlang.org/docs/handbook/2/everyday-types.html",
+              "family": "typescript",
+              "publisher": "Microsoft / TypeScript project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "fe.document-model",
+          "competency": "Document semantics and accessible roles",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.w3.org/TR/wai-aria-1.2/",
+              "family": "w3c",
+              "publisher": "World Wide Web Consortium",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.w3.org/TR/html-aria/",
+              "family": "w3c",
+              "publisher": "World Wide Web Consortium",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "desktop-application",
+      "title": "Desktop application engineering",
+      "depends_on": [
+        "web-frontend"
+      ],
+      "requirements": [
+        {
+          "requirement": "desk.architecture",
+          "competency": "Desktop application architecture",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://v2.tauri.app/concept/architecture/",
+              "family": "tauri",
+              "publisher": "Tauri project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "desk.security-model",
+          "competency": "Desktop capability and permission model",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://v2.tauri.app/security/",
+              "family": "tauri",
+              "publisher": "Tauri project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "ml-foundations",
+      "title": "AI and machine-learning foundations",
+      "depends_on": [],
+      "requirements": [
+        {
+          "requirement": "ml.supervised-learning",
+          "competency": "Supervised learning and generalisation",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://cs229.stanford.edu/main_notes.pdf",
+              "family": "stanford",
+              "publisher": "Stanford University",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "ml.optimisation",
+          "competency": "Optimisation and gradient methods",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://cs229.stanford.edu/lectures-spring2022/main_notes.pdf",
+              "family": "stanford",
+              "publisher": "Stanford University",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "neural-networks",
+      "title": "Neural networks and modern ML",
+      "depends_on": [
+        "ml-foundations"
+      ],
+      "requirements": [
+        {
+          "requirement": "nn.course-material",
+          "competency": "Neural networks for visual recognition",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://cs231n.stanford.edu/",
+              "family": "stanford",
+              "publisher": "Stanford University",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://cs231n.stanford.edu/schedule.html",
+              "family": "stanford",
+              "publisher": "Stanford University",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "llm-architecture",
+      "title": "LLM architecture and operation",
+      "depends_on": [
+        "neural-networks"
+      ],
+      "requirements": [
+        {
+          "requirement": "llm.transformer",
+          "competency": "The transformer architecture",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://arxiv.org/abs/1706.03762",
+              "family": "cornell",
+              "publisher": "Cornell University",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "llm.model-documentation",
+          "competency": "Vendor model behaviour and prompting documentation",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [],
+          "source_gap": {
+            "needed_publisher": "Anthropic (documentation moved to platform.claude.com)",
+            "hosts": [
+              "platform.claude.com"
+            ],
+            "reason": "no admitted source family claims this publisher"
+          }
+        }
+      ]
+    },
+    {
+      "domain": "retrieval-knowledge",
+      "title": "Retrieval and knowledge systems",
+      "depends_on": [
+        "llm-architecture",
+        "databases-storage"
+      ],
+      "requirements": [
+        {
+          "requirement": "rk.rag",
+          "competency": "Retrieval-augmented generation",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://arxiv.org/abs/2005.11401",
+              "family": "cornell",
+              "publisher": "Cornell University",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "rk.full-text-search",
+          "competency": "Full-text search and ranking",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.postgresql.org/docs/current/textsearch-intro.html",
+              "family": "postgresql",
+              "publisher": "PostgreSQL Global Development Group",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "agentic-systems",
+      "title": "Tool-using and agentic AI systems",
+      "depends_on": [
+        "llm-architecture"
+      ],
+      "requirements": [
+        {
+          "requirement": "ag.protocol-architecture",
+          "competency": "Agent/tool protocol architecture",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://modelcontextprotocol.io/docs/learn/architecture",
+              "family": "mcp",
+              "publisher": "Model Context Protocol project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "ag.protocol-authorization",
+          "competency": "Protocol authorization",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization",
+              "family": "mcp",
+              "publisher": "Model Context Protocol project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "ag.tool-use",
+          "competency": "Vendor tool-use documentation",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [],
+          "source_gap": {
+            "needed_publisher": "Anthropic (documentation moved to platform.claude.com)",
+            "hosts": [
+              "platform.claude.com"
+            ],
+            "reason": "no admitted source family claims this publisher"
+          }
+        }
+      ]
+    },
+    {
+      "domain": "agent-evaluation",
+      "title": "Agent evaluation and reliability",
+      "depends_on": [
+        "agentic-systems"
+      ],
+      "requirements": [
+        {
+          "requirement": "ae.holistic-evaluation",
+          "competency": "Holistic evaluation of language models",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://arxiv.org/abs/2211.09110",
+              "family": "cornell",
+              "publisher": "Cornell University",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "ae.generative-ai-risk",
+          "competency": "Generative AI risk profile",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "ai-safety-governance",
+      "title": "AI safety, governance and risk management",
+      "depends_on": [
+        "ml-foundations"
+      ],
+      "requirements": [
+        {
+          "requirement": "ais.rmf-core",
+          "competency": "AI risk management framework",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "ais.genai-profile",
+          "competency": "Generative AI profile",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "ais.llm-top-ten",
+          "competency": "LLM application risks",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://genai.owasp.org/llm-top-10/",
+              "family": "owasp",
+              "publisher": "OWASP Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "automation-integration",
+      "title": "Automation and integration architecture",
+      "depends_on": [
+        "software-architecture",
+        "networking"
+      ],
+      "requirements": [
+        {
+          "requirement": "auto.workflow-syntax",
+          "competency": "Workflow definition and syntax",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions",
+              "family": "github",
+              "publisher": "GitHub",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "auto.protocol-integration",
+          "competency": "Protocol-level integration",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://modelcontextprotocol.io/specification/2025-06-18",
+              "family": "mcp",
+              "publisher": "Model Context Protocol project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "auto.http-semantics",
+          "competency": "API semantics over HTTP",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "testing-verification",
+      "title": "Testing, verification and evidence",
+      "depends_on": [
+        "software-engineering-fundamentals"
+      ],
+      "requirements": [
+        {
+          "requirement": "tv.test-design",
+          "competency": "Test design and partitioning",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/03-testing/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "tv.unit-testing",
+          "competency": "Unit testing frameworks",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.python.org/3/library/unittest.html",
+              "family": "python",
+              "publisher": "Python Software Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "tv.assessment-evidence",
+          "competency": "Assessing controls and assurance evidence",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://csrc.nist.gov/pubs/sp/800/53/a/r5/final",
+              "family": "nist",
+              "publisher": "National Institute of Standards and Technology (US)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "research-methodology",
+      "title": "Research and source-verification methodology",
+      "depends_on": [],
+      "requirements": [
+        {
+          "requirement": "rm.requirement-language",
+          "competency": "Normative requirement language",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc2119.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc2119.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc8174.html",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.rfc-editor.org/rfc/rfc8174.txt",
+              "family": "ietf",
+              "publisher": "IETF / RFC Editor",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "rm.specification-quality",
+          "competency": "Specification quality and conformance",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://www.w3.org/TR/qaframe-spec/",
+              "family": "w3c",
+              "publisher": "World Wide Web Consortium",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "product-maintainability",
+      "title": "Product engineering and maintainability",
+      "depends_on": [
+        "software-architecture"
+      ],
+      "requirements": [
+        {
+          "requirement": "pm.code-review",
+          "competency": "Code review and readable code",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/04-code-review/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "pm.version-control-practice",
+          "competency": "Version control in a team",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://web.mit.edu/6.031/www/sp22/classes/05-version-control/",
+              "family": "mit",
+              "publisher": "Massachusetts Institute of Technology",
+              "authority_tier": "B",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "pm.tagging",
+          "competency": "Tagging and release marking",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://git-scm.com/book/en/v2/Git-Basics-Tagging",
+              "family": "git",
+              "publisher": "Git project",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "production-operations",
+      "title": "Production system design and operations",
+      "depends_on": [
+        "reliability-sre",
+        "containers-deployment"
+      ],
+      "requirements": [
+        {
+          "requirement": "po.cluster-practice",
+          "competency": "Production cluster practice",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://kubernetes.io/docs/setup/best-practices/cluster-large/",
+              "family": "kubernetes",
+              "publisher": "Cloud Native Computing Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "po.configuration",
+          "competency": "Configuration management in production",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://kubernetes.io/docs/concepts/configuration/overview/",
+              "family": "kubernetes",
+              "publisher": "Cloud Native Computing Foundation",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        },
+        {
+          "requirement": "po.engine-security",
+          "competency": "Hardening the container engine",
+          "basis": "publisher-structure",
+          "min_verified_rows": 3,
+          "min_sources": 1,
+          "sources": [
+            {
+              "url": "https://docs.docker.com/engine/security/",
+              "family": "docker",
+              "publisher": "Docker Inc.",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
