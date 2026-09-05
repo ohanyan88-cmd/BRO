@@ -38,6 +38,9 @@ DEFAULT_SUFFIXES = (".md", ".py", ".json", ".txt", ".toml", ".yml", ".yaml", ".s
 DEFAULT_MAX_BYTES = 200_000
 DEFAULT_ITEM_BUDGET = 8
 DEFAULT_DIMINISHING_AFTER = 2
+# How many times one mission may go looking for new material: once before it
+# plans, and once more when the first pass leaves the subject uncertain.
+DEFAULT_ACQUISITION_ROUNDS = 2
 MIN_HINT_LENGTH = 3
 
 # Words that appear in almost every mission and would match almost every path.
@@ -259,6 +262,8 @@ class GovernedStudyRuntime:
         extractor: Callable[[str, str], Mapping[str, Any]],
         item_budget: int = DEFAULT_ITEM_BUDGET,
         diminishing_after: int = DEFAULT_DIMINISHING_AFTER,
+        acquirer: Callable[[str, Sequence[str]], Sequence[str]] | None = None,
+        acquisition_rounds: int = DEFAULT_ACQUISITION_ROUNDS,
     ) -> None:
         if item_budget < 1:
             raise StudyRejected("study item_budget must be at least 1")
@@ -270,6 +275,12 @@ class GovernedStudyRuntime:
         self.extractor = extractor
         self.item_budget = int(item_budget)
         self.diminishing_after = int(diminishing_after)
+        # A callable, deliberately. The runtime never imports a network module, so
+        # the authority to reach outside is granted by wiring and visible at the
+        # call site rather than assumed by anything that imports this file.
+        self.acquirer = acquirer
+        self.acquisition_rounds = max(0, int(acquisition_rounds))
+        self.last_acquired: tuple[str, ...] = ()
         self.last_planner_error = ""
         self.last_hints: tuple[str, ...] = ()
         self.last_targeted: tuple[str, ...] = ()
@@ -337,16 +348,32 @@ class GovernedStudyRuntime:
         )
         notes: list[str] = []
         self.last_planner_error = ""
+        # Acquisition comes before the emptiness check, not after it. An empty corpus is
+        # precisely the case a mission needs to go looking, and checking first would make
+        # the bootstrap impossible: nothing new could ever be the first thing studied.
+        acquired = self._acquire(mission, resolved_hints, notes, rounds_used=0)
+        if acquired:
+            available, targeted = self.ordered_sources(resolved_hints)
+            # A source acquired for this mission is targeted at it by construction: the
+            # acquirer was handed the subject. Hint matching reads file paths, and a path
+            # derived from a url often shares no word with the question that found it.
+            targeted = tuple(dict.fromkeys(tuple(acquired) + tuple(targeted)))
+            available = tuple(dict.fromkeys(tuple(acquired) + tuple(available)))
+            self.last_available, self.last_targeted = available, targeted
+
+        # Judged after acquisition, not before it. Said earlier this reads "nothing here can
+        # verify it" on a mission that then went and fetched six matching specifications.
         if resolved_hints and not targeted:
             notes.append(
                 "no available source matches this mission's subject; nothing here can verify it. "
                 "Studying the general discovered set instead, so treat any result as being about "
                 "those sources rather than about the requested subject."
             )
+
         if not available:
             self.memory.set_study_status(record.mission_id, StudyStatus.BLOCKED, stop_reason=StudyStop.SCOPE_EXHAUSTED.value)
             return self._report(record.mission_id, mission, StudyStatus.BLOCKED, StudyStop.SCOPE_EXHAUSTED,
-                                notes=("no readable source matched the requested scope",))
+                                notes=("no readable source matched the requested scope",) + tuple(notes))
 
         planned = self._plan(mission, available)
         if self.last_planner_error:
@@ -401,11 +428,73 @@ class GovernedStudyRuntime:
             if len(items) >= self.item_budget:
                 stop = StudyStop.ITEM_BUDGET_REACHED
 
+        # A mission that finished its curriculum and still has uncertain topics has found a
+        # gap, not an answer. One more acquisition round is allowed to close it, and the
+        # same stop conditions then end the mission -- the budget is not extended.
+        # _acquire owns the rounds rule. Checking it here as well left two copies and
+        # made neither load-bearing: deleting either one changed nothing.
+        if stop is StudyStop.CURRICULUM_COMPLETE and self.acquirer is not None:
+            uncertain = self._uncertain_topics(record.mission_id)
+            if uncertain:
+                more = self._acquire(" ".join(uncertain[:3]), resolved_hints, notes, rounds_used=1)
+                if more:
+                    stop, extra = self._study_more(record.mission_id, more, context, notes,
+                                                   already=len(items))
+                    items.extend(extra)
+
         status = StudyStatus.COMPLETE if stop in {
             StudyStop.CURRICULUM_COMPLETE, StudyStop.ITEM_BUDGET_REACHED, StudyStop.DIMINISHING_RETURNS
         } else StudyStatus.BLOCKED
         self.memory.set_study_status(record.mission_id, status, stop_reason=stop.value)
         return self._report(record.mission_id, mission, status, stop, notes=tuple(notes))
+
+    def _acquire(self, subject: str, hints: Sequence[str], notes: list[str],
+                 *, rounds_used: int) -> tuple[str, ...]:
+        """Ask the wired acquirer for new material. No acquirer means no network, silently."""
+        self.last_acquired = ()
+        if self.acquirer is None or rounds_used >= self.acquisition_rounds:
+            return ()
+        try:
+            acquired = tuple(str(path) for path in (self.acquirer(subject, tuple(hints)) or ()))
+        except Exception as exc:  # an acquisition failure is a note, never a crashed mission
+            notes.append(f"acquisition failed: {type(exc).__name__}: {exc}")
+            return ()
+        if acquired:
+            notes.append(f"acquired {len(acquired)} new source(s) for study: {', '.join(acquired[:5])}")
+        self.last_acquired = acquired
+        return acquired
+
+    def _uncertain_topics(self, mission_id: str) -> tuple[str, ...]:
+        return tuple(item.topic for item in self.memory.curriculum(mission_id)
+                     if item.status is CurriculumStatus.BLOCKED
+                     or "0 verified" in (item.detail or ""))
+
+    def _study_more(self, mission_id: str, sources: Sequence[str], context: StudyContext,
+                    notes: list[str], *, already: int):
+        """Study freshly acquired sources under the same budget that governs everything else."""
+        added = []
+        stop = StudyStop.CURRICULUM_COMPLETE
+        for offset, source_ref in enumerate(sources):
+            if already + len(added) >= self.item_budget:
+                return StudyStop.ITEM_BUDGET_REACHED, added
+            item = self.memory.add_curriculum_item(
+                mission_id, topic=f"newly acquired: {source_ref}", source_ref=source_ref,
+                sequence=already + offset)
+            try:
+                document = self.reader.read(source_ref)
+            except StudyRejected as exc:
+                self.memory.set_curriculum_status(item.item_id, CurriculumStatus.BLOCKED, detail=str(exc))
+                added.append(item)
+                continue
+            retained = self._study_item(mission_id, item, document, context)
+            self.memory.set_curriculum_status(
+                item.item_id, CurriculumStatus.STUDIED,
+                detail=f"{retained['verified']} verified, {retained['inference']} inference, "
+                       f"{retained['unverified']} unverified")
+            if retained["error"] and retained["error"] not in notes:
+                notes.append(retained["error"])
+            added.append(item)
+        return stop, added
 
     def _plan(self, mission: str, available: Sequence[str]) -> list[tuple[str, str]]:
         """The model may choose among real sources; it may not invent one."""

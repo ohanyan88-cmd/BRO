@@ -8,6 +8,7 @@ import os
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -24,6 +25,13 @@ from bro_runtime.github_provider import (
 from bro_runtime.interaction_surface import InteractionSurface
 from bro_runtime.learning_boundary import ExperienceContext, GovernedLearningBoundary
 from bro_runtime.learning_memory import DurableLearningMemory
+from bro_runtime.knowledge_library import GovernedKnowledgeLibrary, KnowledgeLibraryRejected
+from bro_runtime.source_policy import SourcePolicy, SourcePolicyRejected
+from bro_runtime.study_acquisition import (
+    AcquisitionRejected,
+    GovernedStudyAcquisition,
+    LinkFrontier,
+)
 from bro_runtime.study_runtime import GovernedStudyRuntime, StudyContext, StudyRejected, StudySourceReader
 
 
@@ -53,6 +61,7 @@ def study_root() -> str:
 
 DEFAULT_STUDY_ITEM_BUDGET = 30
 DEFAULT_STUDY_DIMINISHING_AFTER = 6
+DEFAULT_ACQUISITION_BUDGET = 8
 
 
 def _positive(name: str, default: int) -> int:
@@ -66,6 +75,19 @@ def _positive(name: str, default: int) -> int:
 def study_item_budget() -> int:
     """How many curriculum items one mission may study before it stops."""
     return _positive("BRO_STUDY_ITEM_BUDGET", DEFAULT_STUDY_ITEM_BUDGET)
+
+
+def acquisition_enabled() -> bool:
+    """Whether STUDY may reach the Internet at all. Off unless an operator says otherwise."""
+    return os.environ.get("BRO_STUDY_ACQUISITION", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def source_policy_path() -> str:
+    return os.environ.get("BRO_SOURCE_POLICY", str(ROOT / "contracts" / "source_policy.json")).strip()
+
+
+def acquisition_budget() -> int:
+    return _positive("BRO_STUDY_ACQUISITION_BUDGET", DEFAULT_ACQUISITION_BUDGET)
 
 
 def study_diminishing_after() -> int:
@@ -131,6 +153,7 @@ def build_surface() -> ConversationalInteractionSurface:
             extractor=lambda topic, text: model.study_extract(topic, text),
             item_budget=study_item_budget(),
             diminishing_after=study_diminishing_after(),
+            acquirer=build_acquirer(model, memory),
         )
         return runtime.study(request, study_context()).as_dict()
 
@@ -232,6 +255,65 @@ def build_surface() -> ConversationalInteractionSurface:
 
     def record_message(role: str, content: str, mode: str) -> None:
         memory.append_message(role, content, mode=mode)
+
+    def build_acquirer(model, memory):
+        """Wire STUDY to the governed acquisition boundary, or to nothing at all.
+
+        Returning None is a real answer: with acquisition off, the study runtime has no
+        acquirer to call and behaves exactly as it did before, which is what makes this
+        capability something an operator grants rather than something the code assumes.
+        """
+        if not acquisition_enabled():
+            return None
+        try:
+            policy = SourcePolicy.load(source_policy_path())
+        except SourcePolicyRejected as exc:
+            print(f"BRO study acquisition is disabled: {exc}", file=sys.stderr)
+            return None
+        library = GovernedKnowledgeLibrary(memory)
+        acquisition = GovernedStudyAcquisition(policy, library, study_root())
+        frontier_budget = acquisition_budget()
+
+        def acquire(subject: str, hints) -> tuple[str, ...]:
+            frontier = LinkFrontier(policy, mission_budget=frontier_budget)
+            proposed: list[str] = []
+            try:
+                answer = model.propose_sources(subject)
+                for entry in answer.get("sources", []) or []:
+                    if isinstance(entry, Mapping) and entry.get("url"):
+                        proposed.append(str(entry["url"]))
+            except (InferenceRejected, AttributeError, TypeError):
+                proposed = []
+            candidates = list(acquisition.propose(proposed, topic=subject))
+            admitted: list[str] = []
+            depth_one: list[tuple[str, tuple[str, ...]]] = []
+            for candidate in candidates:
+                if len(admitted) >= frontier_budget or not frontier.admit(candidate.url):
+                    continue
+                try:
+                    outcome = acquisition.acquire(candidate)
+                except (AcquisitionRejected, KnowledgeLibraryRejected):
+                    continue
+                if outcome.admitted:
+                    admitted.append(outcome.local_path)
+                    depth_one.append((candidate.url, outcome.links))
+            for source_url, links in depth_one:
+                if len(admitted) >= frontier_budget:
+                    break
+                for link in frontier.next_links(source_url, links, depth=1):
+                    if len(admitted) >= frontier_budget or not frontier.admit(link):
+                        continue
+                    for follow in acquisition.propose([link], topic=subject,
+                                                      discovered_from=source_url):
+                        try:
+                            outcome = acquisition.acquire(follow)
+                        except (AcquisitionRejected, KnowledgeLibraryRejected):
+                            continue
+                        if outcome.admitted:
+                            admitted.append(outcome.local_path)
+            return tuple(admitted)
+
+        return acquire
 
     def study_recall(topic: str) -> dict:
         reader_root = study_root()

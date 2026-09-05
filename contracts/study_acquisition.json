@@ -1,0 +1,105 @@
+{
+  "contract": "bro.governed-study-acquisition.v1",
+  "status": "implemented",
+  "purpose": "BRO may reach the Internet for study material, in one place, read-only, and only where a policy a person wrote says it may. Acquisition and study reading stay separate authorities: the study reader is still local and networkless, and the runtime is handed an acquirer rather than importing one.",
+  "entry": {
+    "policy": "contracts/source_policy.json",
+    "policy_runtime": "bro_runtime.source_policy.SourcePolicy",
+    "acquisition": "bro_runtime.study_acquisition.GovernedStudyAcquisition",
+    "fetcher": "bro_runtime.study_acquisition.BoundedFetcher",
+    "frontier": "bro_runtime.study_acquisition.LinkFrontier",
+    "library": "bro_runtime.knowledge_library.GovernedKnowledgeLibrary",
+    "study_runtime": "bro_runtime.study_runtime.GovernedStudyRuntime",
+    "surface": "scripts/bro_interact.py",
+    "switch": "BRO_STUDY_ACQUISITION"
+  },
+  "lifecycle": ["DISCOVERED", "STAGED", "SCREENED", "APPROVED_FOR_STUDY", "SUPERSEDED", "REJECTED"],
+  "invariants": [
+    {
+      "id": "ACQ-ONE-BOUNDARY-001",
+      "statement": "External retrieval lives in one module. The study runtime imports no network client and is handed an acquirer callable instead, so the authority to reach outside is granted by wiring and visible at the call site.",
+      "tests": ["tests/test_study_acquisition.py", "tests/test_study_acquisition_integration.py"]
+    },
+    {
+      "id": "ACQ-READ-ONLY-001",
+      "statement": "Only GET is expressible. There is no method parameter, no request body, and no code path that writes to a remote system.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-SSRF-001",
+      "statement": "Every hop is re-resolved and refused unless every address it answers with is public. Private, loopback, link-local, multicast, reserved and unspecified space is never reached, including through a redirect.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-SCHEME-001",
+      "statement": "HTTPS only, no credentials in the url, no non-standard port.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-BUDGET-001",
+      "statement": "Response size, redirect count, timeout, attempt count and per-host pacing are bounded by the policy, and a download stopped at its budget is recorded as partial rather than whole.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-REDIRECT-001",
+      "statement": "Redirects are followed one hop at a time, each hop re-checked against policy and address safety, and a loop ends by name.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-NORMALISE-001",
+      "statement": "Acquired HTML becomes a local inert text artifact carrying headings, lists and code, with scripts, styles and navigation dropped. STUDY reads the artifact, never live content.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-PDF-001",
+      "statement": "PDF text extraction is bounded, executes nothing, and fails honestly rather than emitting text it cannot read correctly, because a wrong quote still verifies against the wrong extraction.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-FRONTIER-001",
+      "statement": "Link following is policy-controlled: bounded depth, per-host and per-mission page budgets, canonical deduplication, same-host preference, and only admissible tiers. A document proposes; policy disposes.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-TIER-001",
+      "statement": "Authority is decided from the host by an explicit policy. A look-alike host inherits nothing. Tier D may lead but never testify and is never admitted; an unclassified host stays a candidate for a person and BRO never promotes one.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-ADMISSION-001",
+      "statement": "Discovery is not admission. A candidate is classified before it is fetched, an inadmissible one is never fetched, and admission is screened against the authorized source policy rather than a pre-existing manifest -- which is what makes autonomous discovery possible without a manual bottleneck.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-PROVENANCE-001",
+      "statement": "Every acquired artifact records the discovery query, requested url, final url, host, publisher, authority tier and class, retrieval time, content type, content digest, normalised-artifact digest, complete/partial state and admission basis. Knowledge is linked to content by digest, never by filename alone.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-STALENESS-001",
+      "statement": "A changed upstream document supersedes its predecessor rather than overwriting it, and an unchanged one is recognised by the digest of its normalised text rather than of its file, so a retrieval timestamp cannot masquerade as an upstream change.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-INJECTION-001",
+      "statement": "Acquired text is data. Instruction-shaped content is recorded as an observation about the source and marked in the artifact; it cannot admit a source policy refuses, cannot approve or promote anything, and cannot change what BRO is permitted to do.",
+      "tests": ["tests/test_study_acquisition.py"]
+    },
+    {
+      "id": "ACQ-AUTONOMY-001",
+      "statement": "A mission may acquire before planning and once more to close a gap, bounded by acquisition rounds, the item budget and the existing stop conditions. An acquisition failure is a note, not a crashed mission, and with no acquirer wired the runtime behaves exactly as before.",
+      "tests": ["tests/test_study_acquisition_integration.py"]
+    },
+    {
+      "id": "ACQ-SWITCH-001",
+      "statement": "Internet acquisition is off unless an operator turns it on, and the surface returns no acquirer when it is off.",
+      "tests": ["tests/test_study_acquisition_integration.py", "tests/test_study_limits.py"]
+    }
+  ],
+  "truth_boundary": [
+    "Acquiring a document does not make BRO believe it; admission decides what may be studied, never what may be executed.",
+    "This is allowlisted acquisition, not web browsing: BRO reaches documents on hosts a person classified, and nothing else.",
+    "Discovery may be suggested by the model and is always filtered by the policy; the model can narrow the field, never widen it.",
+    "No acquired text has ever granted BRO a capability, and no path exists by which it could."
+  ]
+}

@@ -24,12 +24,13 @@ SCRIPTS = "scripts"
 # Methods that define what BRO asks and refuses. A backend must not redefine any of them.
 BRO_BEHAVIOUR = (
     "def json_object", "def interpret", "def select_specialist", "def route_interaction",
-    "def conversational_response", "def study_plan", "def study_extract", "def _unfenced",
+    "def conversational_response", "def study_plan", "def study_extract", "def propose_sources", "def _unfenced",
     "def _with_retries", "def _wait_before", "def complete", "def _require_unicode_scalars",
 )
 
 # Sentences that are BRO's voice. Exactly one file may contain each.
 SINGULAR_PROMPTS = (
+    "Name the official primary documents that would settle this subject",
     "STUDY means the user is asking BRO to study",
     "You are BRO, Gev's AI operating partner",
     "Plan a small BRO study curriculum",

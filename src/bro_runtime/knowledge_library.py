@@ -44,6 +44,10 @@ class KnowledgeLibraryRejected(RuntimeError):
 
 
 class SourceStatus(StrEnum):
+    # A candidate BRO found but has not retrieved. Discovery is not trust, so this state
+    # exists precisely so that "we know this url" and "we studied this document" can never
+    # be the same row.
+    DISCOVERED = "DISCOVERED"
     STAGED = "STAGED"
     SCREENED = "SCREENED"
     APPROVED_FOR_STUDY = "APPROVED_FOR_STUDY"
@@ -117,6 +121,16 @@ class KnowledgeSource:
     superseded_by: str = ""
     screening_basis: str = ""
     approval_basis: str = ""
+    authority_tier: str = ""
+    discovery_query: str = ""
+    discovered_at: str = ""
+    requested_url: str = ""
+    final_url: str = ""
+    retrieved_at: str = ""
+    artifact_digest: str = ""
+    complete: str = ""
+    truncation_reason: str = ""
+    injection_markers: str = ""
     content_review_state: ContentReview = ContentReview.NOT_HUMAN_REVIEWED
     content_reviewed_by: str = ""
     content_review_evidence: str = ""
@@ -138,6 +152,8 @@ _COLUMNS = (
     "language_variant", "notes", "screened_by", "screened_at", "approved_by", "approved_at",
     "superseded_by", "screening_basis", "approval_basis", "content_review_state",
     "content_reviewed_by", "content_reviewed_at", "content_review_evidence",
+    "authority_tier", "discovery_query", "discovered_at", "requested_url", "final_url",
+    "retrieved_at", "artifact_digest", "complete", "truncation_reason", "injection_markers",
 )
 
 # Columns added after the first release; an existing registry gains them in place.
@@ -148,6 +164,16 @@ _ADDED_COLUMNS = (
     ("content_reviewed_by", "content_reviewed_by TEXT NOT NULL DEFAULT ''"),
     ("content_reviewed_at", "content_reviewed_at TEXT NOT NULL DEFAULT ''"),
     ("content_review_evidence", "content_review_evidence TEXT NOT NULL DEFAULT ''"),
+    ("authority_tier", "authority_tier TEXT NOT NULL DEFAULT ''"),
+    ("discovery_query", "discovery_query TEXT NOT NULL DEFAULT ''"),
+    ("discovered_at", "discovered_at TEXT NOT NULL DEFAULT ''"),
+    ("requested_url", "requested_url TEXT NOT NULL DEFAULT ''"),
+    ("final_url", "final_url TEXT NOT NULL DEFAULT ''"),
+    ("retrieved_at", "retrieved_at TEXT NOT NULL DEFAULT ''"),
+    ("artifact_digest", "artifact_digest TEXT NOT NULL DEFAULT ''"),
+    ("complete", "complete TEXT NOT NULL DEFAULT ''"),
+    ("truncation_reason", "truncation_reason TEXT NOT NULL DEFAULT ''"),
+    ("injection_markers", "injection_markers TEXT NOT NULL DEFAULT ''"),
 )
 _RENAMED_COLUMNS = (("reviewed_by", "screened_by"), ("reviewed_at", "screened_at"))
 
@@ -208,10 +234,21 @@ class GovernedKnowledgeLibrary:
               content_review_state TEXT NOT NULL DEFAULT 'NOT_HUMAN_REVIEWED',
               content_reviewed_by TEXT NOT NULL DEFAULT '',
               content_reviewed_at TEXT NOT NULL DEFAULT '',
-              content_review_evidence TEXT NOT NULL DEFAULT ''
+              content_review_evidence TEXT NOT NULL DEFAULT '',
+              authority_tier TEXT NOT NULL DEFAULT '',
+              discovery_query TEXT NOT NULL DEFAULT '',
+              discovered_at TEXT NOT NULL DEFAULT '',
+              requested_url TEXT NOT NULL DEFAULT '',
+              final_url TEXT NOT NULL DEFAULT '',
+              retrieved_at TEXT NOT NULL DEFAULT '',
+              artifact_digest TEXT NOT NULL DEFAULT '',
+              complete TEXT NOT NULL DEFAULT '',
+              truncation_reason TEXT NOT NULL DEFAULT '',
+              injection_markers TEXT NOT NULL DEFAULT ''
             );
-            CREATE UNIQUE INDEX IF NOT EXISTS bro_knowledge_source_path
-              ON bro_knowledge_sources(local_path);
+            CREATE UNIQUE INDEX IF NOT EXISTS bro_knowledge_source_live_path
+              ON bro_knowledge_sources(local_path)
+              WHERE status NOT IN ('SUPERSEDED', 'REJECTED');
             CREATE TABLE IF NOT EXISTS bro_knowledge_transitions(
               sequence INTEGER PRIMARY KEY AUTOINCREMENT,
               source_id TEXT NOT NULL,
@@ -233,6 +270,10 @@ class GovernedKnowledgeLibrary:
         written as REVIEWED become SCREENED -- the same event, under the name that does not
         claim a person read the document.
         """
+        # The original index was unique on local_path outright, which made supersession
+        # impossible: the history row still holds the path the replacement needs. One live
+        # source per corpus path is the rule that was actually meant.
+        self.connection.execute("DROP INDEX IF EXISTS bro_knowledge_source_path")
         present = {row[1] for row in self.connection.execute(
             "PRAGMA table_info(bro_knowledge_sources)")}
         for old, new in _RENAMED_COLUMNS:
@@ -296,7 +337,7 @@ class GovernedKnowledgeLibrary:
         source_scope: str, upstream_version: str, content: bytes, local_path: str,
         source_language: str = "", license: str = "",
         language_variant: LanguageVariant = LanguageVariant.NOT_APPLICABLE,
-        notes: str = "",
+        notes: str = "", acquisition: Mapping[str, str] | None = None,
     ) -> KnowledgeSource:
         """Record acquired material. Staged is not trusted and is not study-visible."""
         if not self.acceptable_path(local_path):
@@ -320,6 +361,10 @@ class GovernedKnowledgeLibrary:
             license=str(license or "").strip(),
             language_variant=LanguageVariant(language_variant),
             notes=str(notes or "").strip(),
+            **{field: str((acquisition or {}).get(field, "")) for field in (
+                "authority_tier", "discovery_query", "discovered_at", "requested_url",
+                "final_url", "retrieved_at", "artifact_digest", "complete",
+                "truncation_reason", "injection_markers")},
         )
         with self.connection:
             self.connection.execute(
@@ -331,7 +376,11 @@ class GovernedKnowledgeLibrary:
                  source.status.value, source.source_language, source.license,
                  source.language_variant.value,
                  source.notes, "", "", "", "", "", "", "",
-                 ContentReview.NOT_HUMAN_REVIEWED.value, "", "", ""),
+                 ContentReview.NOT_HUMAN_REVIEWED.value, "", "", "",
+                 source.authority_tier, source.discovery_query, source.discovered_at,
+                 source.requested_url, source.final_url, source.retrieved_at,
+                 source.artifact_digest, source.complete, source.truncation_reason,
+                 source.injection_markers),
             )
             self._transition(source.source_id, "", SourceStatus.STAGED.value, "acquisition",
                              f"acquired from {source.canonical_url}")
@@ -590,7 +639,12 @@ class GovernedKnowledgeLibrary:
         return None if row is None else self._source(row)
 
     @staticmethod
-    def _source(row) -> KnowledgeSource:
+    def _column(row, name: str, default: str) -> str:
+        """Read a column a registry written by an earlier revision may not carry."""
+        return row[name] if name in row.keys() else default
+
+    @classmethod
+    def _source(cls, row) -> KnowledgeSource:
         return KnowledgeSource(
             source_id=row["source_id"], shelf=row["shelf"], publisher=row["publisher"],
             canonical_url=row["canonical_url"],
@@ -606,4 +660,14 @@ class GovernedKnowledgeLibrary:
             content_review_state=ContentReview(row["content_review_state"]),
             content_reviewed_by=row["content_reviewed_by"],
             content_review_evidence=row["content_review_evidence"],
+            authority_tier=cls._column(row, "authority_tier", ""),
+            discovery_query=cls._column(row, "discovery_query", ""),
+            discovered_at=cls._column(row, "discovered_at", ""),
+            requested_url=cls._column(row, "requested_url", ""),
+            final_url=cls._column(row, "final_url", ""),
+            retrieved_at=cls._column(row, "retrieved_at", ""),
+            artifact_digest=cls._column(row, "artifact_digest", ""),
+            complete=cls._column(row, "complete", ""),
+            truncation_reason=cls._column(row, "truncation_reason", ""),
+            injection_markers=cls._column(row, "injection_markers", ""),
         )
