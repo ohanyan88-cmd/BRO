@@ -220,30 +220,45 @@
           "basis": "publisher-structure",
           "min_verified_rows": 3,
           "min_sources": 1,
-          "sources": [],
-          "source_gap": {
-            "needed_publisher": "Linux kernel organisation",
-            "hosts": [
-              "kernel.org",
-              "www.kernel.org"
-            ],
-            "reason": "no admitted source family claims this publisher"
-          }
+          "sources": [
+            {
+              "url": "https://www.kernel.org/doc/html/latest/",
+              "family": "linux-kernel",
+              "publisher": "Linux Kernel Organization",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.kernel.org/doc/html/latest/admin-guide/index.html",
+              "family": "linux-kernel",
+              "publisher": "Linux Kernel Organization",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
         },
         {
           "requirement": "linux.syscall-interface",
-          "competency": "Linux system-call and userspace interface",
+          "competency": "The kernel's userspace interface",
           "basis": "publisher-structure",
           "min_verified_rows": 3,
           "min_sources": 1,
-          "sources": [],
-          "source_gap": {
-            "needed_publisher": "Linux man-pages project",
-            "hosts": [
-              "man7.org"
-            ],
-            "reason": "no admitted source family claims this publisher"
-          }
+          "sources": [
+            {
+              "url": "https://www.kernel.org/doc/html/latest/userspace-api/index.html",
+              "family": "linux-kernel",
+              "publisher": "Linux Kernel Organization",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html",
+              "family": "linux-kernel",
+              "publisher": "Linux Kernel Organization",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
         }
       ]
     },
@@ -636,14 +651,22 @@
           "basis": "publisher-structure",
           "min_verified_rows": 3,
           "min_sources": 1,
-          "sources": [],
-          "source_gap": {
-            "needed_publisher": "OpenTelemetry (CNCF)",
-            "hosts": [
-              "opentelemetry.io"
-            ],
-            "reason": "no admitted source family claims this publisher"
-          }
+          "sources": [
+            {
+              "url": "https://opentelemetry.io/docs/specs/otel/",
+              "family": "opentelemetry",
+              "publisher": "OpenTelemetry (Cloud Native Computing Foundation)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://opentelemetry.io/docs/concepts/signals/",
+              "family": "opentelemetry",
+              "publisher": "OpenTelemetry (Cloud Native Computing Foundation)",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
         },
         {
           "requirement": "obs.debug-running-systems",
@@ -1512,18 +1535,26 @@
         },
         {
           "requirement": "llm.model-documentation",
-          "competency": "Vendor model behaviour and prompting documentation",
+          "competency": "Model behaviour, context and prompting",
           "basis": "publisher-structure",
           "min_verified_rows": 3,
           "min_sources": 1,
-          "sources": [],
-          "source_gap": {
-            "needed_publisher": "Anthropic (documentation moved to platform.claude.com)",
-            "hosts": [
-              "platform.claude.com"
-            ],
-            "reason": "no admitted source family claims this publisher"
-          }
+          "sources": [
+            {
+              "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview",
+              "family": "anthropic",
+              "publisher": "Anthropic",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            },
+            {
+              "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows",
+              "family": "anthropic",
+              "publisher": "Anthropic",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
         }
       ]
     },
@@ -1610,18 +1641,19 @@
         },
         {
           "requirement": "ag.tool-use",
-          "competency": "Vendor tool-use documentation",
+          "competency": "Tool use by models",
           "basis": "publisher-structure",
           "min_verified_rows": 3,
           "min_sources": 1,
-          "sources": [],
-          "source_gap": {
-            "needed_publisher": "Anthropic (documentation moved to platform.claude.com)",
-            "hosts": [
-              "platform.claude.com"
-            ],
-            "reason": "no admitted source family claims this publisher"
-          }
+          "sources": [
+            {
+              "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview",
+              "family": "anthropic",
+              "publisher": "Anthropic",
+              "authority_tier": "A",
+              "admission": "AUTO_ADMITTED"
+            }
+          ]
         }
       ]
     },

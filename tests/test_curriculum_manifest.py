@@ -21,6 +21,11 @@ from bro_runtime.learning_memory import (
 
 REAL = Path(__file__).resolve().parents[1] / "contracts" / "curriculum_manifest.json"
 
+
+def url_host(url: str) -> str:
+    from urllib.parse import urlsplit
+    return (urlsplit(url).hostname or "").lower()
+
 RUST_BOOK = "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html"
 RUST_REFS = "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html"
 RUST_CARGO = "https://doc.rust-lang.org/cargo/"
@@ -351,3 +356,64 @@ class RealManifestTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReviewedRefusalTests(unittest.TestCase):
+    """The two publishers the source-gap review refused, held refused.
+
+    A governance decision that lives only in a document is one edit away from being
+    reversed by someone who never read it. Both refusals had a reason, and both reasons
+    are still true; if either changes, this test is where the argument has to be made
+    again rather than quietly assumed.
+    """
+
+    def setUp(self):
+        from bro_runtime.source_policy import SourcePolicy
+        self.policy = SourcePolicy.load(REAL.parent / "source_policy.json")
+        self.document = json.loads(REAL.read_text(encoding="utf-8"))
+
+    def admitted(self, host: str) -> bool:
+        from bro_runtime.source_policy import SourcePolicyRejected
+        try:
+            verdict = self.policy.classify(f"https://{host}/")
+        except SourcePolicyRejected:
+            return False
+        return bool(verdict.admissible and verdict.auto_admit)
+
+    def test_man7_org_is_not_admitted(self):
+        """The man-pages project designates it as its rendering host, but this policy
+        matches hosts and not paths, and admitting it would admit a book, a training
+        business and a blog on the strength of one directory."""
+        self.assertFalse(self.admitted("man7.org"))
+
+    def test_sre_google_is_not_admitted(self):
+        """One company's book about how that company runs its services, published by
+        O'Reilly, with no standards body behind it."""
+        self.assertFalse(self.admitted("sre.google"))
+
+    def test_the_requirement_man7_was_refused_for_is_served_by_the_kernel_itself(self):
+        requirement = {r["requirement"]: r for domain in self.document["domains"]
+                       for r in domain["requirements"]}["linux.syscall-interface"]
+        self.assertNotIn("source_gap", requirement)
+        hosts = {url_host(s["url"]) for s in requirement["sources"]}
+        self.assertTrue(hosts and hosts <= {"www.kernel.org", "kernel.org", "docs.kernel.org"},
+                        hosts)
+
+    def test_service_level_objectives_remain_an_honest_gap(self):
+        """Refusing the only available source means the requirement stays unsatisfied, and
+        saying so is the point. Closing it by admitting the book would make BRO's knowledge
+        about SLOs an account of one company's practice that reads as a claim about the
+        field."""
+        requirement = {r["requirement"]: r for domain in self.document["domains"]
+                       for r in domain["requirements"]}["sre.service-objectives"]
+        self.assertIn("source_gap", requirement)
+        self.assertEqual(requirement["sources"], [])
+        self.assertEqual(requirement["source_gap"]["hosts"], ["sre.google"])
+
+    def test_anthropic_kept_its_family_rather_than_gaining_a_second_one(self):
+        """The publisher moved host; it did not become a new publisher. A second family for
+        the same organisation is how one publisher ends up with two tiers."""
+        families = [f for f in self.policy.families if "platform.claude.com" in f.hosts]
+        self.assertEqual([f.family for f in families], ["anthropic"])
+        self.assertEqual(len([f for f in self.policy.families
+                              if f.publisher == "Anthropic"]), 1)

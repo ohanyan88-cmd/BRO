@@ -165,6 +165,7 @@
       "scope": "Claude, Claude Code and the Agent SDK",
       "hosts": [
         "docs.anthropic.com",
+        "platform.claude.com",
         "code.claude.com"
       ],
       "entry_points": [
@@ -226,6 +227,30 @@
         "https://tauri.app/start/"
       ],
       "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "linux-kernel",
+      "tier": "A",
+      "publisher": "Linux Kernel Organization",
+      "scope": "the Linux kernel: its subsystems, its userspace interfaces and its process",
+      "hosts": [
+        "kernel.org",
+        "www.kernel.org",
+        "docs.kernel.org"
+      ],
+      "authority_class": "OFFICIAL_PROJECT_DOCUMENTATION",
+      "note": "Rendered from the Documentation tree of the kernel source itself. man7.org was reviewed with it and refused: the man-pages project designates it as its online rendering host, but designation is not publication, this policy matches hosts and not paths, and the userspace-api documentation here answers the requirement man7.org was declared for."
+    },
+    {
+      "family": "opentelemetry",
+      "tier": "A",
+      "publisher": "OpenTelemetry (Cloud Native Computing Foundation)",
+      "scope": "the OpenTelemetry specification: traces, metrics, logs and their semantics",
+      "hosts": [
+        "opentelemetry.io"
+      ],
+      "authority_class": "OFFICIAL_SPECIFICATION",
+      "note": "Admitted at the tier kubernetes.io already holds, whose publisher this policy records as the Cloud Native Computing Foundation. Admitting one CNCF specification and not the other would contradict a precedent already set here."
     },
     {
       "family": "kubernetes",
