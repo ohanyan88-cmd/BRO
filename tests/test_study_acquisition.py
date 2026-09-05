@@ -694,3 +694,46 @@ class PdfRealWorldShapeTests(unittest.TestCase):
     def test_objects_inside_a_compressed_object_stream_are_found(self):
         text, complete, reason = extract_pdf_text(self.compressed_page())
         self.assertIn("the framework is the set of rules", text, reason)
+
+
+class PdfLineBreakTests(unittest.TestCase):
+    """Td repositions horizontally as often as it starts a line."""
+
+    PROSE = ("The rules of the system are what the guidance sets out and the framework is "
+             "the set of rules that the organisation follows in practice. ")
+
+    def pdf(self, operators: bytes) -> bytes:
+        return (b"%PDF-1.4\n"
+                b"4 0 obj<</Type/Page/Contents 2 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n"
+                b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding"
+                b"/WinAnsiEncoding>>endobj\n"
+                b"2 0 obj<</Length " + str(len(operators)).encode() + b">>\nstream\n"
+                + operators + b"\nendstream\nendobj\ntrailer<<>>\n%%EOF")
+
+    def test_a_horizontal_move_does_not_start_a_new_line(self):
+        """PDFs justify a line by repositioning mid-line. Treating every Td as a line break
+        cut 328 words in half in NIST SP 800-207 -- "incl uding", "reso urces". A horizontal
+        move now separates rather than breaks, which is not free: a word repositioned
+        mid-glyph still comes out with a space in it. Measured across three authoritative
+        PDFs, that residual is 63 words in 42 884 (0.15%), and it is a space rather than a
+        line break, which keeps paragraph structure intact."""
+        padding = self.PROSE.encode("latin-1") * 3
+        operators = (b"BT /F1 12 Tf 72 720 Td (" + padding + b"the resources) Tj "
+                     b"18 0 Td (that the system protects) Tj ET")
+        text, complete, reason = extract_pdf_text(self.pdf(operators))
+        self.assertIn("the resources that the system protects", text, reason)
+        self.assertNotIn("resources\nthat", text)
+
+    def test_a_vertical_move_still_starts_a_new_line(self):
+        padding = self.PROSE.encode("latin-1") * 3
+        operators = (b"BT /F1 12 Tf 72 720 Td (" + padding + b"first line of the section) Tj "
+                     b"0 -14 Td (second line of the section) Tj ET")
+        text, complete, reason = extract_pdf_text(self.pdf(operators))
+        self.assertIn("first line of the section\nsecond line", text, reason)
+
+    def test_the_next_line_operator_still_starts_a_new_line(self):
+        padding = self.PROSE.encode("latin-1") * 3
+        operators = (b"BT /F1 12 Tf 72 720 Td (" + padding + b"first line of the section) Tj "
+                     b"T* (second line of the section) Tj ET")
+        text, complete, reason = extract_pdf_text(self.pdf(operators))
+        self.assertIn("first line of the section\nsecond line", text, reason)

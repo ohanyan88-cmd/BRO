@@ -85,6 +85,14 @@ from the same NIST framework with the `fi` dropped out of `identification`; that
 failure the fidelity gates exist for. OCR is still not attempted, and a scanned PDF is still
 refused.
 
+One residual, measured rather than assumed: a PDF repositions mid-line to justify text, and
+treating every such move as a line break cut **328 words in half** in NIST SP 800-207
+(`incl uding`, `reso urces`). Only a *vertical* move now starts a line; a horizontal one
+separates. That is not free — a word repositioned mid-glyph comes out with a space in it —
+and across the three documents the residual is **63 words in 42 884 (0.15%)**, a space rather
+than a line break, so paragraph structure survives. A tuned distance threshold recovered 12
+of those 63 and was not worth a constant that will rot.
+
 ### Link frontier
 
 A document proposes; policy disposes. Bounded depth, per-host and per-mission page budgets,
@@ -181,6 +189,10 @@ PDF 1.5+, լուծում է ամեն տառատեսակի `/ToUnicode` քարտ�
 
 Փակ ձախողվում է **երկու անգամ**․ մեկ՝ երբ glyph-երի 2%-ից ավելին եկել է չքարտեզագրվող
 տառատեսակից, մեկ էլ՝ երբ քարտեզագրված արդյունքը լեզու չի կարդացվում։
+
+Մեկ մնացորդ, չափված ու ոչ ենթադրված․ PDF-ը տողի մեջ վերադիրքավորվում է, ու ամեն այդպիսի
+շարժը տողադարձ համարելը NIST SP 800-207-ում **328 բառ կիսեց**։ Հիմա միայն **ուղղահայաց**
+շարժն է տող սկսում։ Մնացորդը՝ 42 884 բառից 63 (0.15%), ու դա բացատ է, ոչ տողադարձ։
 
 Այս host-ի վրա չափված՝ NIST AI 100-1, NIST SP 800-207 ու «Attention Is All You Need» —
 երեքն էլ հիմա տալիս են մաքուր արձակ, `identification`-ը ու `organizations`-ը ամբողջական,

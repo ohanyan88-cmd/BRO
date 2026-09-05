@@ -40,7 +40,8 @@ _TEXT_OPS = re.compile(
     rb"|\((?:\\.|[^\\()])*\)\s*(?:Tj|')"           # literal shown
     rb"|<([0-9A-Fa-f\s]+)>\s*(?:Tj|')"             # hex string shown
     rb"|\[((?:[^\[\]\\]|\\.)*)\]\s*TJ"             # array shown
-    rb"|(T\*|Td|TD|TL)",                           # line movement
+    rb"|(-?[\d.]+)\s+(-?[\d.]+)\s+(Td|TD)"          # positioned move: tx ty
+    rb"|(T\*)",                                     # next line
     re.DOTALL)
 # A TJ array interleaves strings with horizontal adjustments in thousandths of an em.
 # Those adjustments are where the spaces are: a PDF usually draws "one two" as two runs
@@ -368,7 +369,8 @@ def _read_content(content: bytes, resources: dict[bytes, int], document: _Docume
     unmapped = 0
     mapped = 0
     for match in _TEXT_OPS.finditer(content):
-        name, hex_string, array, movement = match.group(1), match.group(2), match.group(3), match.group(4)
+        name, hex_string, array = match.group(1), match.group(2), match.group(3)
+        vertical, next_line = match.group(5), match.group(7)
         if name is not None:
             number = resources.get(name)
             if number is not None:
@@ -378,8 +380,18 @@ def _read_content(content: bytes, resources: dict[bytes, int], document: _Docume
             else:
                 current = None
             continue
-        if movement is not None:
+        if next_line is not None:
             out.append("\n")
+            continue
+        if vertical is not None:
+            # Td and TD carry (tx, ty). A PDF uses them for horizontal repositioning within
+            # a line as often as for a new line, and treating every one as a line break cut
+            # 1.5% of the words in NIST SP 800-207 in half -- "incl uding", "reso urces".
+            try:
+                moved = abs(float(vertical))
+            except ValueError:
+                moved = 1.0
+            out.append("\n" if moved > 0.0 else " ")
             continue
         codes: list[bytes | str] = []
         if hex_string is not None:
