@@ -85,6 +85,27 @@ def acquisition_enabled() -> bool:
     return os.environ.get("BRO_STUDY_ACQUISITION", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def proposed_sources(model, subject: str, entry_points=()) -> tuple[list[str], set[str]]:
+    """The declared entry points first, then whatever the model suggests -- and the declared
+    ones survive the model failing.
+
+    They did not, once. The model call raised, the handler reset the whole proposal list to
+    empty, and a mission that had been handed the exact canonical document to fetch acquired
+    nothing and reported its corpus exhausted. A curriculum's declared source does not depend
+    on a model being reachable; that is most of the point of declaring it.
+    """
+    declared = [str(url) for url in (entry_points or ())]
+    proposed = list(declared)
+    try:
+        answer = model.propose_sources(subject)
+        for entry in answer.get("sources", []) or []:
+            if isinstance(entry, Mapping) and entry.get("url"):
+                proposed.append(str(entry["url"]))
+    except (InferenceRejected, AttributeError, TypeError):
+        pass
+    return proposed, set(declared)
+
+
 def master_curriculum_path() -> str:
     return os.environ.get("BRO_CURRICULUM_MANIFEST",
                           str(ROOT / "contracts" / "curriculum_manifest.json")).strip()
@@ -326,15 +347,7 @@ def build_surface() -> ConversationalInteractionSurface:
                     record(url, host, getattr(outcome, "value", str(outcome)), detail)
 
             frontier = LinkFrontier(policy, mission_budget=frontier_budget)
-            proposed: list[str] = [str(url) for url in (entry_points or ())]
-            declared = set(proposed)
-            try:
-                answer = model.propose_sources(subject)
-                for entry in answer.get("sources", []) or []:
-                    if isinstance(entry, Mapping) and entry.get("url"):
-                        proposed.append(str(entry["url"]))
-            except (InferenceRejected, AttributeError, TypeError):
-                proposed = []
+            proposed, declared = proposed_sources(model, subject, entry_points)
             candidates = list(acquisition.propose(proposed, topic=subject))
             if not candidates:
                 note("", "", AcquisitionResult.NOT_PROPOSED,
