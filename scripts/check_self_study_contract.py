@@ -19,22 +19,36 @@ CONTRACT = "contracts/self_study.json"
 STUDY = "src/bro_runtime/study_runtime.py"
 MEMORY = "src/bro_runtime/learning_memory.py"
 CURRICULUM = "src/bro_runtime/curriculum.py"
+MANIFEST = "src/bro_runtime/curriculum_manifest.py"
 CONVERSATION = "src/bro_runtime/conversation.py"
 INFERENCE = "src/bro_runtime/inference.py"
 SURFACE = "scripts/bro_interact.py"
 
 INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
     "STUDY-CURRICULUM-STATE-001": (
-        (CURRICULUM, "class MasterCurriculum"),
-        (CURRICULUM, "def master_complete"),
+        (MANIFEST, "class CurriculumManifest"),
+        (MANIFEST, "def master_complete"),
         (STUDY, "master_complete=bool("),
         (STUDY, "master_curriculum"),
     ),
+    # Coverage is settled by which document the evidence came from, so the markers name the
+    # join and the states -- not a vocabulary. A keyword rule was the authority here twice
+    # and was wrong in both directions, and the second time it stranded a domain that had
+    # been studied from seven sources.
     "STUDY-COVERAGE-EVIDENCE-001": (
-        (CURRICULUM, "min_distinct_keywords"),
-        (CURRICULUM, "def _sufficient_sources"),
-        (CURRICULUM, "def _stale_sources"),
+        (MANIFEST, "def source_index"),
+        (MANIFEST, "class RequirementState"),
+        (MANIFEST, "def _stale"),
         (CURRICULUM, "class DomainState"),
+    ),
+    # A requirement no admitted publisher can answer is reported by name. Fabricating a
+    # source, self-admitting a publisher, or dropping the domain are the three ways this
+    # gets quietly resolved instead, and none of them is allowed to be the answer.
+    "STUDY-SOURCE-GAP-001": (
+        (MANIFEST, "SOURCE_GAP"),
+        (MANIFEST, "class SourceGap"),
+        (STUDY, "master_source_gaps"),
+        (SURFACE, "SOURCE_GAP"),
     ),
     "STUDY-ANTI-REPETITION-001": (
         (STUDY, "def _offer"),
@@ -44,9 +58,11 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
         (CURRICULUM, "class RevisitReason"),
     ),
     "STUDY-PLANNING-CONTEXT-001": (
-        (CURRICULUM, "class PlanningContext"),
-        (CURRICULUM, "PLANNING_SOURCE_LIMIT"),
+        (MANIFEST, "class ManifestPlanningContext"),
+        (MANIFEST, "PLANNING_DOMAIN_LIMIT"),
+        (MANIFEST, "def entry_points"),
         (STUDY, "def _planning_context"),
+        (STUDY, "def _entry_points"),
     ),
     "STUDY-ACQUISITION-OUTCOME-001": (
         (MEMORY, "def record_acquisition_outcome"),
@@ -213,13 +229,16 @@ def validate(root: Path = ROOT) -> list[str]:
 
     # Coverage is derived from the one memory. A writer here would make it a second store
     # that drifts from the knowledge it claims to summarise.
-    curriculum_source = _read(root, CURRICULUM)
-    if curriculum_source is None:
-        errors.append(f"missing the curriculum runtime: {CURRICULUM}")
-    else:
+    # Both files: the shared vocabulary and the derivation itself. Checking only the first
+    # would have kept passing after the derivation moved, which is a gate asserting nothing.
+    for relative in (CURRICULUM, MANIFEST):
+        source = _read(root, relative)
+        if source is None:
+            errors.append(f"missing the curriculum runtime: {relative}")
+            continue
         for token in ("INSERT INTO", "UPDATE ", "DELETE ", "CREATE TABLE", "commit()"):
-            if token in curriculum_source:
-                errors.append(f"{CURRICULUM}: coverage is derived, never stored ({token!r})")
+            if token in source:
+                errors.append(f"{relative}: coverage is derived, never stored ({token!r})")
 
     study_source = _read(root, STUDY)
     if study_source is None:
