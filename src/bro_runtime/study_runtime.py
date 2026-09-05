@@ -312,6 +312,7 @@ class GovernedStudyRuntime:
         self.refresh = bool(refresh)
         self.last_planning_context: Any = None
         self.last_excluded: tuple[str, ...] = ()
+        self.last_corpus_exhausted = False
         self.last_revisits: tuple[tuple[str, str], ...] = ()
         try:
             self._planner_takes_coverage = len(
@@ -552,10 +553,17 @@ class GovernedStudyRuntime:
         excluded = tuple(ref for ref in available
                          if ref in set(context.studied_sources) and ref not in allowed)
         offered = tuple(ref for ref in available if ref not in excluded)
+        if not offered:
+            # Everything readable here is already studied. Offering it back is the honest
+            # move -- an empty scope would be a worse answer -- but nothing was withheld,
+            # and saying "withheld 72" when all 72 were handed over is a false report of the
+            # very boundary this exists to demonstrate.
+            self.last_excluded = ()
+            self.last_corpus_exhausted = True
+            return tuple(available), ()
         self.last_excluded = excluded
-        # Never leave a mission with nothing to read. If everything is covered, the honest
-        # move is to offer it back rather than report an empty scope.
-        return (offered or tuple(available)), excluded
+        self.last_corpus_exhausted = False
+        return offered, excluded
 
     def _record_revisits(self, mission_id: str, planned: Sequence[tuple[str, str]],
                          excluded: Sequence[str], notes: list[str]) -> None:
@@ -577,6 +585,11 @@ class GovernedStudyRuntime:
             notes.append("revisited " + ", ".join(f"{ref} ({why})" for ref, why in recorded[:4]))
         if excluded:
             notes.append(f"withheld {len(excluded)} sufficiently-studied source(s) from planning")
+        elif self.last_corpus_exhausted:
+            notes.append(
+                "every readable source here is already sufficiently studied, so all of them "
+                "were offered back rather than reporting an empty scope; further progress "
+                "needs newly acquired material, not another pass over this corpus")
 
     def _acquire(self, subject: str, hints: Sequence[str], notes: list[str],
                  *, rounds_used: int, mission_id: str = "") -> tuple[str, ...]:
