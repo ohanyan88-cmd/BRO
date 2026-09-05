@@ -103,11 +103,16 @@ def source_policy_path() -> str:
     return os.environ.get("BRO_SOURCE_POLICY", str(ROOT / "contracts" / "source_policy.json")).strip()
 
 
-def study_refresh_requested(request: str) -> bool:
-    """An operator asking for a refresh is the one case where covered ground is re-read."""
-    lowered = str(request or "").lower()
-    return any(phrase in lowered for phrase in
-               ("refresh mission", "explicit refresh", "re-study", "restudy", "study again"))
+def study_refresh_requested() -> bool:
+    """Whether covered ground may be re-read. An operator setting, never mission prose.
+
+    It was prose once. A continuation mission saying "do not re-study material that is
+    already sufficiently verified" contained the phrase "re-study", turned the switch on,
+    and disabled the very withholding it was asking for -- the prohibition activated its own
+    opposite. A capability that reverses a boundary has to be stated by an operator, the same
+    way acquisition is.
+    """
+    return os.environ.get("BRO_STUDY_REFRESH", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def acquisition_budget() -> int:
@@ -180,7 +185,7 @@ def build_surface() -> ConversationalInteractionSurface:
             diminishing_after=study_diminishing_after(),
             acquirer=build_acquirer(model, memory),
             curriculum=load_master_curriculum(),
-            refresh=study_refresh_requested(request),
+            refresh=study_refresh_requested(),
         )
         return runtime.study(request, study_context()).as_dict()
 
