@@ -246,11 +246,16 @@ class MasterCurriculum:
 
     @staticmethod
     def _matches(row: Mapping[str, str], wanted: set[str], minimum: int) -> bool:
+        """Enough distinct signals, where distinct means genuinely separate evidence.
+
+        Two signals one of which contains the other are one signal wearing two hats: the
+        word "evaluation" satisfied both "evaluation" and "eval", which was the whole of the
+        evidence that made agent-evaluation look COVERED by BRO's own authority notes.
+        """
         haystack = f"{row['topic']} {row['claim']} {row['source_ref']}".lower()
-        found = 0
-        for keyword in wanted:
-            if keyword in haystack:
-                found += 1
-                if found >= minimum:
-                    return True
-        return False
+        found = [keyword for keyword in wanted if keyword in haystack]
+        independent = [
+            keyword for keyword in found
+            if not any(other != keyword and keyword in other for other in found)
+        ]
+        return len(independent) >= minimum

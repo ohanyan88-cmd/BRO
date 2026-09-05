@@ -446,3 +446,143 @@ class ExhaustedCorpusReportTests(Base):
         report = self.runtime(curriculum=self.curriculum).study("continue", self.context()).as_dict()
         self.assertEqual(report["repetition"]["withheld_sufficiently_studied_sources"], 1)
         self.assertTrue(any("withheld 1" in note for note in report["notes"]))
+
+
+class CoverageVocabularyTests(unittest.TestCase):
+    """The signal model has been wrong in both directions, so it is tested in both.
+
+    First it demanded phrases nobody writes -- "ownership rule", "borrow checker" -- while
+    the Rust Book says "ownership" and "borrowing", and thirty verified rows counted as one.
+    Before that it accepted a single generic word and reported 27 of 32 domains covered.
+    Realistic terminology plus two independent signals is the line between the two.
+    """
+
+    REAL = Path(__file__).resolve().parents[1] / "contracts" / "master_curriculum.json"
+
+    def setUp(self):
+        self.connection = sqlite3.connect(":memory:")
+        self.addCleanup(self.connection.close)
+        self.memory = DurableLearningMemory(self.connection)
+        self.curriculum = MasterCurriculum.load(self.REAL)
+
+    def learn(self, source_ref: str, claims, topic="study"):
+        mission = self.memory.open_study_mission(mission=topic, scope=(), item_budget=20)
+        item = self.memory.add_curriculum_item(mission.mission_id, topic=topic,
+                                               source_ref=source_ref, sequence=0)
+        for index, claim in enumerate(claims):
+            self.memory.record_knowledge(
+                mission_id=mission.mission_id, item_id=item.item_id, topic=topic, claim=claim,
+                kind=KnowledgeKind.VERIFIED_KNOWLEDGE, source_ref=source_ref,
+                source_type=SourceType.REPOSITORY_FILE, source_digest="d" * 64,
+                evidence_quote=claim, provenance=Provenance(source_revision="a" * 40))
+
+    def state(self, domain):
+        return {item.domain: item for item in self.curriculum.coverage(self.memory)}[domain].state
+
+    # ------------------------------------------------------- realistic terminology counts
+    def test_rust_terminology_as_upstream_writes_it_counts(self):
+        rust = ["Ownership is Rust's central feature and the borrow checker enforces it.",
+                "A reference borrows a value without taking ownership of it.",
+                "Every reference in Rust has a lifetime, the scope for which it is valid.",
+                "Cargo is the Rust build system and package manager for a crate.",
+                "The Rustonomicon documents unsafe Rust and its invariants.",
+                "A trait defines shared behaviour that a Rust type can implement."]
+        for index in range(3):
+            self.learn(f"acquired-rust/book-{index}.md", rust)
+        self.assertIs(self.state("rust-engineering"), DomainState.COVERED)
+
+    def test_python_terminology_as_upstream_writes_it_counts(self):
+        python = ["The Python data model defines how objects respond to the interpreter.",
+                  "asyncio provides a coroutine-based concurrency model for Python.",
+                  "A context manager defines runtime setup and teardown for a block.",
+                  "The typing module supports gradual typing in CPython.",
+                  "A generator is a function that yields values lazily.",
+                  "An exception propagates until a handler in some enclosing module catches it."]
+        for index in range(3):
+            self.learn(f"acquired-python/doc-{index}.md", python)
+        self.assertIs(self.state("python-engineering"), DomainState.COVERED)
+
+    # ------------------------------------------------------------------- and does not leak
+    def test_unrelated_knowledge_does_not_cover_rust_or_python(self):
+        unrelated = ["Zero trust assumes no implicit trust is granted to any asset.",
+                     "The authorization server must use exact string matching for redirect URIs.",
+                     "A quorum is the smallest set of nodes that must agree.",
+                     "Prompt injection alters model behaviour through untrusted input."]
+        for index in range(6):
+            self.learn(f"acquired-nist/doc-{index}.md", unrelated)
+        self.assertIs(self.state("rust-engineering"), DomainState.UNSTUDIED)
+        self.assertIs(self.state("python-engineering"), DomainState.UNSTUDIED)
+
+    def test_one_signal_is_never_enough_however_often_it_appears(self):
+        """The over-counting failure: a single generic word covering a domain."""
+        for index in range(8):
+            self.learn(f"src/module{index}.py",
+                       ["The container of this value is opaque."] * 6)
+        self.assertIs(self.state("containers-deployment"), DomainState.UNSTUDIED)
+
+    def test_a_word_cannot_satisfy_two_signals_by_containing_one(self):
+        """"evaluation" satisfied both "evaluation" and "eval", and that pair was the whole
+        evidence that made agent-evaluation look covered by BRO's own authority notes."""
+        for index in range(8):
+            self.learn(f"docs/authority{index}.md",
+                       ["No implicit allow outcome exists for authority evaluation."] * 6)
+        self.assertIs(self.state("agent-evaluation"), DomainState.UNSTUDIED)
+
+    def test_generic_engineering_words_do_not_cover_many_domains_at_once(self):
+        generic = ["The system component handles the request and returns a response.",
+                   "This module defines the interface used by the layer above it.",
+                   "State is managed by the runtime and reported to the caller."]
+        for index in range(10):
+            self.learn(f"src/generic{index}.py", generic)
+        covered = [item.domain for item in self.curriculum.coverage(self.memory)
+                   if item.state is DomainState.COVERED]
+        self.assertEqual(covered, [], f"generic prose covered {covered}")
+
+    # ---------------------------------------------------------------- the model is complete
+    def test_every_master_domain_has_a_calibrated_signal_set(self):
+        document = json.loads(self.REAL.read_text(encoding="utf-8"))
+        self.assertEqual(len(document["domains"]), 32)
+        for entry in document["domains"]:
+            signals = entry["keywords"]
+            self.assertGreaterEqual(len(signals), 8, entry["domain"])
+            self.assertEqual(len(signals), len(set(signals)), entry["domain"])
+            for signal in signals:
+                self.assertEqual(signal, signal.lower().strip(), entry["domain"])
+                self.assertGreaterEqual(len(signal), 3, f"{entry['domain']}: {signal!r}")
+
+    def test_no_domain_relies_on_a_pair_of_words_sharing_a_root(self):
+        """architecture plus architectural is one word twice, not two signals."""
+        document = json.loads(self.REAL.read_text(encoding="utf-8"))
+        for entry in document["domains"]:
+            signals = [s.lower() for s in entry["keywords"]]
+            for first in signals:
+                for second in signals:
+                    if first != second and len(first) > 5 and second.startswith(first[:-1]):
+                        self.assertNotEqual(
+                            first.rstrip("e"), second[:len(first) - 1].rstrip("e"),
+                            f"{entry['domain']}: {first!r} and {second!r} share a root")
+
+    def test_coverage_survives_a_restart(self):
+        rust = ["Ownership is Rust's central feature and the borrow checker enforces it.",
+                "Cargo is the Rust build system and package manager for a crate.",
+                "The Rustonomicon documents unsafe Rust and its invariants."]
+        for index in range(3):
+            self.learn(f"acquired-rust/book-{index}.md", rust)
+        before = self.state("rust-engineering")
+        rows = self.connection.execute("SELECT COUNT(*) FROM bro_study_knowledge").fetchone()[0]
+        reopened = DurableLearningMemory(self.connection)
+        after = {item.domain: item.state
+                 for item in self.curriculum.coverage(reopened)}["rust-engineering"]
+        self.assertIs(before, after)
+        self.assertEqual(rows, self.connection.execute(
+            "SELECT COUNT(*) FROM bro_study_knowledge").fetchone()[0])
+
+    def test_the_independent_signal_rule_is_tested_where_it_still_fires(self):
+        """The calibrated vocabulary contains no substring pair, so the contract can no
+        longer exercise this rule -- deleting it left every other test green. It is kept as
+        the defence for the next vocabulary edit, and so it is tested directly."""
+        row = {"topic": "authority", "claim": "No implicit allow exists for authority evaluation.",
+               "source_ref": "docs/authority.md"}
+        self.assertFalse(MasterCurriculum._matches(row, {"eval", "evaluation"}, 2),
+                         "one word satisfied two signals by containing one of them")
+        self.assertTrue(MasterCurriculum._matches(row, {"authority", "evaluation"}, 2))
