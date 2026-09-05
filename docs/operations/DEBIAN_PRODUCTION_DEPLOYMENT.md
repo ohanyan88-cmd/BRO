@@ -48,6 +48,9 @@ BRO uses:
 | `BRO_STUDY_ROOT` | `/var/lib/bro/knowledge` | the corpus STUDY reads; unset means BRO studies its own release, not the library |
 | `BRO_STUDY_ITEM_BUDGET` | `30` | curriculum items one mission may study |
 | `BRO_STUDY_DIMINISHING_AFTER` | `6` | consecutive barren sources that end a mission |
+| `BRO_STUDY_ACQUISITION` | unset (off) | whether STUDY may reach the Internet at all; unset means it cannot |
+| `BRO_SOURCE_POLICY` | release `contracts/source_policy.json` | the governed allowlist of host families and tiers |
+| `BRO_STUDY_ACQUISITION_BUDGET` | `8` | pages one mission may acquire |
 
 Both limits are at least one, and a malformed value falls back to the default instead of
 removing the limit. The corpus is written only by `scripts/bro_acquire_knowledge.py`, run by

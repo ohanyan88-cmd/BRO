@@ -1,0 +1,422 @@
+{
+  "policy": "bro.governed-source-policy.v1",
+  "purpose": "Which external hosts BRO may acquire study material from, what their word is worth, and what happens to a source nobody has classified. Discovery never confers trust; this file decides what a discovered candidate may become.",
+  "tiers": {
+    "A": {
+      "name": "CANONICAL_PRIMARY",
+      "statement": "Standards bodies, official project documentation, government technical frameworks, original specifications. Authoritative for what they themselves define and nothing else.",
+      "auto_admit": true,
+      "may_produce_verified_knowledge": true
+    },
+    "B": {
+      "name": "ACADEMIC",
+      "statement": "Recognized university material and original academic research.",
+      "auto_admit": true,
+      "may_produce_verified_knowledge": true
+    },
+    "C": {
+      "name": "PROVEN_ENGINEERING",
+      "statement": "Established engineering organizations and high-quality technical publications. Admitted only when the policy marks the family admissible, never automatically by tier alone.",
+      "auto_admit": false,
+      "may_produce_verified_knowledge": true
+    },
+    "D": {
+      "name": "DISCOVERY_ONLY",
+      "statement": "Blogs, forums, social media, Q&A sites, tutorials, video. May produce candidate leads. Never admitted to the study corpus, and never a source of VERIFIED durable knowledge.",
+      "auto_admit": false,
+      "may_produce_verified_knowledge": false
+    },
+    "UNCLASSIFIED": {
+      "name": "UNCLASSIFIED",
+      "statement": "A host no family claims. It stays a candidate awaiting a person; BRO never promotes it, because a system that can classify its own new sources can grant itself anything.",
+      "auto_admit": false,
+      "may_produce_verified_knowledge": false
+    }
+  },
+  "families": [
+    {
+      "family": "ietf",
+      "tier": "A",
+      "publisher": "IETF / RFC Editor",
+      "scope": "Internet protocol standards; each RFC is authoritative for the protocol it defines",
+      "hosts": [
+        "rfc-editor.org",
+        "www.rfc-editor.org",
+        "ietf.org",
+        "www.ietf.org",
+        "datatracker.ietf.org"
+      ],
+      "entry_points": [
+        "https://www.rfc-editor.org/standards",
+        "https://www.rfc-editor.org/rfc-index.html"
+      ],
+      "authority_class": "NORMATIVE_STANDARD"
+    },
+    {
+      "family": "nist",
+      "tier": "A",
+      "publisher": "National Institute of Standards and Technology (US)",
+      "scope": "US federal technical frameworks, cybersecurity and AI risk guidance",
+      "hosts": [
+        "nist.gov",
+        "www.nist.gov",
+        "csrc.nist.gov",
+        "airc.nist.gov",
+        "nvlpubs.nist.gov"
+      ],
+      "entry_points": [
+        "https://www.nist.gov/itl/ai-risk-management-framework",
+        "https://csrc.nist.gov/publications/sp"
+      ],
+      "authority_class": "OFFICIAL_GOVERNMENT_OR_ACADEMIC"
+    },
+    {
+      "family": "python",
+      "tier": "A",
+      "publisher": "Python Software Foundation",
+      "scope": "the Python language, its standard library and its packaging",
+      "hosts": [
+        "docs.python.org",
+        "python.org",
+        "www.python.org",
+        "peps.python.org"
+      ],
+      "entry_points": [
+        "https://docs.python.org/3/library/index.html",
+        "https://peps.python.org/"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "rust",
+      "tier": "A",
+      "publisher": "Rust project",
+      "scope": "the Rust language, its standard library and its toolchain",
+      "hosts": [
+        "doc.rust-lang.org",
+        "rust-lang.org",
+        "www.rust-lang.org",
+        "blog.rust-lang.org"
+      ],
+      "entry_points": [
+        "https://doc.rust-lang.org/stable/std/index.html"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "postgresql",
+      "tier": "A",
+      "publisher": "PostgreSQL Global Development Group",
+      "scope": "PostgreSQL server behaviour, SQL dialect and administration",
+      "hosts": [
+        "postgresql.org",
+        "www.postgresql.org"
+      ],
+      "entry_points": [
+        "https://www.postgresql.org/docs/current/index.html"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "sqlite",
+      "tier": "A",
+      "publisher": "SQLite project",
+      "scope": "SQLite file format, SQL dialect and library behaviour",
+      "hosts": [
+        "sqlite.org",
+        "www.sqlite.org"
+      ],
+      "entry_points": [
+        "https://www.sqlite.org/docs.html"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "git",
+      "tier": "A",
+      "publisher": "Git project",
+      "scope": "Git commands, formats and protocols",
+      "hosts": [
+        "git-scm.com",
+        "www.git-scm.com"
+      ],
+      "entry_points": [
+        "https://git-scm.com/docs"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "github",
+      "tier": "A",
+      "publisher": "GitHub",
+      "scope": "the GitHub platform, its APIs and GitHub Actions",
+      "hosts": [
+        "docs.github.com"
+      ],
+      "entry_points": [
+        "https://docs.github.com/en/rest"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "anthropic",
+      "tier": "A",
+      "publisher": "Anthropic",
+      "scope": "Claude, Claude Code and the Agent SDK",
+      "hosts": [
+        "docs.anthropic.com",
+        "code.claude.com"
+      ],
+      "entry_points": [
+        "https://code.claude.com/docs/llms.txt"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "mcp",
+      "tier": "A",
+      "publisher": "Model Context Protocol project",
+      "scope": "the Model Context Protocol",
+      "hosts": [
+        "modelcontextprotocol.io",
+        "spec.modelcontextprotocol.io"
+      ],
+      "entry_points": [
+        "https://modelcontextprotocol.io/specification"
+      ],
+      "authority_class": "OFFICIAL_SPECIFICATION"
+    },
+    {
+      "family": "react",
+      "tier": "A",
+      "publisher": "React project (Meta)",
+      "scope": "the React library and its APIs",
+      "hosts": [
+        "react.dev"
+      ],
+      "entry_points": [
+        "https://react.dev/reference/react"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "typescript",
+      "tier": "A",
+      "publisher": "Microsoft / TypeScript project",
+      "scope": "the TypeScript language and compiler",
+      "hosts": [
+        "typescriptlang.org",
+        "www.typescriptlang.org"
+      ],
+      "entry_points": [
+        "https://www.typescriptlang.org/docs/"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "tauri",
+      "tier": "A",
+      "publisher": "Tauri project",
+      "scope": "the Tauri application framework",
+      "hosts": [
+        "tauri.app",
+        "v2.tauri.app"
+      ],
+      "entry_points": [
+        "https://tauri.app/start/"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "kubernetes",
+      "tier": "A",
+      "publisher": "Cloud Native Computing Foundation",
+      "scope": "Kubernetes concepts, APIs and operations",
+      "hosts": [
+        "kubernetes.io"
+      ],
+      "entry_points": [
+        "https://kubernetes.io/docs/home/"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "docker",
+      "tier": "A",
+      "publisher": "Docker Inc.",
+      "scope": "Docker engine, images and Compose",
+      "hosts": [
+        "docs.docker.com"
+      ],
+      "entry_points": [
+        "https://docs.docker.com/reference/"
+      ],
+      "authority_class": "OFFICIAL_VENDOR_DOCUMENTATION"
+    },
+    {
+      "family": "owasp",
+      "tier": "A",
+      "publisher": "OWASP Foundation",
+      "scope": "application and generative-AI security risk guidance",
+      "hosts": [
+        "owasp.org",
+        "genai.owasp.org",
+        "cheatsheetseries.owasp.org"
+      ],
+      "entry_points": [
+        "https://genai.owasp.org/llm-top-10/"
+      ],
+      "authority_class": "OFFICIAL_SECURITY_GUIDANCE"
+    },
+    {
+      "family": "w3c",
+      "tier": "A",
+      "publisher": "World Wide Web Consortium",
+      "scope": "web platform specifications",
+      "hosts": [
+        "w3.org",
+        "www.w3.org"
+      ],
+      "entry_points": [
+        "https://www.w3.org/TR/"
+      ],
+      "authority_class": "NORMATIVE_STANDARD"
+    },
+    {
+      "family": "unicode",
+      "tier": "A",
+      "publisher": "Unicode Consortium",
+      "scope": "the Unicode standard and its annexes",
+      "hosts": [
+        "unicode.org",
+        "www.unicode.org"
+      ],
+      "entry_points": [
+        "https://www.unicode.org/reports/"
+      ],
+      "authority_class": "NORMATIVE_STANDARD"
+    },
+    {
+      "family": "mit",
+      "tier": "B",
+      "publisher": "Massachusetts Institute of Technology",
+      "scope": "MIT course material and publications",
+      "hosts": [
+        "ocw.mit.edu",
+        "mit.edu",
+        "web.mit.edu",
+        "csail.mit.edu"
+      ],
+      "entry_points": [
+        "https://ocw.mit.edu/collections/computer-science/"
+      ],
+      "authority_class": "OFFICIAL_GOVERNMENT_OR_ACADEMIC"
+    },
+    {
+      "family": "stanford",
+      "tier": "B",
+      "publisher": "Stanford University",
+      "scope": "Stanford course material and publications",
+      "hosts": [
+        "stanford.edu",
+        "web.stanford.edu",
+        "cs.stanford.edu",
+        "nlp.stanford.edu",
+        "hai.stanford.edu"
+      ],
+      "entry_points": [
+        "https://cs.stanford.edu/courses"
+      ],
+      "authority_class": "OFFICIAL_GOVERNMENT_OR_ACADEMIC"
+    },
+    {
+      "family": "cornell",
+      "tier": "B",
+      "publisher": "Cornell University",
+      "scope": "Cornell course material and publications",
+      "hosts": [
+        "cornell.edu",
+        "cs.cornell.edu",
+        "arxiv.org",
+        "www.arxiv.org"
+      ],
+      "entry_points": [
+        "https://arxiv.org/list/cs.CR/recent"
+      ],
+      "authority_class": "OFFICIAL_GOVERNMENT_OR_ACADEMIC"
+    },
+    {
+      "family": "acm-ieee",
+      "tier": "C",
+      "publisher": "ACM / IEEE",
+      "scope": "peer-reviewed computing literature",
+      "hosts": [
+        "dl.acm.org",
+        "ieeexplore.ieee.org"
+      ],
+      "entry_points": [],
+      "admissible": false,
+      "note": "Classified so its material is never mistaken for uncatalogued, but not admissible until access terms are settled by a person.",
+      "authority_class": "TRUSTED_REFERENCE"
+    },
+    {
+      "family": "mdn",
+      "tier": "C",
+      "publisher": "Mozilla (MDN Web Docs)",
+      "scope": "web platform behaviour as documented by MDN; a reference, not the specification",
+      "hosts": [
+        "developer.mozilla.org"
+      ],
+      "entry_points": [
+        "https://developer.mozilla.org/en-US/docs/Web"
+      ],
+      "authority_class": "TRUSTED_REFERENCE",
+      "admissible": true,
+      "note": "Admissible and deliberately not auto-admitted: a good reference is still someone's summary of a specification, so a person decides before it joins the corpus."
+    }
+  ],
+  "denied_hosts": [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "169.254.169.254",
+    "metadata.google.internal"
+  ],
+  "discovery_only_hosts": [
+    "stackoverflow.com",
+    "stackexchange.com",
+    "reddit.com",
+    "www.reddit.com",
+    "medium.com",
+    "dev.to",
+    "quora.com",
+    "x.com",
+    "twitter.com",
+    "youtube.com",
+    "www.youtube.com",
+    "facebook.com",
+    "hashnode.dev",
+    "substack.com"
+  ],
+  "budgets": {
+    "max_response_bytes": 12000000,
+    "max_normalised_characters": 400000,
+    "max_redirects": 5,
+    "timeout_seconds": 45,
+    "max_attempts": 3,
+    "host_interval_seconds": 1.5,
+    "max_link_depth": 2,
+    "max_pages_per_host": 12,
+    "max_pages_per_mission": 40,
+    "max_pdf_pages": 200
+  },
+  "allowed_content_types": [
+    "text/html",
+    "text/plain",
+    "text/markdown",
+    "text/x-rst",
+    "application/pdf",
+    "application/xhtml+xml",
+    "application/json"
+  ]
+}

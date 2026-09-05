@@ -185,6 +185,26 @@ class BROInference:
             request=f"Conversation history: {context}\nLatest user message: {request}",
         )
 
+    def propose_sources(self, subject: str, *, limit: int = 6) -> dict[str, Any]:
+        """Name documents that would settle a subject. Naming is not fetching.
+
+        The model may propose any url it likes; the source policy decides which of them are
+        even classified, let alone admissible. That is the whole reason this is allowed to
+        be a model call at all -- it can only ever suggest, and every suggestion lands in
+        front of a policy a person wrote.
+        """
+        return self.json_object(
+            instruction=(
+                "Name the official primary documents that would settle this subject. Required key: "
+                "sources, an array of objects with keys url and why. Prefer standards bodies, "
+                "official project documentation, government technical frameworks and original "
+                "specifications over articles about them. Give the exact secure web address of a "
+                "specific document, never a search page, never a homepage, and never an address "
+                f"you are unsure exists. Return at most {limit} sources and no commentary."
+            ),
+            request=f"Subject: {subject.strip()}",
+        )
+
     def study_plan(self, mission: str, available_sources: Sequence[str]) -> dict[str, Any]:
         """Choose an ordered curriculum from sources that already exist."""
         return self.json_object(

@@ -9,7 +9,9 @@
 > the shelves and cross-language recall, and
 > [`../operations/KNOWLEDGE_ACQUISITION.md`](../operations/KNOWLEDGE_ACQUISITION.md) for
 > the operator procedure. Nothing below changes: the study runtime still has no network,
-> no subprocess and no way to approve anything.
+> no subprocess and no way to approve anything. External material now also reaches the
+> corpus through [`GOVERNED_STUDY_ACQUISITION.md`](./GOVERNED_STUDY_ACQUISITION.md) --
+> a separate authority the runtime is handed, never one it imports.
 >
 > **Night School.** Ուսուցումն այլևս սահմանափակ չէ BRO-ի սեփական release-ով։ Դրսի նյութը
 > study root է հասնում միայն կառավարվող գրադարանով՝ մարդու ձեռք բերած, կարդացած ու
