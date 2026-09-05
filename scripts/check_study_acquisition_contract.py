@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = "contracts/study_acquisition.json"
 POLICY = "contracts/source_policy.json"
 ACQUISITION = "src/bro_runtime/study_acquisition.py"
+PDF = "src/bro_runtime/pdf_text.py"
 POLICY_RUNTIME = "src/bro_runtime/source_policy.py"
 STUDY = "src/bro_runtime/study_runtime.py"
 LIBRARY = "src/bro_runtime/knowledge_library.py"
@@ -64,12 +65,27 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
     "ACQ-PDF-001": (
         (ACQUISITION, "def extract_pdf_text"),
         (ACQUISITION, "def _reads_as_prose"),
-        (ACQUISITION, "no readable text layer"),
+        (ACQUISITION, "does not read as language"),
+        (PDF, "def extract_text"),
+    ),
+    "ACQ-PDF-FONTS-001": (
+        (PDF, "def _parse_cmap"),
+        (PDF, "/ToUnicode"),
+        (PDF, "MAX_UNMAPPED_SHARE"),
+        (PDF, "no usable character map"),
+        (PDF, "def _read_object_streams"),
+        (PDF, "WORD_GAP"),
     ),
     "ACQ-FRONTIER-001": (
         (ACQUISITION, "class LinkFrontier"),
         (ACQUISITION, "def next_links"),
         (POLICY_RUNTIME, "def canonical_url"),
+    ),
+    "ACQ-RELEVANCE-001": (
+        (ACQUISITION, "def relevance"),
+        (ACQUISITION, "def _host_words"),
+        (ACQUISITION, "Permission is not relevance"),
+        (ACQUISITION, "from .learning_memory import query_terms"),
     ),
     "ACQ-TIER-001": (
         (POLICY_RUNTIME, "class AuthorityTier"),
@@ -111,6 +127,9 @@ INVARIANT_MARKERS: dict[str, tuple[tuple[str, str], ...]] = {
 FORBIDDEN_IN_STUDY = ("urlopen", "urllib", "socket", "http.client", "requests.",
                       "study_acquisition", "BoundedFetcher")
 # Anything that would make acquisition a writer rather than a reader.
+# The PDF decoder is a pure function of bytes. Anything else in it is a way in.
+FORBIDDEN_IN_PDF = ("urlopen", "urllib", "socket", "subprocess", "open(", "eval(",
+                    "exec(", "os.system", "Path(")
 FORBIDDEN_IN_ACQUISITION = ('method="POST"', 'method="PUT"', 'method="DELETE"',
                             'method="PATCH"', "data=payload", "os.system", "eval(", "exec(")
 
@@ -127,7 +146,7 @@ def validate(root: Path = ROOT) -> list[str]:
         return [f"missing contract: {CONTRACT}"]
     contract = json.loads(contract_path.read_text(encoding="utf-8"))
     sources = {path: _read(root, path) for path in
-               (ACQUISITION, POLICY_RUNTIME, STUDY, LIBRARY, SURFACE)}
+               (ACQUISITION, PDF, POLICY_RUNTIME, STUDY, LIBRARY, SURFACE)}
     for path, text in sources.items():
         if text is None:
             errors.append(f"missing source: {path}")
@@ -162,6 +181,12 @@ def validate(root: Path = ROOT) -> list[str]:
         for token in FORBIDDEN_IN_ACQUISITION:
             if token in acquisition:
                 errors.append(f"{ACQUISITION}: acquisition must stay read-only ({token!r})")
+    decoder = sources.get(PDF)
+    if decoder is not None:
+        for token in FORBIDDEN_IN_PDF:
+            if token in decoder:
+                errors.append(f"{PDF}: the decoder must stay a pure function of bytes ({token!r})")
+    if acquisition is not None:
         if acquisition.count('method="GET"') != 1:
             errors.append(f"{ACQUISITION}: exactly one request verb may be expressed, and it is GET")
 

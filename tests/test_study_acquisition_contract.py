@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scripts.check_study_acquisition_contract import (
     ACQUISITION,
+    PDF,
     CONTRACT,
     INVARIANT_MARKERS,
     POLICY,
@@ -15,7 +16,7 @@ from scripts.check_study_acquisition_contract import (
 )
 
 REAL_ROOT = Path(__file__).resolve().parents[1]
-COPIED = (CONTRACT, POLICY, ACQUISITION, "src/bro_runtime/source_policy.py", STUDY,
+COPIED = (CONTRACT, POLICY, ACQUISITION, PDF, "src/bro_runtime/source_policy.py", STUDY,
           "src/bro_runtime/knowledge_library.py", "scripts/bro_interact.py")
 
 
@@ -134,6 +135,13 @@ class AcquisitionGateTests(unittest.TestCase):
         policy["denied_hosts"].append(policy["families"][0]["hosts"][0])
         self.write(root, POLICY, policy)
         self.assertTrue(any("both denied and claimed" in e for e in validate(root)))
+
+    def test_a_decoder_that_reaches_outside_its_own_bytes_is_caught(self):
+        root = self.tree()
+        source = root / PDF
+        source.write_text("import urllib.request\n" + source.read_text(encoding="utf-8"),
+                          encoding="utf-8")
+        self.assertTrue(any("pure function of bytes" in e for e in validate(root)))
 
     def test_every_marker_the_gate_checks_exists_in_the_real_tree(self):
         for identifier, markers in INVARIANT_MARKERS.items():

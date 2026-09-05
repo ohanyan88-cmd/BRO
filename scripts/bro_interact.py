@@ -286,7 +286,7 @@ def build_surface() -> ConversationalInteractionSurface:
                 proposed = []
             candidates = list(acquisition.propose(proposed, topic=subject))
             admitted: list[str] = []
-            depth_one: list[tuple[str, tuple[str, ...]]] = []
+            depth_one: list[tuple[str, tuple[str, ...], Mapping[str, str]]] = []
             for candidate in candidates:
                 if len(admitted) >= frontier_budget or not frontier.admit(candidate.url):
                     continue
@@ -296,11 +296,12 @@ def build_surface() -> ConversationalInteractionSurface:
                     continue
                 if outcome.admitted:
                     admitted.append(outcome.local_path)
-                    depth_one.append((candidate.url, outcome.links))
-            for source_url, links in depth_one:
+                    depth_one.append((candidate.url, outcome.links, outcome.link_texts))
+            for source_url, links, anchors in depth_one:
                 if len(admitted) >= frontier_budget:
                     break
-                for link in frontier.next_links(source_url, links, depth=1):
+                for link in frontier.next_links(source_url, links, depth=1,
+                                                topic=subject, anchors=anchors):
                     if len(admitted) >= frontier_budget or not frontier.admit(link):
                         continue
                     for follow in acquisition.propose([link], topic=subject,
