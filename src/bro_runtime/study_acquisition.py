@@ -30,13 +30,14 @@ import socket
 import time
 import urllib.error
 import urllib.request
-import zlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Callable, Iterable, Mapping, Sequence
 from urllib.parse import urljoin, urlsplit
 
+from .learning_memory import query_terms
+from .pdf_text import extract_text
 from .source_policy import (
     AuthorityTier,
     HostVerdict,
@@ -279,6 +280,7 @@ class StudyArtifact:
     text: str
     title: str
     links: tuple[str, ...]
+    link_texts: Mapping[str, str]
     complete: bool
     truncation_reason: str
     injection_markers: tuple[str, ...]
@@ -294,6 +296,11 @@ class _HtmlToText(HTMLParser):
         self.base_url = base_url
         self.parts: list[str] = []
         self.links: list[str] = []
+        # What a link called itself. A url path is a weak signal on its own -- /docs/9.6/x
+        # says nothing -- and the anchor text is usually the only place the subject appears.
+        self.link_texts: dict[str, str] = {}
+        self._anchor: list[str] = []
+        self._href = ""
         self.title = ""
         self._drop = 0
         self._in_title = False
@@ -310,8 +317,11 @@ class _HtmlToText(HTMLParser):
             self._in_title = True
         elif tag == "a":
             href = dict(attrs).get("href") or ""
+            self._anchor = []
+            self._href = ""
             if href and not href.startswith(("#", "javascript:", "mailto:", "data:")):
-                self.links.append(urljoin(self.base_url, href))
+                self._href = urljoin(self.base_url, href)
+                self.links.append(self._href)
         elif tag in HEADINGS:
             self._heading = HEADINGS[tag]
             self.parts.append(f"\n\n{self._heading} ")
@@ -331,6 +341,12 @@ class _HtmlToText(HTMLParser):
             return
         if tag == "title":
             self._in_title = False
+        elif tag == "a" and self._href:
+            text = " ".join("".join(self._anchor).split())
+            if text:
+                self.link_texts[self._href] = (
+                    self.link_texts.get(self._href, "") + " " + text).strip()
+            self._href = ""
         elif tag in HEADINGS:
             self._heading = ""
             self.parts.append("\n")
@@ -345,7 +361,9 @@ class _HtmlToText(HTMLParser):
             return
         if self._in_title:
             self.title += data
-        self.parts.append(data if self._pre else data)
+        if self._href:
+            self._anchor.append(data)
+        self.parts.append(data)
 
     def text(self) -> str:
         joined = "".join(self.parts)
@@ -354,73 +372,33 @@ class _HtmlToText(HTMLParser):
         return re.sub(r"\n{3,}", "\n\n", joined).strip()
 
 
-# PDF text lives in content streams as (literal) Tj and [array] TJ operators.
-_PDF_STREAM = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.DOTALL)
-_PDF_TEXT_LITERAL = re.compile(rb"\((?:\\.|[^\\()])*\)", re.DOTALL)
-_PDF_PAGE = re.compile(rb"/Type\s*/Page[^s]")
-
-
 def extract_pdf_text(body: bytes, *, max_pages: int = 200, max_characters: int = 400_000
                      ) -> tuple[str, bool, str]:
-    """Bounded text extraction from a text PDF. Returns (text, complete, reason).
+    """Bounded text extraction from a PDF. Returns (text, complete, reason).
 
-    Deliberately small and deliberately honest. It inflates Flate-compressed content
-    streams and reads the text-showing operators; it runs nothing, follows no action, and
-    opens no embedded object. A PDF whose text is drawn as images, or encoded through a
-    font map this does not model, yields too little -- and then it says so rather than
-    handing study a page of punctuation.
+    The decoding lives in ``pdf_text``: it reads the object table including compressed
+    object streams, resolves each font's /ToUnicode CMap, and refuses when the glyphs came
+    from fonts it could not map. This wrapper adds one more net -- the finished text must
+    still read as language -- because the two failures are different. One is "I could not
+    map these glyphs"; the other is "I mapped them and the result is not words", and an
+    extractor that only checks the first will hand study a page of confident nonsense.
     """
-    if not body.startswith(b"%PDF-"):
-        return "", False, "not a PDF document"
-    pages = len(_PDF_PAGE.findall(body))
-    if pages > max_pages:
-        return "", False, f"PDF has {pages} pages, over the {max_pages}-page ceiling"
-    out: list[str] = []
-    length = 0
-    truncated = ""
-    for raw in _PDF_STREAM.findall(body):
-        chunk = raw
-        try:
-            chunk = zlib.decompress(raw)
-        except zlib.error:
-            try:
-                chunk = zlib.decompressobj().decompress(raw)
-            except zlib.error:
-                pass
-        # A content stream begins text with BT. Font programs carry Tj-looking bytes and
-        # licence strings but never BT, and letting them through fills study with the
-        # name of a typeface foundry.
-        if b"BT" not in chunk or (b"Tj" not in chunk and b"TJ" not in chunk):
-            continue
-        for literal in _PDF_TEXT_LITERAL.findall(chunk):
-            piece = _pdf_literal(literal[1:-1])
-            if not _is_readable(piece):
-                # CID-encoded glyph indices and binary payloads also live between
-                # parentheses. They decode to bytes that are not text in any language, and
-                # letting them through is how an extractor produces confident nonsense.
-                continue
-            out.append(piece)
-            length += len(piece)
-            if length >= max_characters:
-                truncated = f"stopped at the {max_characters}-character normalisation ceiling"
-                break
-        if truncated:
-            break
-    text = re.sub(r"\n{3,}", "\n\n", " ".join(out).replace("  ", " ")).strip()
-    if len(text) < 200 or not _reads_as_prose(text):
-        return "", False, (
-            "no readable text layer: the pages are images, or the fonts are CID/Type0 encoded "
-            "and this extractor deliberately does not guess a glyph map. Extracting the wrong "
-            "letters would be worse than extracting none, because a wrong quote still verifies "
-            "against the wrong text. OCR is not attempted.")
-    return text, not truncated, truncated
+    text, complete, reason = extract_text(body, max_pages=max_pages,
+                                          max_characters=max_characters)
+    if not text:
+        return "", False, reason
+    if not _reads_as_prose(text):
+        return "", False, ("the extracted text does not read as language; refusing rather "
+                           "than quoting it, because a wrong quote still verifies against "
+                           "the wrong extraction")
+    return text, complete, reason
 
 
 def _reads_as_prose(text: str) -> bool:
-    """Does the whole extraction read like language, or like glyph indices?
+    """Does the finished text read like language, or like glyph indices?
 
-    A per-literal filter cannot see this: enough short binary fragments each pass on their
-    own and together produce a page of confident nonsense. Judge the finished text.
+    Judged on the whole, not per fragment: enough short binary pieces each pass on their own
+    and together produce a page of nonsense.
     """
     sample = text[:20000]
     if not sample:
@@ -434,57 +412,16 @@ def _reads_as_prose(text: str) -> bool:
     alphabetic = [word for word in words if any(character.isalpha() for character in word)]
     if len(alphabetic) / len(words) < 0.7:
         return False
-    # Real prose repeats its function words at a stable rate; glyph soup does not.
-    # Measured on this host: rfc9110 text 0.046, python docs 0.066, a CID-encoded NIST PDF
-    # 0.000. Anything under 0.015 is not English being read correctly.
+    # Real prose repeats its function words at a stable rate; glyph soup does not. Measured
+    # on this host: rfc9110 text 0.046, python docs 0.066, NIST AI 100-1 after the CID fix
+    # 0.038, and a CID document read without its font maps 0.000.
     tokens = re.findall(r"[a-z']+", sample.lower())
     if not tokens or tokens.count("the") / len(tokens) < 0.015:
         return False
     # Ligature and glyph substitution shows up as control characters, and it is the mode
-    # that matters most: the text reads fine and the words are quietly wrong. A quote that
-    # says "Framew ork" verifies against an extraction nobody can check against the source.
+    # that matters most: the text reads fine and the words are quietly wrong.
     control = sum(1 for character in sample if ord(character) < 32 and character not in "\n\t")
     return control / len(sample) <= 0.0001
-
-
-def _is_readable(piece: str) -> bool:
-    """Keep a decoded literal only when it actually reads as text."""
-    if len(piece) < 2:
-        return False
-    printable = sum(1 for character in piece
-                    if character.isprintable() or character in "\n\t")
-    if printable / len(piece) < 0.9:
-        return False
-    letters = sum(1 for character in piece if character.isalnum() or character.isspace())
-    return letters / len(piece) >= 0.6
-
-
-def _pdf_literal(raw: bytes) -> str:
-    out = bytearray()
-    index = 0
-    while index < len(raw):
-        byte = raw[index]
-        if byte == 0x5C and index + 1 < len(raw):
-            following = raw[index + 1:index + 2]
-            mapping = {b"n": b"\n", b"r": b"\r", b"t": b"\t", b"b": b"\b", b"f": b"\f",
-                       b"(": b"(", b")": b")", b"\\": b"\\"}
-            if following in mapping:
-                out += mapping[following]
-                index += 2
-                continue
-            octal = raw[index + 1:index + 4]
-            if octal[:1].isdigit():
-                try:
-                    out.append(int(octal.decode("ascii", "ignore"), 8) & 0xFF)
-                except ValueError:
-                    pass
-                index += 1 + len(octal)
-                continue
-            index += 2
-            continue
-        out.append(byte)
-        index += 1
-    return out.decode("utf-8", "replace") if any(b > 127 for b in out) else out.decode("latin-1")
 
 
 def normalise(document: FetchedDocument, *, max_characters: int = 400_000,
@@ -499,6 +436,7 @@ def normalise(document: FetchedDocument, *, max_characters: int = 400_000,
         if not text:
             raise AcquisitionRejected(f"{document.final_url}: {reason}")
         links: tuple[str, ...] = ()
+        link_texts: dict[str, str] = {}
         title = ""
         truncation = truncation or reason
         complete = complete and bool(document.complete)
@@ -508,11 +446,13 @@ def normalise(document: FetchedDocument, *, max_characters: int = 400_000,
         text = parser.text()
         title = " ".join(parser.title.split())
         links = tuple(dict.fromkeys(parser.links))
+        link_texts = dict(parser.link_texts)
         complete = bool(document.complete)
     else:
         text = document.body.decode("utf-8", "replace").strip()
         title = ""
         links = ()
+        link_texts = {}
         complete = bool(document.complete)
     if len(text) > max_characters:
         text = text[:max_characters]
@@ -522,7 +462,7 @@ def normalise(document: FetchedDocument, *, max_characters: int = 400_000,
         raise AcquisitionRejected(
             f"{document.final_url} yielded {len(text)} characters of text; too little to study")
     return StudyArtifact(
-        text=text, title=title, links=links, complete=complete,
+        text=text, title=title, links=links, link_texts=link_texts, complete=complete,
         truncation_reason=truncation, injection_markers=injection_markers(text),
         artifact_digest=digest_of(text),
         metadata={"content_type": kind, "final_url": document.final_url,
@@ -532,6 +472,15 @@ def normalise(document: FetchedDocument, *, max_characters: int = 400_000,
 
 
 # -------------------------------------------------------------------- link frontier
+def _host_words(url: str) -> set[str]:
+    """The words in a host name, which say nothing about one page rather than another.
+
+    "postgresql" appears in every url on postgresql.org, including the release notes, so
+    counting it as a subject match makes the relevance gate agree with everything.
+    """
+    return query_terms(host_of(url).replace(".", " ").replace("-", " "))
+
+
 class LinkFrontier:
     """Which links may become the next fetch. A document proposes; policy disposes."""
 
@@ -560,12 +509,21 @@ class LinkFrontier:
         self.taken += 1
         return True
 
-    def next_links(self, source_url: str, links: Sequence[str], *, depth: int) -> tuple[str, ...]:
-        """Links worth following from one page, in policy order, same host first."""
+    def next_links(self, source_url: str, links: Sequence[str], *, depth: int,
+                   topic: str = "", anchors: Mapping[str, str] | None = None) -> tuple[str, ...]:
+        """Links worth following from one page: permitted, unseen, and about the subject.
+
+        Permission is not relevance. An allowlisted host will happily hand back its release
+        announcements and its conference notices, and a frontier that only asks "may I?"
+        follows every one of them -- which is what put a PostgreSQL release note into a
+        mission about transaction isolation. A link now has to look like it is about what
+        the mission is studying, judged from its path and from what the link called itself.
+        """
         if depth >= self.max_depth:
             return ()
         origin = host_of(source_url)
-        allowed: list[str] = []
+        wanted = query_terms(topic)
+        allowed: list[tuple[int, str]] = []
         for link in links:
             try:
                 key = canonical_url(link)
@@ -576,11 +534,25 @@ class LinkFrontier:
                 continue
             if verdict.tier not in (AuthorityTier.A, AuthorityTier.B, AuthorityTier.C):
                 continue
-            if key not in allowed:
-                allowed.append(key)
-        allowed.sort(key=lambda url: (host_of(url) != origin, url))
+            score = self.relevance(key, wanted - _host_words(key),
+                                   (anchors or {}).get(key, ""))
+            if wanted and score <= 0:
+                continue
+            if all(key != existing for _, existing in allowed):
+                allowed.append((score, key))
+        # Most relevant first, then same host, then stable by url.
+        allowed.sort(key=lambda pair: (-pair[0], host_of(pair[1]) != origin, pair[1]))
         room = max(0, self.max_per_mission - self.taken)
-        return tuple(allowed[:room])
+        return tuple(url for _, url in allowed[:room])
+
+    @staticmethod
+    def relevance(url: str, wanted: set[str], anchor: str = "") -> int:
+        """How many of the mission's words this link claims, in its path or its own text."""
+        if not wanted:
+            return 0
+        parts = urlsplit(url)
+        haystack = " ".join(query_terms(f"{parts.path} {parts.query} {anchor}"))
+        return sum(1 for term in wanted if term in haystack)
 
 
 # ------------------------------------------------------------------------ discovery
@@ -629,6 +601,7 @@ class AcquisitionOutcome:
     complete: bool
     reason: str
     links: tuple[str, ...] = ()
+    link_texts: Mapping[str, str] = field(default_factory=dict)
 
 
 class GovernedStudyAcquisition:
@@ -774,7 +747,7 @@ class GovernedStudyAcquisition:
         return AcquisitionOutcome(candidate, True, local_path, artifact.artifact_digest,
                                   document.content_digest, len(artifact.text),
                                   artifact.complete, "admitted to the study corpus",
-                                  artifact.links)
+                                  artifact.links, dict(artifact.link_texts))
 
     def _screening_policy(self, candidate: SourceCandidate, document: FetchedDocument):
         return {document.final_url: {

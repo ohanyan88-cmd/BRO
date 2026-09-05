@@ -65,19 +65,44 @@ artifact, never live Internet content.** Every artifact carries its own provenan
 requested URL, final URL, host, publisher, tier, class, scope, discovery query, retrieval
 time, content type, content digest, and whether it is complete.
 
-**PDF is bounded and honest.** It inflates content streams and reads text-showing operators;
-it executes nothing and opens no embedded object. When the fonts are CID/Type0 encoded, or
-the pages are images, it **refuses** rather than emitting what it half-read — because a wrong
-quote still verifies against the wrong extraction, and confident nonsense is worse than an
-honest failure. Measured against three authoritative PDFs on this host, all three were
-refused; the extractor is proven on simple text PDFs and a real CMap-aware extractor remains
-a named limitation.
+**PDF is read properly, and refuses when it cannot be.** `pdf_text` reads the real object
+table — including the compressed object streams every PDF 1.5 and later uses, which is why a
+regex over raw bytes finds three objects in a document that has four hundred — resolves each
+font's `/ToUnicode` CMap for composite and simple fonts alike, and turns wide inter-run
+kerning into word breaks, because a PDF draws *"one two"* as two runs and a kern rather than
+a run containing a space.
+
+It fails closed **twice**. Once when more than 2% of glyphs came from fonts it could not map:
+guessing them produces a quote that verifies perfectly against the wrong text. And again when
+the mapped result does not read as language, because those are different failures and an
+extractor that checks only the first hands study confident nonsense.
+
+Measured on this host against three authoritative documents — NIST AI 100-1, NIST SP 800-207
+and *Attention Is All You Need* — all three now extract clean prose with `identification` and
+`organizations` intact, zero control characters, and every checked phrase present
+character-for-character. The first version of this extractor produced readable-*looking* text
+from the same NIST framework with the `fi` dropped out of `identification`; that is the
+failure the fidelity gates exist for. OCR is still not attempted, and a scanned PDF is still
+refused.
 
 ### Link frontier
 
 A document proposes; policy disposes. Bounded depth, per-host and per-mission page budgets,
 canonical URL deduplication (tracking parameters and fragments stripped, so two spellings of
-one page are one page), same-host preference, and only admissible tiers.
+one page are one page), and only admissible tiers.
+
+**Permission is not relevance**, and that distinction cost a page. An allowlisted host still
+publishes release notes and conference notices, and the first version of this frontier
+followed one into a mission about transaction isolation. A link now has to look like it is
+about what the mission is studying — judged deterministically, before any page budget is
+spent, from the link's path and from what the link called itself, using the same tokeniser
+retrieval uses. Anchor text matters because a path like `/docs/current/xfunc.html` says
+nothing while its link text says *"Transaction isolation in user functions"*.
+
+Two details that are easy to get wrong: the host's own words are not subject matches —
+`postgresql` appears in every URL on `postgresql.org`, release notes included, so counting it
+makes the gate agree with everything. And a mission whose subject yields no usable words has
+*no opinion* about relevance rather than refusing everything.
 
 ### Prompt injection
 
@@ -148,10 +173,29 @@ Internet acquisition is **off unless an operator turns it on**: `BRO_STUDY_ACQUI
 script-ի, style-ի ու նավիգացիայի։ **STUDY-ն կարդում է artifact-ը, ոչ երբեք կենդանի
 բովանդակություն։**
 
-**PDF-ը սահմանափակ է ու ազնիվ։** CID/Type0 տառատեսակների կամ պատկերային էջերի դեպքում այն
-**մերժում է**, այլ ոչ թե տալիս կիսատ կարդացածը — որովհետև սխալ մեջբերումը դեռ ստուգվում է
-սխալ արտածման դեմ, ու վստահ անհեթեթությունը ավելի վատ է, քան ազնիվ ձախողումը։ Այս host-ի
-վրա փորձված երեք հեղինակավոր PDF-ից երեքն էլ մերժվեցին։
+**PDF-ը հիմա իսկապես կարդացվում է, ու մերժվում է, երբ չի կարող։** `pdf_text`-ը կարդում է
+իրական օբյեկտների աղյուսակը՝ ներառյալ սեղմված object stream-երը, որ օգտագործում է ամեն
+PDF 1.5+, լուծում է ամեն տառատեսակի `/ToUnicode` քարտեզը, ու լայն kerning-ը դարձնում է
+բառի բացակ, որովհետև PDF-ը «one two»-ն նկարում է որպես երկու հատված ու մի kern, ոչ թե
+բացատ պարունակող տող։
+
+Փակ ձախողվում է **երկու անգամ**․ մեկ՝ երբ glyph-երի 2%-ից ավելին եկել է չքարտեզագրվող
+տառատեսակից, մեկ էլ՝ երբ քարտեզագրված արդյունքը լեզու չի կարդացվում։
+
+Այս host-ի վրա չափված՝ NIST AI 100-1, NIST SP 800-207 ու «Attention Is All You Need» —
+երեքն էլ հիմա տալիս են մաքուր արձակ, `identification`-ը ու `organizations`-ը ամբողջական,
+զրո control նիշ։ Առաջին տարբերակը նույն NIST-ի փաստաթղթից տալիս էր **կարդացվող տեսքով**
+տեքստ, որտեղ `identification`-ից ընկել էր `fi`-ն — հենց դրա համար են ճշգրտության
+դարպասները։ OCR չի փորձվում, ու սկանավորված PDF-ը դեռ մերժվում է։
+
+### Ռելեւանտության դարպաս
+
+**Թույլտվությունը ռելեւանտություն չէ։** Թույլատրված host-ը դեռ հրապարակում է release-ի
+հայտարարություններ, ու frontier-ի առաջին տարբերակը մեկը հետևեց transaction isolation-ի
+առաքելության մեջ։ Հիմա հղումը պիտի **երևա որ առաքելության թեմայի մասին է** — որոշվում է
+դետերմինիստիկ, էջի բյուջե ծախսելուց առաջ, հղման ուղուց ու իր իսկ տեքստից։ Host-ի սեփական
+բառերը թեմայի համընկնում չեն, ու առանց օգտակար բառերի առաքելությունը կարծիք չունի, ոչ թե
+ամեն ինչ մերժում է։
 
 ### Prompt injection
 

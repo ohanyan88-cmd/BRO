@@ -7,6 +7,7 @@ it is refused has already lost.
 """
 import io
 import sqlite3
+import zlib
 import tempfile
 import unittest
 import urllib.error
@@ -250,19 +251,33 @@ class NormalisationTests(Base):
 
 
 class PdfTests(unittest.TestCase):
-    @staticmethod
-    def simple_pdf(text: str) -> bytes:
-        stream = ("BT /F1 12 Tf 72 720 Td (" + text + ") Tj ET").encode("latin-1")
-        return (b"%PDF-1.4\n1 0 obj<</Type/Page>>endobj\n2 0 obj<</Length "
-                + str(len(stream)).encode() + b">>\nstream\n" + stream
-                + b"\nendstream\nendobj\ntrailer<<>>\n%%EOF")
+    """A PDF is bytes plus a font. Without the font, the bytes are glyph numbers."""
 
-    def test_a_simple_text_pdf_extracts(self):
+    @staticmethod
+    def build_pdf(text: str, *, with_font=True, encoding=b"/WinAnsiEncoding") -> bytes:
+        stream = ("BT /F1 12 Tf 72 720 Td (" + text + ") Tj ET").encode("latin-1")
+        font = (b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding"
+                + encoding + b">>endobj\n") if with_font else b""
+        resources = b"/Resources<</Font<</F1 5 0 R>>>>" if with_font else b""
+        return (b"%PDF-1.4\n"
+                b"4 0 obj<</Type/Page/Contents 2 0 R" + resources + b">>endobj\n"
+                + font +
+                b"2 0 obj<</Length " + str(len(stream)).encode() + b">>\nstream\n"
+                + stream + b"\nendstream\nendobj\ntrailer<<>>\n%%EOF")
+
+    def test_a_simple_text_pdf_extracts_through_its_font(self):
         prose = ("The framework is the set of rules that a system must follow and the "
                  "guidance that the organisation is expected to apply. " * 6)
-        text, complete, reason = extract_pdf_text(self.simple_pdf(prose))
+        text, complete, reason = extract_pdf_text(self.build_pdf(prose))
         self.assertIn("framework is the set of rules", text)
         self.assertTrue(complete, reason)
+
+    def test_a_page_whose_font_cannot_be_mapped_is_refused(self):
+        """Glyph codes without a font are numbers, and guessing them invents a quote."""
+        prose = "The framework is the set of rules that a system must follow. " * 8
+        text, complete, reason = extract_pdf_text(self.build_pdf(prose, with_font=False))
+        self.assertEqual(text, "")
+        self.assertIn("no usable character map", reason)
 
     def test_something_that_is_not_a_pdf_fails_honestly(self):
         text, complete, reason = extract_pdf_text(b"<html>not a pdf</html>")
@@ -272,9 +287,80 @@ class PdfTests(unittest.TestCase):
     def test_glyph_soup_fails_honestly_rather_than_producing_confident_nonsense(self):
         """A wrong quote still verifies against the wrong text, so wrong is worse than none."""
         soup = " ".join("NI S P 8 Zer Ar tec tu tt R ve r B orc he rt".split() * 60)
-        text, complete, reason = extract_pdf_text(self.simple_pdf(soup))
+        text, complete, reason = extract_pdf_text(self.build_pdf(soup))
         self.assertEqual(text, "")
-        self.assertIn("no readable text layer", reason)
+        self.assertIn("does not read as language", reason)
+
+    def test_a_page_over_the_page_ceiling_is_refused(self):
+        many = b"%PDF-1.4\n" + b"".join(
+            b"%d 0 obj<</Type/Page>>endobj\n" % n for n in range(10, 40)) + b"%%EOF"
+        text, complete, reason = extract_pdf_text(many, max_pages=5)
+        self.assertEqual(text, "")
+        self.assertIn("over the 5-page ceiling", reason)
+
+    def test_the_extraction_ceiling_is_reported_rather_than_hidden(self):
+        prose = "The system must follow the rules that the guidance sets out. " * 200
+        text, complete, reason = extract_pdf_text(self.build_pdf(prose), max_characters=800)
+        self.assertLessEqual(len(text), 800)
+        self.assertFalse(complete)
+        self.assertIn("800-character", reason)
+
+
+class PdfFontDecodingTests(unittest.TestCase):
+    """The CID half: a composite font addresses glyphs through its own CMap."""
+
+    @staticmethod
+    def cid_pdf(mapping: dict[int, str], codes: list[int]) -> bytes:
+        rows = b"".join(b"<%04X> <%s>\n" % (code, "".join(f"{ord(c):04X}" for c in char).encode())
+                        for code, char in mapping.items())
+        cmap = (b"/CIDInit /ProcSet findresource begin\n"
+                b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n"
+                b"%d beginbfchar\n" % len(mapping) + rows + b"endbfchar\nend\n")
+        shown = "".join(f"{code:04X}" for code in codes).encode()
+        stream = b"BT /F1 12 Tf 72 720 Td <" + shown + b"> Tj ET"
+        return (b"%PDF-1.4\n"
+                b"4 0 obj<</Type/Page/Contents 2 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n"
+                b"5 0 obj<</Type/Font/Subtype/Type0/BaseFont/AAAAAA+X/ToUnicode 6 0 R>>endobj\n"
+                b"6 0 obj<</Length " + str(len(cmap)).encode() + b">>\nstream\n" + cmap +
+                b"\nendstream\nendobj\n"
+                b"2 0 obj<</Length " + str(len(stream)).encode() + b">>\nstream\n" + stream +
+                b"\nendstream\nendobj\ntrailer<<>>\n%%EOF")
+
+    def test_a_composite_font_is_decoded_through_its_tounicode_map(self):
+        alphabet = "The quick brown fox jumps over the lazy dog and the rules of the system. "
+        mapping = {index + 1: character for index, character in enumerate(sorted(set(alphabet)))}
+        reverse = {character: code for code, character in mapping.items()}
+        sentence = (alphabet * 4)
+        text, complete, reason = extract_pdf_text(
+            self.cid_pdf(mapping, [reverse[c] for c in sentence]))
+        self.assertIn("quick brown fox", text, reason)
+        self.assertIn("the rules of the system", text)
+
+    def test_a_composite_font_with_no_map_is_refused_rather_than_guessed(self):
+        alphabet = "The quick brown fox jumps over the lazy dog and the rules of the system. "
+        mapping = {index + 1: character for index, character in enumerate(sorted(set(alphabet)))}
+        reverse = {character: code for code, character in mapping.items()}
+        body = self.cid_pdf(mapping, [reverse[c] for c in alphabet * 4])
+        stripped = body.replace(b"/ToUnicode 6 0 R", b"                ")
+        text, complete, reason = extract_pdf_text(stripped)
+        self.assertEqual(text, "")
+        self.assertIn("no usable character map", reason)
+
+    def test_kerning_wide_enough_to_be_a_word_break_becomes_a_space(self):
+        """PDFs draw "one two" as two runs and a kern, not as a run containing a space."""
+        pdf = (b"%PDF-1.4\n"
+               b"4 0 obj<</Type/Page/Contents 2 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n"
+               b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>endobj\n")
+        padding = b"The guidance that the system follows is the set of rules. " * 4
+        stream = (b"BT /F1 12 Tf 72 720 Td [(" + padding +
+                  b"The rules of the system are what the guidance sets)"
+                  b" -400 (out and the framework is the set of rules that the system follows)"
+                  b" -20 (,)] TJ ET")
+        pdf += (b"2 0 obj<</Length " + str(len(stream)).encode() + b">>\nstream\n" + stream
+                + b"\nendstream\nendobj\ntrailer<<>>\n%%EOF")
+        text, complete, reason = extract_pdf_text(pdf)
+        self.assertIn("sets out and the framework", text, reason)
+        self.assertIn("follows,", text, "a narrow kern is not a word break")
 
 
 class FrontierTests(Base):
@@ -470,3 +556,141 @@ class PromptInjectionTests(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RelevanceGateTests(Base):
+    """Permission is not relevance. An allowlisted host still has release notes."""
+
+    TOPIC = "PostgreSQL transaction isolation levels"
+    OFFERED = [
+        "https://www.postgresql.org/docs/current/transaction-iso.html",
+        "https://www.postgresql.org/docs/current/sql-set-transaction.html",
+        "https://www.postgresql.org/about/news/postgresql-186-released-3365/",
+        "https://www.postgresql.org/community/survey/",
+        "https://www.postgresql.org/support/professional_support/",
+    ]
+
+    def frontier(self):
+        return LinkFrontier(self.policy, mission_budget=10)
+
+    def test_an_off_topic_page_on_a_permitted_host_is_refused(self):
+        allowed = self.frontier().next_links(
+            "https://www.postgresql.org/docs/current/index.html", self.OFFERED,
+            depth=0, topic=self.TOPIC)
+        self.assertIn("https://www.postgresql.org/docs/current/transaction-iso.html", allowed)
+        self.assertNotIn("https://www.postgresql.org/about/news/postgresql-186-released-3365/",
+                         allowed)
+        self.assertNotIn("https://www.postgresql.org/community/survey/", allowed)
+
+    def test_anchor_text_can_carry_the_subject_a_path_hides(self):
+        """A url of /docs/9.6/x says nothing; what the link called itself usually does."""
+        opaque = "https://www.postgresql.org/docs/current/xfunc.html"
+        without = self.frontier().next_links("https://www.postgresql.org/docs/current/index.html",
+                                             [opaque], depth=0, topic=self.TOPIC)
+        with_anchor = self.frontier().next_links(
+            "https://www.postgresql.org/docs/current/index.html", [opaque], depth=0,
+            topic=self.TOPIC, anchors={opaque: "Transaction isolation in user functions"})
+        self.assertEqual(without, ())
+        self.assertEqual(with_anchor, (opaque,))
+
+    def test_the_most_relevant_link_is_offered_first(self):
+        """Chosen so relevance and alphabetical order disagree: without the score, the
+        weaker link sorts first."""
+        weak = "https://www.postgresql.org/docs/current/a-transaction.html"
+        strong = "https://www.postgresql.org/docs/current/z-transaction-isolation-levels.html"
+        allowed = self.frontier().next_links(
+            "https://www.postgresql.org/docs/current/index.html", [weak, strong],
+            depth=0, topic=self.TOPIC)
+        self.assertEqual(allowed, (strong, weak))
+
+    def test_a_mission_with_no_usable_subject_words_is_not_starved(self):
+        """No topic terms means no opinion about relevance, not a refusal of everything."""
+        allowed = self.frontier().next_links("https://www.postgresql.org/docs/current/index.html",
+                                             self.OFFERED, depth=0, topic="a of an")
+        self.assertEqual(len(allowed), len(self.OFFERED))
+
+    def test_the_host_name_is_not_a_subject_match(self):
+        """postgresql appears in every url on postgresql.org, release notes included."""
+        allowed = self.frontier().next_links(
+            "https://www.postgresql.org/docs/current/index.html",
+            ["https://www.postgresql.org/about/news/postgresql-186-released-3365/"],
+            depth=0, topic="postgresql")
+        self.assertEqual(allowed, ())
+
+    def test_relevance_counts_distinct_subject_words(self):
+        wanted = {"transaction", "isolation"}
+        self.assertEqual(LinkFrontier.relevance(
+            "https://x.test/docs/transaction-iso.html", wanted), 1)
+        self.assertEqual(LinkFrontier.relevance(
+            "https://x.test/docs/transaction-isolation.html", wanted), 2)
+        self.assertEqual(LinkFrontier.relevance("https://x.test/about/news.html", wanted), 0)
+
+    def test_relevance_is_applied_before_admission_not_after(self):
+        frontier = self.frontier()
+        allowed = frontier.next_links("https://www.postgresql.org/docs/current/index.html",
+                                      self.OFFERED, depth=0, topic=self.TOPIC)
+        self.assertEqual(frontier.taken, 0, "judging a link must not spend the page budget")
+        self.assertTrue(allowed)
+
+
+class PdfRealWorldShapeTests(unittest.TestCase):
+    """The two shapes that broke the first decoder, rebuilt small enough to test."""
+
+    PROSE = ("The rules of the system are what the guidance sets out and the framework is "
+             "the set of rules that the organisation follows in practice. ")
+
+    @staticmethod
+    def cmap(mapping: dict[int, str], *, codespace: bytes) -> bytes:
+        rows = b"".join(b"<%s> <%s>\n" % (f"{code:0{len(codespace)//2*2}X}".encode(),
+                                          "".join(f"{ord(c):04X}" for c in char).encode())
+                        for code, char in mapping.items())
+        return (b"/CIDInit /ProcSet findresource begin\n1 begincodespacerange\n<"
+                + codespace + b"> <" + b"F" * len(codespace) + b">\nendcodespacerange\n"
+                + b"%d beginbfchar\n" % len(mapping) + rows + b"endbfchar\nend\n")
+
+    def simple_font_with_wide_codespace(self) -> bytes:
+        """A simple font whose CMap declares two-byte codes while its codes are one byte.
+
+        This is the NIST Zero Trust shape. Trusting the codespace there made every single
+        byte miss its entry and the whole document read as unmappable.
+        """
+        text = self.PROSE * 4
+        mapping = {ord(character): character for character in sorted(set(text))}
+        cmap = self.cmap(mapping, codespace=b"0000")
+        stream = b"BT /F1 12 Tf 72 720 Td (" + text.encode("latin-1") + b") Tj ET"
+        return (b"%PDF-1.4\n"
+                b"4 0 obj<</Type/Page/Contents 2 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n"
+                b"5 0 obj<</Type/Font/Subtype/TrueType/BaseFont/AAAAAA+Arial"
+                b"/Encoding/WinAnsiEncoding/ToUnicode 6 0 R>>endobj\n"
+                b"6 0 obj<</Length " + str(len(cmap)).encode() + b">>\nstream\n" + cmap +
+                b"\nendstream\nendobj\n"
+                b"2 0 obj<</Length " + str(len(stream)).encode() + b">>\nstream\n" + stream +
+                b"\nendstream\nendobj\ntrailer<<>>\n%%EOF")
+
+    def test_a_simple_font_with_a_two_byte_codespace_still_decodes(self):
+        text, complete, reason = extract_pdf_text(self.simple_font_with_wide_codespace())
+        self.assertIn("the framework is the set of rules", text, reason)
+
+    def compressed_page(self) -> bytes:
+        """A PDF whose page and font objects live inside a compressed object stream.
+
+        Every PDF 1.5 or later does this, which is why a regex over the raw bytes found
+        three objects in a document that had four hundred.
+        """
+        text = self.PROSE * 4
+        page = b"<</Type/Page/Contents 2 0 R/Resources<</Font<</F1 5 0 R>>>>>>"
+        font = b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>"
+        header = b"4 0 5 %d " % len(page)
+        payload = header + page + font
+        packed = zlib.compress(payload)
+        stream = b"BT /F1 12 Tf 72 720 Td (" + text.encode("latin-1") + b") Tj ET"
+        return (b"%PDF-1.5\n"
+                b"7 0 obj<</Type/ObjStm/N 2/First " + str(len(header)).encode() +
+                b"/Filter/FlateDecode/Length " + str(len(packed)).encode() + b">>\nstream\n"
+                + packed + b"\nendstream\nendobj\n"
+                b"2 0 obj<</Length " + str(len(stream)).encode() + b">>\nstream\n" + stream +
+                b"\nendstream\nendobj\ntrailer<<>>\n%%EOF")
+
+    def test_objects_inside_a_compressed_object_stream_are_found(self):
+        text, complete, reason = extract_pdf_text(self.compressed_page())
+        self.assertIn("the framework is the set of rules", text, reason)
