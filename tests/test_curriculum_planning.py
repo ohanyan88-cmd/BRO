@@ -426,3 +426,23 @@ class GapRoundExclusionTests(Base):
         mission = self.memory.connection.execute(
             "SELECT mission_id FROM bro_study_missions ORDER BY rowid DESC LIMIT 1").fetchone()[0]
         self.assertIn("isolation.md", [item.source_ref for item in self.memory.curriculum(mission)])
+
+
+class ExhaustedCorpusReportTests(Base):
+    """When everything is studied, say that -- not that everything was withheld."""
+
+    def test_an_exhausted_corpus_is_reported_as_exhausted_not_as_withholding(self):
+        """Live acceptance printed "withheld 72" while handing all 72 back."""
+        self.seed("isolation.md", "transaction isolation level serializable", 5)
+        self.seed("consensus.md", "consensus quorum network partition", 5)
+        report = self.runtime(curriculum=self.curriculum).study("continue", self.context()).as_dict()
+        self.assertEqual(report["repetition"]["withheld_sufficiently_studied_sources"], 0)
+        self.assertTrue(any("already sufficiently studied" in note and "offered back" in note
+                            for note in report["notes"]))
+        self.assertFalse(any("withheld" in note for note in report["notes"]))
+
+    def test_a_partly_studied_corpus_still_reports_a_real_withholding(self):
+        self.seed("isolation.md", "transaction isolation level serializable", 5)
+        report = self.runtime(curriculum=self.curriculum).study("continue", self.context()).as_dict()
+        self.assertEqual(report["repetition"]["withheld_sufficiently_studied_sources"], 1)
+        self.assertTrue(any("withheld 1" in note for note in report["notes"]))
