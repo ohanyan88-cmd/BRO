@@ -366,3 +366,63 @@ class BoundaryTests(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GapRoundExclusionTests(Base):
+    """Acquiring a url is not the same as needing to study it."""
+
+    def acquirer_returning(self, *paths):
+        def acquirer(subject, hints, record=None):
+            return tuple(paths)
+        return acquirer
+
+    def barren(self):
+        """A source that teaches nothing, so the mission ends with an uncertain topic and the
+        gap round actually fires. Without one the round never runs and the assertion below
+        passes for the wrong reason."""
+        (self.root / "barren.md").write_text(
+            "# Barren\nThis file answers nothing, which is the point of it.\n", encoding="utf-8")
+
+    def test_the_gap_round_skips_material_already_sufficiently_studied(self):
+        """Found in live acceptance: a re-acquired document with 15 verified rows was studied
+        again because the second round never consulted the exclusion."""
+        self.barren()
+        self.seed("isolation.md", "transaction isolation level serializable", 5)
+        runtime = self.runtime(curriculum=self.curriculum,
+                               acquirer=self.acquirer_returning("isolation.md"))
+        report = runtime.study("continue", self.context()).as_dict()
+        mission = self.memory.connection.execute(
+            "SELECT mission_id FROM bro_study_missions ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+        sources = [item.source_ref for item in self.memory.curriculum(mission)]
+        self.assertNotIn("isolation.md", sources)
+        self.assertTrue(any("already sufficiently studied" in note for note in report["notes"]))
+
+    def test_the_gap_round_still_studies_genuinely_new_material(self):
+        self.barren()
+        self.seed("isolation.md", "transaction isolation level serializable", 5)
+        runtime = self.runtime(curriculum=self.curriculum,
+                               acquirer=self.acquirer_returning("consensus.md"))
+        runtime.study("continue", self.context())
+        mission = self.memory.connection.execute(
+            "SELECT mission_id FROM bro_study_missions ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+        self.assertIn("consensus.md", [item.source_ref for item in self.memory.curriculum(mission)])
+
+    def test_the_gap_round_studies_no_source_twice_in_one_mission(self):
+        self.barren()
+        runtime = self.runtime(curriculum=self.curriculum,
+                               acquirer=self.acquirer_returning("consensus.md", "consensus.md"))
+        runtime.study("continue", self.context())
+        mission = self.memory.connection.execute(
+            "SELECT mission_id FROM bro_study_missions ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+        sources = [item.source_ref for item in self.memory.curriculum(mission)]
+        self.assertEqual(sources.count("consensus.md"), 1)
+
+    def test_an_explicit_refresh_still_lets_the_gap_round_restudy(self):
+        self.barren()
+        self.seed("isolation.md", "transaction isolation level serializable", 5)
+        runtime = self.runtime(curriculum=self.curriculum, refresh=True,
+                               acquirer=self.acquirer_returning("isolation.md"))
+        runtime.study("continue", self.context())
+        mission = self.memory.connection.execute(
+            "SELECT mission_id FROM bro_study_missions ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+        self.assertIn("isolation.md", [item.source_ref for item in self.memory.curriculum(mission)])

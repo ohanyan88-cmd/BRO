@@ -489,7 +489,8 @@ class GovernedStudyRuntime:
                                      rounds_used=1, mission_id=record.mission_id)
                 if more:
                     stop, extra = self._study_more(record.mission_id, more, context, notes,
-                                                   already=len(items))
+                                                   already=len(items),
+                                                   planned=[ref for _t, ref in planned])
                     items.extend(extra)
 
         status = StudyStatus.COMPLETE if stop in {
@@ -607,13 +608,30 @@ class GovernedStudyRuntime:
                      or "0 verified" in (item.detail or ""))
 
     def _study_more(self, mission_id: str, sources: Sequence[str], context: StudyContext,
-                    notes: list[str], *, already: int):
+                    notes: list[str], *, already: int, planned: Sequence[str] = ()):
         """Study freshly acquired sources under the same budget that governs everything else."""
         added = []
         stop = StudyStop.CURRICULUM_COMPLETE
+        # The gap round studies what acquisition just brought back, and it used to do that
+        # without asking whether the material was already known. Acquiring a url is not the
+        # same as needing to study it: a re-acquired document that is already sufficiently
+        # verified walked straight past the exclusion that planning applies. Same rule here,
+        # and no source twice inside one mission.
+        planning = self.last_planning_context
+        studied = set(planning.studied_sources) if planning is not None else set()
+        allowed = dict(planning.revisit_allowed) if planning is not None else {}
+        # Seeded with what this mission already planned: the duplicate that showed up in
+        # acceptance was one source studied once by the plan and again by the gap round.
+        seen: set[str] = set(planned)
         for offset, source_ref in enumerate(sources):
             if already + len(added) >= self.item_budget:
                 return StudyStop.ITEM_BUDGET_REACHED, added
+            if source_ref in seen:
+                continue
+            seen.add(source_ref)
+            if source_ref in studied and source_ref not in allowed and not self.refresh:
+                notes.append(f"skipped {source_ref}: already sufficiently studied")
+                continue
             item = self.memory.add_curriculum_item(
                 mission_id, topic=f"newly acquired: {source_ref}", source_ref=source_ref,
                 sequence=already + offset)
