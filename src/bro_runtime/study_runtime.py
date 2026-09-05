@@ -18,6 +18,7 @@ import hashlib
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+import inspect
 from typing import Any, Callable, Mapping, Sequence
 
 from .learning_memory import (
@@ -181,6 +182,14 @@ class StudyReport:
     hints: tuple[str, ...] = ()
     targeted_sources: int = 0
     available_sources: int = 0
+    # A mission's stop reason describes one bounded plan. These describe the programme, and
+    # keeping them apart is the whole point: CURRICULUM_COMPLETE never meant "done learning".
+    master_complete: bool = False
+    master_covered: tuple[str, ...] = ()
+    master_partial: tuple[str, ...] = ()
+    master_remaining: tuple[str, ...] = ()
+    revisited: tuple[str, ...] = ()
+    withheld_sources: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -203,6 +212,20 @@ class StudyReport:
                 "hints": list(self.hints),
                 "targeted_sources": self.targeted_sources,
                 "available_sources": self.available_sources,
+            },
+            # The programme, kept separate from the mission on purpose. stop_reason above
+            # describes one bounded plan; master_curriculum below describes how far through
+            # the long study programme BRO actually is, and only the second one can say
+            # "finished".
+            "master_curriculum": {
+                "complete": self.master_complete,
+                "covered": list(self.master_covered),
+                "partial": list(self.master_partial),
+                "remaining": list(self.master_remaining),
+            },
+            "repetition": {
+                "revisited": list(self.revisited),
+                "withheld_sufficiently_studied_sources": self.withheld_sources,
             },
             "external_effects": 0,
             "grants_authority": False,
@@ -264,6 +287,8 @@ class GovernedStudyRuntime:
         diminishing_after: int = DEFAULT_DIMINISHING_AFTER,
         acquirer: Callable[[str, Sequence[str]], Sequence[str]] | None = None,
         acquisition_rounds: int = DEFAULT_ACQUISITION_ROUNDS,
+        curriculum: Any = None,
+        refresh: bool = False,
     ) -> None:
         if item_budget < 1:
             raise StudyRejected("study item_budget must be at least 1")
@@ -281,6 +306,23 @@ class GovernedStudyRuntime:
         self.acquirer = acquirer
         self.acquisition_rounds = max(0, int(acquisition_rounds))
         self.last_acquired: tuple[str, ...] = ()
+        # The long programme, if one is wired. Without it the runtime behaves exactly
+        # as it did: one mission, one bounded plan, no memory of the territory.
+        self.curriculum = curriculum
+        self.refresh = bool(refresh)
+        self.last_planning_context: Any = None
+        self.last_excluded: tuple[str, ...] = ()
+        self.last_revisits: tuple[tuple[str, str], ...] = ()
+        try:
+            self._planner_takes_coverage = len(
+                inspect.signature(self.planner).parameters) >= 3
+        except (TypeError, ValueError):
+            self._planner_takes_coverage = False
+        try:
+            self._acquirer_takes_recorder = self.acquirer is not None and len(
+                inspect.signature(self.acquirer).parameters) >= 3
+        except (TypeError, ValueError):
+            self._acquirer_takes_recorder = False
         self.last_planner_error = ""
         self.last_hints: tuple[str, ...] = ()
         self.last_targeted: tuple[str, ...] = ()
@@ -351,7 +393,8 @@ class GovernedStudyRuntime:
         # Acquisition comes before the emptiness check, not after it. An empty corpus is
         # precisely the case a mission needs to go looking, and checking first would make
         # the bootstrap impossible: nothing new could ever be the first thing studied.
-        acquired = self._acquire(mission, resolved_hints, notes, rounds_used=0)
+        acquired = self._acquire(mission, resolved_hints, notes, rounds_used=0,
+                                 mission_id=record.mission_id)
         if acquired:
             available, targeted = self.ordered_sources(resolved_hints)
             # A source acquired for this mission is targeted at it by construction: the
@@ -375,7 +418,13 @@ class GovernedStudyRuntime:
             return self._report(record.mission_id, mission, StudyStatus.BLOCKED, StudyStop.SCOPE_EXHAUSTED,
                                 notes=("no readable source matched the requested scope",) + tuple(notes))
 
-        planned = self._plan(mission, available)
+        # Planning sees the programme, not just this mission. The exclusion below is what
+        # actually prevents repetition -- the coverage handed to the planner is guidance, and
+        # guidance that only lives in a prompt is not a boundary.
+        planning = self._planning_context()
+        offered, excluded = self._offer(available, planning)
+        planned = self._plan(mission, offered, planning)
+        self._record_revisits(record.mission_id, planned, excluded, notes)
         if self.last_planner_error:
             notes.append(f"curriculum planning failed, fell back to discovered sources: {self.last_planner_error}")
         if not planned:
@@ -436,7 +485,8 @@ class GovernedStudyRuntime:
         if stop is StudyStop.CURRICULUM_COMPLETE and self.acquirer is not None:
             uncertain = self._uncertain_topics(record.mission_id)
             if uncertain:
-                more = self._acquire(" ".join(uncertain[:3]), resolved_hints, notes, rounds_used=1)
+                more = self._acquire(" ".join(uncertain[:3]), resolved_hints, notes,
+                                     rounds_used=1, mission_id=record.mission_id)
                 if more:
                     stop, extra = self._study_more(record.mission_id, more, context, notes,
                                                    already=len(items))
@@ -448,14 +498,101 @@ class GovernedStudyRuntime:
         self.memory.set_study_status(record.mission_id, status, stop_reason=stop.value)
         return self._report(record.mission_id, mission, status, stop, notes=tuple(notes))
 
+    # ------------------------------------------------------- durable curriculum state
+    def _planning_context(self):
+        """The bounded view of what is already known. None when no programme is wired."""
+        self.last_planning_context = None
+        if self.curriculum is None:
+            return None
+        try:
+            context = self.curriculum.planning_context(
+                self.memory, revisit_allowed=self._revisit_reasons())
+        except Exception:
+            # A curriculum that cannot be read must not stop a mission from studying.
+            return None
+        self.last_planning_context = context
+        return context
+
+    def _revisit_reasons(self) -> dict[str, str]:
+        """Studied sources that may legitimately be planned again, and on what grounds."""
+        if self.curriculum is None:
+            return {}
+        reasons: dict[str, str] = {}
+        if self.refresh:
+            for source_ref in self.curriculum.planning_context(self.memory).studied_sources:
+                reasons[source_ref] = "EXPLICIT_REFRESH"
+            return reasons
+        for contradiction in self.memory.contradictions():
+            reference = getattr(contradiction, "pattern_key", "") or ""
+            if reference:
+                reasons[reference] = "CONTRADICTION"
+        studied = self.memory.studied_digests()
+        for source_ref, digest in self._current_digests().items():
+            previous = studied.get(source_ref, "")
+            if previous and digest and previous != digest:
+                reasons[source_ref] = "STALE_SOURCE"
+        return reasons
+
+    def _current_digests(self) -> dict[str, str]:
+        """What the corpus holds now, so a source that changed can be told from one that did not."""
+        digests: dict[str, str] = {}
+        for source_ref in self.reader.discover():
+            try:
+                digests[source_ref] = self.reader.read(source_ref).digest
+            except StudyRejected:
+                continue
+        return digests
+
+    def _offer(self, available: Sequence[str], context) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Withhold sufficiently-studied sources unless something justifies returning to them."""
+        if context is None:
+            return tuple(available), ()
+        allowed = set(context.revisit_allowed)
+        excluded = tuple(ref for ref in available
+                         if ref in set(context.studied_sources) and ref not in allowed)
+        offered = tuple(ref for ref in available if ref not in excluded)
+        self.last_excluded = excluded
+        # Never leave a mission with nothing to read. If everything is covered, the honest
+        # move is to offer it back rather than report an empty scope.
+        return (offered or tuple(available)), excluded
+
+    def _record_revisits(self, mission_id: str, planned: Sequence[tuple[str, str]],
+                         excluded: Sequence[str], notes: list[str]) -> None:
+        """Write down every deliberate return to studied material, with its reason."""
+        context = self.last_planning_context
+        allowed = dict(context.revisit_allowed) if context is not None else {}
+        studied = set(context.studied_sources) if context is not None else set()
+        recorded: list[tuple[str, str]] = []
+        for _topic, source_ref in planned:
+            if source_ref not in studied:
+                continue
+            reason = allowed.get(source_ref) or (
+                "EXPLICIT_REFRESH" if self.refresh else "INSUFFICIENT_COVERAGE")
+            self.memory.record_revisit(mission_id, source_ref=source_ref, reason=reason,
+                                       detail="planned again while already sufficiently studied")
+            recorded.append((source_ref, reason))
+        self.last_revisits = tuple(recorded)
+        if recorded:
+            notes.append("revisited " + ", ".join(f"{ref} ({why})" for ref, why in recorded[:4]))
+        if excluded:
+            notes.append(f"withheld {len(excluded)} sufficiently-studied source(s) from planning")
+
     def _acquire(self, subject: str, hints: Sequence[str], notes: list[str],
-                 *, rounds_used: int) -> tuple[str, ...]:
+                 *, rounds_used: int, mission_id: str = "") -> tuple[str, ...]:
         """Ask the wired acquirer for new material. No acquirer means no network, silently."""
         self.last_acquired = ()
         if self.acquirer is None or rounds_used >= self.acquisition_rounds:
             return ()
+        def record(url: str, host: str, outcome: str, detail: str = "") -> None:
+            self.memory.record_acquisition_outcome(
+                mission_id, url=url, host=host, outcome=outcome, detail=detail)
+
         try:
-            acquired = tuple(str(path) for path in (self.acquirer(subject, tuple(hints)) or ()))
+            if self._acquirer_takes_recorder:
+                acquired = tuple(str(path) for path in
+                                 (self.acquirer(subject, tuple(hints), record) or ()))
+            else:
+                acquired = tuple(str(path) for path in (self.acquirer(subject, tuple(hints)) or ()))
         except Exception as exc:  # an acquisition failure is a note, never a crashed mission
             notes.append(f"acquisition failed: {type(exc).__name__}: {exc}")
             return ()
@@ -496,11 +633,17 @@ class GovernedStudyRuntime:
             added.append(item)
         return stop, added
 
-    def _plan(self, mission: str, available: Sequence[str]) -> list[tuple[str, str]]:
+    def _plan(self, mission: str, available: Sequence[str],
+              context: Any = None) -> list[tuple[str, str]]:
         """The model may choose among real sources; it may not invent one."""
         self.last_planner_error = ""
         try:
-            proposal = dict(self.planner(mission, list(available)))
+            if self._planner_takes_coverage:
+                proposal = dict(self.planner(
+                    mission, list(available),
+                    context.as_dict() if context is not None else {}))
+            else:
+                proposal = dict(self.planner(mission, list(available)))
         except Exception as exc:
             self.last_planner_error = f"{type(exc).__name__}:{exc}"
             proposal = {}
@@ -594,6 +737,7 @@ class GovernedStudyRuntime:
         # and how many sources they actually matched.
         curriculum = self.memory.curriculum(mission_id)
         knowledge = self.memory.knowledge(mission_id)
+        context = self.last_planning_context
         remaining = tuple(item.topic for item in curriculum if item.status is CurriculumStatus.PENDING)
         uncertain = tuple(dict.fromkeys(
             item.topic for item in knowledge if item.kind is not KnowledgeKind.VERIFIED_KNOWLEDGE
@@ -610,6 +754,12 @@ class GovernedStudyRuntime:
             uncertain_topics=uncertain, notes=tuple(notes),
             hints=self.last_hints, targeted_sources=len(self.last_targeted),
             available_sources=len(self.last_available),
+            master_complete=bool(context and not (context.partial or context.unstudied)),
+            master_covered=tuple(item.domain for item in context.covered) if context else (),
+            master_partial=tuple(item.domain for item in context.partial) if context else (),
+            master_remaining=tuple(item.domain for item in context.unstudied) if context else (),
+            revisited=tuple(f"{ref} ({why})" for ref, why in self.last_revisits),
+            withheld_sources=len(self.last_excluded),
         )
 
     # ---------------------------------------------------------------- recall

@@ -6,7 +6,9 @@
     "reader": "bro_runtime.study_runtime.StudySourceReader",
     "store": "bro_runtime.learning_memory.DurableLearningMemory",
     "surface": "scripts/bro_interact.py",
-    "mode": "STUDY"
+    "mode": "STUDY",
+    "master_curriculum": "contracts/master_curriculum.json",
+    "curriculum_runtime": "bro_runtime.curriculum.MasterCurriculum"
   },
   "cycle": [
     "study mission",
@@ -100,6 +102,41 @@
       "enforcement": [
         "tests/test_study_targeting.py"
       ]
+    },
+    {
+      "id": "STUDY-CURRICULUM-STATE-001",
+      "statement": "A mission's CURRICULUM_COMPLETE means one bounded plan finished and never that the long programme finished. Programme coverage is derived from the one durable memory rather than kept beside it, and is reported separately from the mission's stop reason.",
+      "enforcement": [
+        "tests/test_curriculum_planning.py"
+      ]
+    },
+    {
+      "id": "STUDY-COVERAGE-EVIDENCE-001",
+      "statement": "Coverage is evidence-based: a domain is COVERED only when enough distinct sufficiently-studied sources carry enough verified rows matching at least two of its distinct keywords. One document, one mission, one keyword or a pile of rows from a single source is PARTIAL. A source whose bytes changed since it was studied stops counting.",
+      "enforcement": [
+        "tests/test_curriculum_planning.py"
+      ]
+    },
+    {
+      "id": "STUDY-ANTI-REPETITION-001",
+      "statement": "Sufficiently studied sources are withheld from planning by the runtime, not by prompt wording. A revisit happens only on a named reason -- contradiction, staleness, missing verification, dependency depth, insufficient coverage or an explicit refresh -- and every revisit is recorded with that reason.",
+      "enforcement": [
+        "tests/test_curriculum_planning.py"
+      ]
+    },
+    {
+      "id": "STUDY-PLANNING-CONTEXT-001",
+      "statement": "The planner receives a bounded structured view of durable state: covered, partial and unstudied domains, already-studied sources and permitted revisits. The knowledge base itself is never handed to the model.",
+      "enforcement": [
+        "tests/test_curriculum_planning.py"
+      ]
+    },
+    {
+      "id": "STUDY-ACQUISITION-OUTCOME-001",
+      "statement": "Every acquisition candidate's outcome is durably recorded and named, so a mission that acquired nothing can be explained from evidence rather than guessed at.",
+      "enforcement": [
+        "tests/test_curriculum_planning.py"
+      ]
     }
   ],
   "truth_boundary": {
@@ -111,6 +148,7 @@
       "Any authority, approval or promotion arising from studied content",
       "Network research beyond the declared local study root",
       "Production study evidence before host rollout, readback and a live study mission"
-    ]
+    ],
+    "repetition": "Studying a subject again is allowed only for a stated reason, and the reason is written down."
   }
 }

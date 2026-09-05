@@ -31,6 +31,59 @@ architecture"* is routed to `STUDY` the same way an ordinary question routes to 
 and a real request routes to `ACT`. `STUDY` needs no confirmation because it changes
 nothing.
 
+### The programme, and one mission's plan
+
+`CURRICULUM_COMPLETE` means **one bounded plan finished**. It has never meant the long study
+programme finished, and the two were easy to confuse because nothing held the second answer.
+`contracts/master_curriculum.json` holds it now — 32 domains with dependencies — and
+`MasterCurriculum` answers *how far through* by **deriving** coverage from the one durable
+memory rather than keeping a table beside it. A coverage table maintained next to the
+knowledge it summarises drifts from it, and then two things claim to know the same fact.
+
+**Coverage is evidence-based.** A domain is `COVERED` only when enough distinct
+sufficiently-studied sources carry enough verified rows matching **at least two** of its
+distinct keywords. One keyword is not evidence: ordinary technical English — *model*,
+*layer*, *state*, *component* — appears in every document, and matching on one made **27 of
+32 domains look covered** by BRO's own architecture notes, Rust included, which it has never
+studied. With two, the same store reads 3 covered, 9 partial, 20 unstudied — which matches
+what was independently observed. A source whose bytes changed since it was studied stops
+counting.
+
+**Repetition is prevented by the runtime, not by the prompt.** Sufficiently studied sources
+are *withheld* from planning. The planner is also shown a bounded view of the programme —
+covered, partial and unstudied domains, studied sources, permitted revisits — but that is
+guidance; a plan cannot repeat covered material even if the model ignores it. This mattered:
+before it, one continuation mission re-read six of its eight sources, HTTP semantics for the
+third time and JSON for the fourth, because `_plan` saw the mission text and a list of file
+paths and nothing else.
+
+A revisit happens only on a **named reason** — contradiction, staleness, missing
+verification, dependency depth, insufficient coverage, or an explicit refresh — and every
+revisit is written down with that reason. If everything is covered, the mission is offered
+the corpus back rather than reporting an empty scope.
+
+**Every acquisition candidate's outcome is recorded**: acquired, unchanged, rejected by
+policy, irrelevant, failed, budget exhausted, awaiting review, or never proposed. A mission
+that acquired nothing can now be explained from evidence instead of guessed at — which is
+exactly what could not be done when one continuation acquired zero sources.
+
+### Ծրագիրը և մեկ առաքելության պլանը
+
+`CURRICULUM_COMPLETE`-ը նշանակում է **մեկ սահմանափակ պլան ավարտվեց**։ Երբեք չի նշանակել, որ
+երկար ուսուցման ծրագիրն ավարտվեց, ու երկուսը շփոթելը հեշտ էր, որովհետև երկրորդ պատասխանը ոչ
+մի տեղ չէր պահվում։ Հիմա պահվում է `contracts/master_curriculum.json`-ում՝ 32 դոմեյն
+կախվածություններով, ու ծածկույթը **բխեցվում** է մեկ հիշողությունից, ոչ թե պահվում կողքին։
+
+**Ծածկույթը ապացույցի վրա է։** Դոմեյնը `COVERED` է միայն այն դեպքում, երբ բավական տարբեր,
+իրապես ուսումնասիրված աղբյուրներ կրում են բավական verified տող, որոնք համընկնում են դոմեյնի
+**առնվազն երկու** տարբեր բանալու հետ։ Մեկ բանալին ապացույց չէ. սովորական տեխնիկական
+անգլերենը կա ամեն փաստաթղթում, ու մեկով համընկնելը **32 դոմեյնից 27-ը** ցույց էր տալիս
+ծածկված՝ BRO-ի սեփական ճարտարապետության գրառումներով։
+
+**Կրկնությունը կանխում է runtime-ը, ոչ prompt-ը։** Բավարար ուսումնասիրված աղբյուրները
+**հանվում են** պլանավորումից։ Վերադարձը լինում է միայն **անվանված պատճառով**, ու ամեն
+վերադարձ գրանցվում է այդ պատճառով։
+
 ### Targeting: relevance, never authority
 
 A mission is tokenised by the runtime — no model involved — into plain hints, and sources

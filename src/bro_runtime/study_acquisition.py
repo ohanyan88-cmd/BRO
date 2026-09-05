@@ -31,6 +31,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from enum import StrEnum
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Callable, Iterable, Mapping, Sequence
@@ -590,6 +591,23 @@ class SourceCandidate:
         }
 
 
+class AcquisitionResult(StrEnum):
+    """Why one candidate ended where it did.
+
+    A mission that acquired nothing used to be indistinguishable from a mission that
+    proposed nothing, so "why did it learn no new material" could only be guessed at.
+    """
+
+    ACQUIRED_NEW = "ACQUIRED_NEW"
+    ALREADY_PRESENT_UNCHANGED = "ALREADY_PRESENT_UNCHANGED"
+    REJECTED_BY_POLICY = "REJECTED_BY_POLICY"
+    IRRELEVANT_TO_TOPIC = "IRRELEVANT_TO_TOPIC"
+    ACQUISITION_FAILED = "ACQUISITION_FAILED"
+    BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
+    NOT_PROPOSED = "NOT_PROPOSED"
+    AWAITING_REVIEW = "AWAITING_REVIEW"
+
+
 @dataclass(frozen=True)
 class AcquisitionOutcome:
     candidate: SourceCandidate
@@ -600,6 +618,7 @@ class AcquisitionOutcome:
     characters: int
     complete: bool
     reason: str
+    result: AcquisitionResult = AcquisitionResult.ACQUISITION_FAILED
     links: tuple[str, ...] = ()
     link_texts: Mapping[str, str] = field(default_factory=dict)
 
@@ -684,7 +703,8 @@ class GovernedStudyAcquisition:
         """Retrieve one candidate and, if policy admits it, make it study-readable."""
         if not candidate.admissible:
             return AcquisitionOutcome(candidate, False, "", "", "", 0, False,
-                                      f"policy does not admit {candidate.host}: {candidate.reason}")
+                                      f"policy does not admit {candidate.host}: {candidate.reason}",
+                                      AcquisitionResult.REJECTED_BY_POLICY)
         document = self.fetcher.fetch(candidate.url)
         artifact = normalise(document, max_characters=self.max_characters,
                              max_pdf_pages=self.max_pdf_pages)
@@ -711,7 +731,9 @@ class GovernedStudyAcquisition:
                 return AcquisitionOutcome(candidate, existing.study_visible, local_path,
                                           artifact.artifact_digest, document.content_digest,
                                           len(artifact.text), artifact.complete,
-                                          "unchanged since the last acquisition", artifact.links)
+                                          "unchanged since the last acquisition",
+                                          AcquisitionResult.ALREADY_PRESENT_UNCHANGED,
+                                          artifact.links)
             self.library.supersede(existing.source_id, superseded_by=document.final_url,
                                    actor=self.actor,
                                    reason="upstream content changed since acquisition")
@@ -728,7 +750,7 @@ class GovernedStudyAcquisition:
                                       artifact.complete,
                                       f"tier {candidate.tier} is not automatically admitted; "
                                       "the source stays a staged candidate for a person",
-                                      artifact.links)
+                                      AcquisitionResult.AWAITING_REVIEW, artifact.links)
         self.library.screen(source.source_id, screened_by=self.actor,
                             policy=self._screening_policy(candidate, document),
                             policy_ref="source_policy.json")
@@ -747,6 +769,7 @@ class GovernedStudyAcquisition:
         return AcquisitionOutcome(candidate, True, local_path, artifact.artifact_digest,
                                   document.content_digest, len(artifact.text),
                                   artifact.complete, "admitted to the study corpus",
+                                  AcquisitionResult.ACQUIRED_NEW,
                                   artifact.links, dict(artifact.link_texts))
 
     def _screening_policy(self, candidate: SourceCandidate, document: FetchedDocument):

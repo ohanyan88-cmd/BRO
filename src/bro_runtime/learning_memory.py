@@ -451,6 +451,23 @@ class DurableLearningMemory:
             );
             CREATE UNIQUE INDEX IF NOT EXISTS bro_study_knowledge_identity
               ON bro_study_knowledge(mission_id, claim);
+            CREATE TABLE IF NOT EXISTS bro_study_acquisition_outcomes(
+              sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+              mission_id TEXT NOT NULL,
+              url TEXT NOT NULL,
+              host TEXT NOT NULL,
+              outcome TEXT NOT NULL,
+              detail TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS bro_study_revisits(
+              sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+              mission_id TEXT NOT NULL,
+              source_ref TEXT NOT NULL,
+              reason TEXT NOT NULL,
+              detail TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS bro_skill_candidate_transitions(
               sequence INTEGER PRIMARY KEY AUTOINCREMENT,
               candidate_id TEXT NOT NULL,
@@ -976,6 +993,57 @@ class DurableLearningMemory:
         except sqlite3.IntegrityError:
             return None  # the same claim is already retained for this mission
         return item
+
+    def studied_digests(self) -> dict[str, str]:
+        """The digest each source had when it was last studied, so staleness is checkable."""
+        rows = self.connection.execute(
+            "SELECT source_ref, source_digest FROM bro_study_knowledge "
+            "WHERE source_digest != '' ORDER BY created_at").fetchall()
+        return {row[0]: row[1] for row in rows}
+
+    def record_acquisition_outcome(self, mission_id: str, *, url: str, host: str,
+                                   outcome: str, detail: str = "") -> None:
+        """Why one acquisition candidate ended the way it did.
+
+        Without this, a mission that acquired nothing is indistinguishable from a mission
+        that proposed nothing, and "why did it learn no new material" can only be guessed at.
+        """
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO bro_study_acquisition_outcomes"
+                "(mission_id,url,host,outcome,detail,created_at) VALUES (?,?,?,?,?,?)",
+                (mission_id, str(url), str(host), str(outcome), str(detail or ""), utc_now()),
+            )
+
+    def acquisition_outcomes(self, mission_id: str = "") -> tuple[dict[str, str], ...]:
+        query = ("SELECT mission_id,url,host,outcome,detail,created_at "
+                 "FROM bro_study_acquisition_outcomes")
+        values: tuple[str, ...] = ()
+        if mission_id:
+            query += " WHERE mission_id=?"
+            values = (mission_id,)
+        query += " ORDER BY sequence"
+        return tuple(dict(row) for row in self.connection.execute(query, values))
+
+    def record_revisit(self, mission_id: str, *, source_ref: str, reason: str,
+                       detail: str = "") -> None:
+        """A deliberate return to studied material, with the grounds written down."""
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO bro_study_revisits(mission_id,source_ref,reason,detail,created_at)"
+                " VALUES (?,?,?,?,?)",
+                (mission_id, self._text(source_ref, "source_ref"), self._text(reason, "reason"),
+                 str(detail or ""), utc_now()),
+            )
+
+    def revisits(self, mission_id: str = "") -> tuple[dict[str, str], ...]:
+        query = "SELECT mission_id,source_ref,reason,detail,created_at FROM bro_study_revisits"
+        values: tuple[str, ...] = ()
+        if mission_id:
+            query += " WHERE mission_id=?"
+            values = (mission_id,)
+        query += " ORDER BY sequence"
+        return tuple(dict(row) for row in self.connection.execute(query, values))
 
     def study_mission(self, mission_id: str) -> StudyMissionRecord:
         row = self._mission_row(mission_id)

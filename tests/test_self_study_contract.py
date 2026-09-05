@@ -17,6 +17,7 @@ COPIED = (
     "contracts/self_study.json",
     "src/bro_runtime/study_runtime.py",
     "src/bro_runtime/learning_memory.py",
+    "src/bro_runtime/curriculum.py",
     "src/bro_runtime/conversation.py",
     "src/bro_runtime/inference.py",
     "scripts/bro_interact.py",
@@ -124,6 +125,30 @@ class SelfStudyContractGateTests(unittest.TestCase):
     def test_the_forbidden_set_covers_acting_writing_and_promoting(self):
         for token in ("urlopen", "subprocess", "promote_candidate", "approve_candidate", "INSERT INTO", "write_text"):
             self.assertIn(token, FORBIDDEN_IN_STUDY)
+
+
+
+class CurriculumDerivationTests(unittest.TestCase):
+    """Coverage must stay a derivation of the one memory, never a second store."""
+
+    def test_a_curriculum_that_writes_its_own_coverage_is_caught(self):
+        import shutil, tempfile
+        from scripts.check_self_study_contract import CONTRACT, validate
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        for relative in COPIED:
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(REAL_ROOT / relative, target)
+        (root / "tests").mkdir(exist_ok=True)
+        for item in json.loads((REAL_ROOT / CONTRACT).read_text(encoding="utf-8"))["invariants"]:
+            for relative in item["enforcement"]:
+                (root / relative).write_text("# enforcement\n", encoding="utf-8")
+        source = root / "src/bro_runtime/curriculum.py"
+        source.write_text(source.read_text(encoding="utf-8") + "\n# INSERT INTO coverage\n",
+                          encoding="utf-8")
+        self.assertTrue(any("derived, never stored" in error for error in validate(root)))
 
 
 if __name__ == "__main__":
