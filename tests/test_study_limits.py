@@ -49,3 +49,33 @@ class StudyLimitTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StudyRefreshSwitchTests(unittest.TestCase):
+    """Re-reading covered ground reverses a boundary, so an operator states it."""
+
+    def setUp(self):
+        self.surface = surface()
+        self.addCleanup(os.environ.pop, "BRO_STUDY_REFRESH", None)
+        os.environ.pop("BRO_STUDY_REFRESH", None)
+
+    def test_refresh_is_off_by_default(self):
+        self.assertFalse(self.surface.study_refresh_requested())
+
+    def test_an_operator_can_turn_it_on(self):
+        for value in ("1", "true", "yes", "on"):
+            os.environ["BRO_STUDY_REFRESH"] = value
+            self.assertTrue(self.surface.study_refresh_requested(), value)
+
+    def test_mission_prose_can_never_turn_it_on(self):
+        """The live failure: "do not re-study" contained "re-study" and enabled a refresh,
+        which disabled the withholding the same sentence was asking for."""
+        import inspect
+        # Structural, not textual: the function takes no request at all, so no wording of a
+        # mission can reach the decision.
+        self.assertEqual(len(inspect.signature(
+            self.surface.study_refresh_requested).parameters), 0)
+        with self.assertRaises(TypeError):
+            self.surface.study_refresh_requested(
+                "do not re-study material that is already sufficiently verified")
+        self.assertFalse(self.surface.study_refresh_requested())
